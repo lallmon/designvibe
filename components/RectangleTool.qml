@@ -72,8 +72,6 @@ Item {
             drawStartX = canvasX;
             drawStartY = canvasY;
             
-            console.log("Draw start:", drawStartX, drawStartY);
-            
             // Initialize rectangle at start point with minimal size
             currentRect = {
                 x: drawStartX,
@@ -86,9 +84,6 @@ Item {
             if (currentRect && 
                 currentRect.width > 1 && 
                 currentRect.height > 1) {
-                
-                console.log("Finalizing rect:", currentRect.x, currentRect.y, 
-                           currentRect.width, currentRect.height);
                 
                 // Create complete item data object
                 // Force value evaluation by storing in local variables first

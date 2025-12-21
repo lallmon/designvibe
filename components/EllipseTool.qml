@@ -110,8 +110,6 @@ Item {
             drawStartX = canvasX;
             drawStartY = canvasY;
             
-            console.log("Ellipse draw start:", drawStartX, drawStartY);
-            
             // Initialize ellipse at start point with minimal size
             currentEllipse = {
                 x: drawStartX,
@@ -124,9 +122,6 @@ Item {
             if (currentEllipse && 
                 currentEllipse.width > 1 && 
                 currentEllipse.height > 1) {
-                
-                console.log("Finalizing ellipse:", currentEllipse.x, currentEllipse.y, 
-                           currentEllipse.width, currentEllipse.height);
                 
                 // Convert bounding box to center and radii
                 var centerX = currentEllipse.x + currentEllipse.width / 2;
