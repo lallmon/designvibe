@@ -48,8 +48,6 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-          pip install pyside6-deploy
-      
       - name: Inject version from git tag
         shell: bash
         run: |
