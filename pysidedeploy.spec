@@ -18,7 +18,7 @@ excluded_qml_plugins = QtCharts,QtSensors,QtWebEngine
 modules = Core,DBus,Gui,Network,OpenGL,Qml,QmlMeta,QmlModels,QmlWorkerScript,Quick,QuickControls2,QuickTemplates2
 
 [nuitka]
-extra_args = --jobs=4 --assume-yes-for-downloads
+extra_args = --jobs=4 --assume-yes-for-downloads --include-data-files=App.qml=App.qml --include-data-dir=components=components
 
 [linux]
 appimage = true

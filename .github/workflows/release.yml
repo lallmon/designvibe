@@ -45,7 +45,7 @@ jobs:
             libgssapi-krb5-2 libx11-6 libx11-xcb1 \
             libxext6 libxrender1 libxkbcommon0 \
             fuse libfuse2 \
-            build-essential ccache patchelf
+            build-essential ccache
       
       - name: Setup ccache (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -64,7 +64,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-          pip install nuitka ordered-set zstandard imageio
+          pip install nuitka ordered-set zstandard imageio patchelf
       - name: Inject version from git tag
         shell: bash
         run: |
