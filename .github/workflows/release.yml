@@ -84,12 +84,21 @@ jobs:
       - name: Verify build output
         shell: bash
         run: |
-          if [ ! -d "deployment" ]; then
+          echo "=== Current directory ==="
+          pwd
+          echo "=== All files in current directory ==="
+          ls -la
+          echo "=== Looking for deployment directory ==="
+          if [ -d "deployment" ]; then
+            echo "deployment/ exists:"
+            ls -la deployment/
+          else
+            echo "deployment/ not found"
+            echo "=== Searching for DesignVibe files anywhere ==="
+            find . -name "DesignVibe*" -o -name "main*" 2>/dev/null | head -20
             echo "ERROR: deployment directory not created - build failed"
             exit 1
           fi
-          echo "Build output:"
-          ls -la deployment/
       
       - name: Debug - List deployment directory
         shell: bash
