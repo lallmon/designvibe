@@ -64,7 +64,12 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-          pip install nuitka ordered-set zstandard imageio patchelf
+          pip install nuitka ordered-set zstandard imageio
+      
+      - name: Install patchelf (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: pip install patchelf
+
       - name: Inject version from git tag
         shell: bash
         run: |
