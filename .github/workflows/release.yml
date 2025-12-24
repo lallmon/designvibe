@@ -45,7 +45,21 @@ jobs:
             libgssapi-krb5-2 libx11-6 libx11-xcb1 \
             libxext6 libxrender1 libxkbcommon0 \
             fuse libfuse2 \
-            build-essential patchelf
+            build-essential ccache patchelf
+      
+      - name: Setup ccache (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: echo "/usr/lib/ccache" >> $GITHUB_PATH
+      
+      - name: Cache Nuitka builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/Nuitka
+            deployment/*.build
+          key: nuitka-${{ runner.os }}-${{ hashFiles('main.py', 'canvas_*.py', 'pysidedeploy.spec') }}
+          restore-keys: |
+            nuitka-${{ runner.os }}-
       
       - name: Install Python dependencies
         run: |
