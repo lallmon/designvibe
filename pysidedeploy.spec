@@ -1,7 +1,7 @@
 [app]
 title = DesignVibe
 version = __VERSION__
-exec_directory = deployment
+exec_directory = .
 icon = assets/appIcon.png
 input_file = main.py
 project_dir = .
@@ -18,7 +18,7 @@ excluded_qml_plugins = QtCharts,QtSensors,QtWebEngine
 modules = Core,DBus,Gui,Network,OpenGL,Qml,QmlMeta,QmlModels,QmlWorkerScript,Quick,QuickControls2,QuickTemplates2
 
 [nuitka]
-extra_args = --show-progress --show-memory --assume-yes-for-downloads
+extra_args = --jobs=6 --assume-yes-for-downloads --include-data-files=App.qml=App.qml --include-data-dir=components=components --include-data-dir=assets=assets
 
 [linux]
 appimage = true

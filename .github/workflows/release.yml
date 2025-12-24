@@ -15,17 +15,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Temporarily testing macOS only - re-enable others once working
-          # - os: ubuntu-latest
-          #   platform: Linux
-          #   artifact: DesignVibe-${{ github.ref_name }}-x86_64.AppImage
+          - os: ubuntu-latest
+            platform: Linux
           - os: macos-latest
             platform: macOS
-            artifact: DesignVibe-${{ github.ref_name }}-macOS.dmg
-          # - os: windows-latest
-          #   platform: Windows
-          #   artifact: DesignVibe-${{ github.ref_name }}-Windows.exe
-    
+          - os: windows-latest
+            platform: Windows
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,6 +30,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
       
       - name: Install Qt dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -48,25 +45,80 @@ jobs:
             libgssapi-krb5-2 libx11-6 libx11-xcb1 \
             libxext6 libxrender1 libxkbcommon0 \
             fuse libfuse2 \
-            build-essential patchelf
+            build-essential ccache
+      
+      - name: Setup ccache (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: echo "/usr/lib/ccache" >> $GITHUB_PATH
+      
+      - name: Setup ccache (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install ccache
+          echo "$(brew --prefix ccache)/libexec" >> $GITHUB_PATH
+      
+      - name: Setup ccache (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install ccache -y
+          echo "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
+      
+      - name: Cache Nuitka builds (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Nuitka
+          key: nuitka-linux-${{ hashFiles('main.py', 'canvas_*.py', 'pysidedeploy.spec') }}
+          restore-keys: nuitka-linux-
+      
+      - name: Cache Nuitka builds (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Nuitka
+          key: nuitka-macos-${{ hashFiles('main.py', 'canvas_*.py', 'pysidedeploy.spec') }}
+          restore-keys: nuitka-macos-
+      
+      - name: Cache Nuitka builds (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\Nuitka
+          key: nuitka-windows-${{ hashFiles('main.py', 'canvas_*.py', 'pysidedeploy.spec') }}
+          restore-keys: nuitka-windows-
       
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
           pip install nuitka ordered-set zstandard imageio
+      
+      - name: Install patchelf (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: pip install patchelf
+
       - name: Inject version from git tag
         shell: bash
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION_NUMBER="${VERSION#v}"
           
-          # Use temp file approach - works identically on all platforms
-          sed "s/__VERSION__/$VERSION_NUMBER/g" pysidedeploy.spec > pysidedeploy.spec.tmp
+          # For non-tag builds (branches), use a dev version
+          if [[ "$VERSION_NUMBER" == *"/"* ]]; then
+            VERSION_NUMBER="0.0.0-dev"
+          fi
+          
+          # Use temp file approach with | delimiter to avoid conflicts
+          sed "s|__VERSION__|$VERSION_NUMBER|g" pysidedeploy.spec > pysidedeploy.spec.tmp
           mv pysidedeploy.spec.tmp pysidedeploy.spec
-          sed "s/__VERSION__/$VERSION_NUMBER/g" main.py > main.py.tmp
+          sed "s|__VERSION__|$VERSION_NUMBER|g" main.py > main.py.tmp
           mv main.py.tmp main.py
           
           echo "Building version: $VERSION_NUMBER"
+          
+          # Export sanitized ref name for artifact naming (replace / with -)
+          SAFE_REF_NAME=$(echo "${{ github.ref_name }}" | tr '/' '-')
+          echo "SAFE_REF_NAME=$SAFE_REF_NAME" >> $GITHUB_ENV
       
       - name: Build with pyside6-deploy (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -84,61 +136,42 @@ jobs:
       - name: Verify build output
         shell: bash
         run: |
-          if [ ! -d "deployment" ]; then
-            echo "ERROR: deployment directory not created - build failed"
+          if [ ! -d "DesignVibe.app" ] && [ ! -f "DesignVibe.exe" ] && [ ! -f "DesignVibe.bin" ]; then
+            echo "ERROR: Build output not found"
             exit 1
           fi
-          echo "Build output:"
-          ls -la deployment/
       
-      - name: Debug - List deployment directory
-        shell: bash
-        run: |
-          echo "=== Contents of deployment directory ==="
-          ls -la deployment/ || echo "deployment/ directory does not exist"
-          echo "=== Looking for executables ==="
-          find deployment -type f -executable 2>/dev/null || echo "No executables found"
-          echo "=== All files in deployment ==="
-          find deployment -type f 2>/dev/null || echo "No files found"
-      
-      - name: Create AppImage (Linux)
+      - name: Package Linux executable
         if: matrix.os == 'ubuntu-latest'
         run: |
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage
-          
-          ./linuxdeploy-x86_64.AppImage \
-            --appdir deployment \
-            --executable deployment/DesignVibe \
-            --desktop-file DesignVibe.desktop \
-            --icon-file assets/appIcon.png \
-            --output appimage
-          
-          mv DesignVibe-*.AppImage ${{ matrix.artifact }}
+          mv DesignVibe.bin DesignVibe
+          chmod +x DesignVibe
+          tar -czvf "DesignVibe-${SAFE_REF_NAME}-Linux-x86_64.tar.gz" DesignVibe
       
       - name: Create DMG (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           hdiutil create -volname "DesignVibe" \
-            -srcfolder deployment/DesignVibe.app \
+            -srcfolder DesignVibe.app \
             -ov -format UDZO \
-            ${{ matrix.artifact }}
+            "DesignVibe-${SAFE_REF_NAME}-macOS.dmg"
       
-      - name: Create Installer (Windows)
+      - name: Package Windows executable
         if: matrix.os == 'windows-latest'
-        shell: bash
+        shell: pwsh
         run: |
-          mv deployment/DesignVibe.exe ${{ matrix.artifact }}
+          Compress-Archive -Path DesignVibe.exe -DestinationPath "DesignVibe-$env:SAFE_REF_NAME-Windows.zip"
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-build
-          path: ${{ matrix.artifact }}
+          name: DesignVibe-${{ env.SAFE_REF_NAME }}-${{ matrix.platform }}
+          path: DesignVibe-*
   
   release:
     name: Create GitHub Release
     needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -166,21 +199,16 @@ jobs:
           echo "## What's Changed" > release_notes.md
           echo "" >> release_notes.md
           echo "$COMMITS" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Downloads" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "- **Linux**: DesignVibe-${{ github.ref_name }}-x86_64.AppImage" >> release_notes.md
-          echo "- **macOS**: DesignVibe-${{ github.ref_name }}-macOS.dmg" >> release_notes.md
-          echo "- **Windows**: DesignVibe-${{ github.ref_name }}-Windows.exe" >> release_notes.md
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           body_path: release_notes.md
+          append_body: true
           files: |
-            Linux-build/*
-            macOS-build/*
-            Windows-build/*
+            DesignVibe-*-Linux/*
+            DesignVibe-*-macOS/*
+            DesignVibe-*-Windows/*
           draft: false
           prerelease: false
         env:
