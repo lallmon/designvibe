@@ -60,10 +60,15 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION_NUMBER="${VERSION#v}"
           
-          # Use temp file approach - works identically on all platforms
-          sed "s/__VERSION__/$VERSION_NUMBER/g" pysidedeploy.spec > pysidedeploy.spec.tmp
+          # For non-tag builds (branches), use a dev version
+          if [[ "$VERSION_NUMBER" == *"/"* ]]; then
+            VERSION_NUMBER="0.0.0-dev"
+          fi
+          
+          # Use temp file approach with | delimiter to avoid conflicts
+          sed "s|__VERSION__|$VERSION_NUMBER|g" pysidedeploy.spec > pysidedeploy.spec.tmp
           mv pysidedeploy.spec.tmp pysidedeploy.spec
-          sed "s/__VERSION__/$VERSION_NUMBER/g" main.py > main.py.tmp
+          sed "s|__VERSION__|$VERSION_NUMBER|g" main.py > main.py.tmp
           mv main.py.tmp main.py
           
           echo "Building version: $VERSION_NUMBER"
