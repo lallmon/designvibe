@@ -144,8 +144,9 @@ jobs:
       - name: Package Linux executable
         if: matrix.os == 'ubuntu-latest'
         run: |
-          mv DesignVibe.bin "DesignVibe-${SAFE_REF_NAME}-Linux-x86_64"
-          chmod +x "DesignVibe-${SAFE_REF_NAME}-Linux-x86_64"
+          mv DesignVibe.bin DesignVibe
+          chmod +x DesignVibe
+          tar -czvf "DesignVibe-${SAFE_REF_NAME}-Linux-x86_64.tar.gz" DesignVibe
       
       - name: Create DMG (macOS)
         if: matrix.os == 'macos-latest'
@@ -155,11 +156,11 @@ jobs:
             -ov -format UDZO \
             "DesignVibe-${SAFE_REF_NAME}-macOS.dmg"
       
-      - name: Create Installer (Windows)
+      - name: Package Windows executable
         if: matrix.os == 'windows-latest'
-        shell: bash
+        shell: pwsh
         run: |
-          mv DesignVibe.exe "DesignVibe-${SAFE_REF_NAME}-Windows.exe"
+          Compress-Archive -Path DesignVibe.exe -DestinationPath "DesignVibe-$env:SAFE_REF_NAME-Windows.zip"
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
