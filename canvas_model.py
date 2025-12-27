@@ -8,6 +8,13 @@ from commands import (
     Command, AddItemCommand, RemoveItemCommand,
     UpdateItemCommand, ClearCommand, MoveItemCommand, TransactionCommand
 )
+from item_schema import (
+    parse_item,
+    parse_item_data,
+    item_to_dict,
+    ItemSchemaError,
+    ItemType,
+)
 
 
 class CanvasModel(QAbstractListModel):
@@ -132,15 +139,21 @@ class CanvasModel(QAbstractListModel):
     @Slot(dict)
     def addItem(self, item_data: Dict[str, Any]) -> None:
         item_type = item_data.get("type", "")
-        if item_type not in ("rectangle", "ellipse", "layer"):
+        if item_type not in (ItemType.RECTANGLE.value, ItemType.ELLIPSE.value, ItemType.LAYER.value):
             print(f"Warning: Unknown item type '{item_type}'")
             return
 
-        if not item_data.get("name"):
-            item_data = dict(item_data)
-            item_data["name"] = self._generate_name(item_type)
+        working = dict(item_data)
+        if not working.get("name"):
+            working["name"] = self._generate_name(item_type)
 
-        command = AddItemCommand(self, item_data)
+        try:
+            parsed = parse_item_data(working)
+        except ItemSchemaError as exc:
+            print(f"Warning: Failed to add item: {exc}")
+            return
+
+        command = AddItemCommand(self, parsed.data)
         self._execute_command(command)
 
     @Slot()
@@ -367,57 +380,32 @@ class CanvasModel(QAbstractListModel):
         item = self._items[index]
         old_props = self._itemToDict(item)
 
+        # Merge incoming properties onto existing canonical dict for validation
+        merged_props = dict(old_props)
+        merged_props.update(properties)
+        merged_props["type"] = old_props.get("type")
+
         try:
-            if isinstance(item, RectangleItem):
-                if "x" in properties:
-                    item.x = float(properties["x"])
-                if "y" in properties:
-                    item.y = float(properties["y"])
-                if "width" in properties:
-                    item.width = max(0.0, float(properties["width"]))
-                if "height" in properties:
-                    item.height = max(0.0, float(properties["height"]))
-            elif isinstance(item, EllipseItem):
-                if "centerX" in properties:
-                    item.center_x = float(properties["centerX"])
-                if "centerY" in properties:
-                    item.center_y = float(properties["centerY"])
-                if "radiusX" in properties:
-                    item.radius_x = max(0.0, float(properties["radiusX"]))
-                if "radiusY" in properties:
-                    item.radius_y = max(0.0, float(properties["radiusY"]))
+            parsed = parse_item_data(merged_props)
+            new_item = parse_item(parsed.data)
+        except ItemSchemaError as exc:
+            print(f"Warning: Failed to update item: {exc}")
+            return
 
-            # Common shape properties
-            if isinstance(item, (RectangleItem, EllipseItem)):
-                if "strokeWidth" in properties:
-                    item.stroke_width = max(0.1, min(100.0, float(properties["strokeWidth"])))
-                if "strokeColor" in properties:
-                    item.stroke_color = str(properties["strokeColor"])
-                if "strokeOpacity" in properties:
-                    item.stroke_opacity = max(0.0, min(1.0, float(properties["strokeOpacity"])))
-                if "fillColor" in properties:
-                    item.fill_color = str(properties["fillColor"])
-                if "fillOpacity" in properties:
-                    item.fill_opacity = max(0.0, min(1.0, float(properties["fillOpacity"])))
-                if "parentId" in properties:
-                    item.parent_id = properties["parentId"]
+        self._items[index] = new_item
+        new_props = parsed.data
 
-            new_props = self._itemToDict(item)
+        if self._transaction is None:
+            command = UpdateItemCommand(self, index, old_props, new_props)
+            self._undo_stack.append(command)
+            if self._redo_stack:
+                self._redo_stack.clear()
+                self.redoStackChanged.emit()
+            self.undoStackChanged.emit()
 
-            if self._transaction is None:
-                command = UpdateItemCommand(self, index, old_props, new_props)
-                self._undo_stack.append(command)
-                if self._redo_stack:
-                    self._redo_stack.clear()
-                    self.redoStackChanged.emit()
-                self.undoStackChanged.emit()
-
-            model_index = self.index(index, 0)
-            self.dataChanged.emit(model_index, model_index, [])
-            self.itemModified.emit(index, new_props)
-
-        except (ValueError, TypeError) as e:
-            print(f"Warning: Failed to update item: {type(e).__name__}: {e}")
+        model_index = self.index(index, 0)
+        self.dataChanged.emit(model_index, model_index, [])
+        self.itemModified.emit(index, new_props)
 
     @Slot(result=int)
     def count(self) -> int:
@@ -471,40 +459,4 @@ class CanvasModel(QAbstractListModel):
         return [self._itemToDict(item) for item in self._items]
 
     def _itemToDict(self, item: CanvasItem) -> Dict[str, Any]:
-        if isinstance(item, RectangleItem):
-            return {
-                "type": "rectangle",
-                "name": item.name,
-                "parentId": item.parent_id,
-                "x": item.x,
-                "y": item.y,
-                "width": item.width,
-                "height": item.height,
-                "strokeWidth": item.stroke_width,
-                "strokeColor": item.stroke_color,
-                "strokeOpacity": item.stroke_opacity,
-                "fillColor": item.fill_color,
-                "fillOpacity": item.fill_opacity
-            }
-        elif isinstance(item, EllipseItem):
-            return {
-                "type": "ellipse",
-                "name": item.name,
-                "parentId": item.parent_id,
-                "centerX": item.center_x,
-                "centerY": item.center_y,
-                "radiusX": item.radius_x,
-                "radiusY": item.radius_y,
-                "strokeWidth": item.stroke_width,
-                "strokeColor": item.stroke_color,
-                "strokeOpacity": item.stroke_opacity,
-                "fillColor": item.fill_color,
-                "fillOpacity": item.fill_opacity
-            }
-        elif isinstance(item, LayerItem):
-            return {
-                "type": "layer",
-                "id": item.id,
-                "name": item.name
-            }
-        return {}
+        return item_to_dict(item)

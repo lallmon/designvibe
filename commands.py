@@ -7,16 +7,12 @@ if TYPE_CHECKING:
     from canvas_model import CanvasModel
 
 from canvas_items import CanvasItem, RectangleItem, EllipseItem, LayerItem
+from item_schema import parse_item, item_to_dict, ItemSchemaError
 
 
 def _create_item(item_data: Dict[str, Any]) -> CanvasItem:
     """Create a CanvasItem from a dictionary."""
-    item_type = item_data.get("type")
-    if item_type == "rectangle":
-        return RectangleItem.from_dict(item_data)
-    elif item_type == "layer":
-        return LayerItem.from_dict(item_data)
-    return EllipseItem.from_dict(item_data)
+    return parse_item(item_data)
 
 
 class Command(ABC):
