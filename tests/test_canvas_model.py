@@ -502,25 +502,26 @@ class TestCanvasModelUndo:
     def test_undo_stack_contains_command_objects(self, canvas_model):
         """Test that undo stack contains Command objects."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
-        assert len(canvas_model._undo_stack) == 1
-        assert isinstance(canvas_model._undo_stack[0], Command)
+        stack = canvas_model._history._undo_stack
+        assert len(stack) == 1
+        assert isinstance(stack[0], Command)
 
     def test_add_item_pushes_add_command(self, canvas_model):
         """Test addItem pushes an AddItemCommand to the stack."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
-        assert isinstance(canvas_model._undo_stack[-1], AddItemCommand)
+        assert isinstance(canvas_model._history._undo_stack[-1], AddItemCommand)
 
     def test_remove_item_pushes_remove_command(self, canvas_model):
         """Test removeItem pushes a RemoveItemCommand to the stack."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
         canvas_model.removeItem(0)
-        assert isinstance(canvas_model._undo_stack[-1], RemoveItemCommand)
+        assert isinstance(canvas_model._history._undo_stack[-1], RemoveItemCommand)
 
     def test_update_item_pushes_update_command(self, canvas_model):
         """Test updateItem pushes an UpdateItemCommand to the stack."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
         canvas_model.updateItem(0, {"x": 50})
-        assert isinstance(canvas_model._undo_stack[-1], UpdateItemCommand)
+        assert isinstance(canvas_model._history._undo_stack[-1], UpdateItemCommand)
 
 
 class TestCanvasModelTransactions:
@@ -529,7 +530,7 @@ class TestCanvasModelTransactions:
     def test_transaction_coalesces_multiple_updates(self, canvas_model):
         """Test that updates within a transaction create a single undo entry."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 100})
-        initial_undo_count = len(canvas_model._undo_stack)
+        initial_undo_count = len(canvas_model._history._undo_stack)
 
         canvas_model.beginTransaction()
         canvas_model.updateItem(0, {"x": 10})
@@ -537,7 +538,7 @@ class TestCanvasModelTransactions:
         canvas_model.updateItem(0, {"x": 30})
         canvas_model.endTransaction()
 
-        assert len(canvas_model._undo_stack) == initial_undo_count + 1
+        assert len(canvas_model._history._undo_stack) == initial_undo_count + 1
         assert canvas_model.getItems()[0].x == 30
 
     def test_undo_transaction_restores_original_state(self, canvas_model):
@@ -559,12 +560,12 @@ class TestCanvasModelTransactions:
     def test_empty_transaction_creates_no_undo(self, canvas_model):
         """Test that a transaction with no changes creates no undo entry."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 100})
-        initial_undo_count = len(canvas_model._undo_stack)
+        initial_undo_count = len(canvas_model._history._undo_stack)
 
         canvas_model.beginTransaction()
         canvas_model.endTransaction()
 
-        assert len(canvas_model._undo_stack) == initial_undo_count
+        assert len(canvas_model._history._undo_stack) == initial_undo_count
 
     def test_transaction_tracks_multiple_items(self, canvas_model):
         """Test that transactions can track changes to multiple items."""
@@ -602,7 +603,7 @@ class TestCanvasModelTransactions:
         canvas_model.updateItem(0, {"x": 50})
         canvas_model.endTransaction()
 
-        assert isinstance(canvas_model._undo_stack[-1], TransactionCommand)
+        assert isinstance(canvas_model._history._undo_stack[-1], TransactionCommand)
 
 
 class TestCanvasModelRedo:
@@ -880,30 +881,30 @@ class TestCanvasModelMoveItem:
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
         canvas_model.addItem({"type": "rectangle", "x": 10, "y": 0, "width": 10, "height": 10})
         
-        initial_undo_count = len(canvas_model._undo_stack)
+        initial_undo_count = len(canvas_model._history._undo_stack)
         canvas_model.moveItem(1, 1)
         
-        assert len(canvas_model._undo_stack) == initial_undo_count
+        assert len(canvas_model._history._undo_stack) == initial_undo_count
 
     def test_move_item_invalid_from_index(self, canvas_model):
         """Invalid from index should do nothing."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
         
-        initial_undo_count = len(canvas_model._undo_stack)
+        initial_undo_count = len(canvas_model._history._undo_stack)
         canvas_model.moveItem(-1, 0)
         canvas_model.moveItem(5, 0)
         
-        assert len(canvas_model._undo_stack) == initial_undo_count
+        assert len(canvas_model._history._undo_stack) == initial_undo_count
 
     def test_move_item_invalid_to_index(self, canvas_model):
         """Invalid to index should do nothing."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
         
-        initial_undo_count = len(canvas_model._undo_stack)
+        initial_undo_count = len(canvas_model._history._undo_stack)
         canvas_model.moveItem(0, -1)
         canvas_model.moveItem(0, 5)
         
-        assert len(canvas_model._undo_stack) == initial_undo_count
+        assert len(canvas_model._history._undo_stack) == initial_undo_count
 
     def test_move_item_emits_signal(self, canvas_model, qtbot):
         """moveItem should emit itemsReordered signal."""
@@ -1348,11 +1349,11 @@ class TestCanvasModelReparentItem:
         layer1 = canvas_model.getItems()[0]
         layer2 = canvas_model.getItems()[1]
         
-        initial_undo_count = len(canvas_model._undo_stack)
+        initial_undo_count = len(canvas_model._history._undo_stack)
         canvas_model.reparentItem(1, layer1.id)
         
         # No command should be added
-        assert len(canvas_model._undo_stack) == initial_undo_count
+        assert len(canvas_model._history._undo_stack) == initial_undo_count
 
     def test_reparent_same_parent_does_nothing(self, canvas_model):
         """reparentItem to same parent should do nothing."""
@@ -1361,13 +1362,13 @@ class TestCanvasModelReparentItem:
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
         
         canvas_model.reparentItem(1, layer.id)
-        initial_undo_count = len(canvas_model._undo_stack)
+        initial_undo_count = len(canvas_model._history._undo_stack)
         
         # Reparent to same layer
         canvas_model.reparentItem(1, layer.id)
         
         # No additional command should be added
-        assert len(canvas_model._undo_stack) == initial_undo_count
+        assert len(canvas_model._history._undo_stack) == initial_undo_count
 
     def test_reparent_undo_restores_parent_and_position(self, canvas_model):
         """Undo of reparentItem should restore both parent and position."""
@@ -1414,11 +1415,11 @@ class TestCanvasModelReparentItem:
         canvas_model.addLayer()
         layer = canvas_model.getItems()[0]
         
-        initial_undo_count = len(canvas_model._undo_stack)
+        initial_undo_count = len(canvas_model._history._undo_stack)
         canvas_model.reparentItem(-1, layer.id)
         canvas_model.reparentItem(10, layer.id)
         
-        assert len(canvas_model._undo_stack) == initial_undo_count
+        assert len(canvas_model._history._undo_stack) == initial_undo_count
 
     def test_find_last_child_position_no_children(self, canvas_model):
         """_findLastChildPosition should return position after layer when no children."""

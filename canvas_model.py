@@ -8,6 +8,7 @@ from commands import (
     Command, AddItemCommand, RemoveItemCommand,
     UpdateItemCommand, ClearCommand, MoveItemCommand, TransactionCommand
 )
+from history_manager import HistoryManager
 from item_schema import (
     parse_item,
     parse_item_data,
@@ -39,9 +40,11 @@ class CanvasModel(QAbstractListModel):
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._items: List[CanvasItem] = []
-        self._undo_stack: List[Command] = []
-        self._redo_stack: List[Command] = []
-        self._transaction: Optional[TransactionCommand] = None
+        self._history = HistoryManager(
+            on_undo_stack_changed=self.undoStackChanged.emit,
+            on_redo_stack_changed=self.redoStackChanged.emit,
+        )
+        self._transaction_active: bool = False
         self._transaction_snapshot: Dict[int, Dict[str, Any]] = {}
         self._type_counters: Dict[str, int] = {}
 
@@ -90,26 +93,23 @@ class CanvasModel(QAbstractListModel):
         }
 
     def _execute_command(self, command: Command, record: bool = True) -> None:
-        command.execute()
         if record:
-            self._undo_stack.append(command)
-            if self._redo_stack:
-                self._redo_stack.clear()
-                self.redoStackChanged.emit()
-            self.undoStackChanged.emit()
+            self._history.execute(command)
+        else:
+            command.execute()
 
     @Slot()
     def beginTransaction(self) -> None:
-        if self._transaction is not None:
+        if self._transaction_active:
             return
-        self._transaction = TransactionCommand([], "Edit Properties")
+        self._transaction_active = True
         self._transaction_snapshot = {
             i: self._itemToDict(item) for i, item in enumerate(self._items)
         }
 
     @Slot()
     def endTransaction(self) -> None:
-        if self._transaction is None:
+        if not self._transaction_active:
             return
 
         commands: List[Command] = []
@@ -123,13 +123,9 @@ class CanvasModel(QAbstractListModel):
 
         if commands:
             transaction = TransactionCommand(commands, "Edit Properties")
-            self._undo_stack.append(transaction)
-            if self._redo_stack:
-                self._redo_stack.clear()
-                self.redoStackChanged.emit()
-            self.undoStackChanged.emit()
+            self._history.execute(transaction)
 
-        self._transaction = None
+        self._transaction_active = False
 
     def _generate_name(self, item_type: str) -> str:
         type_name = item_type.capitalize()
@@ -395,13 +391,9 @@ class CanvasModel(QAbstractListModel):
         self._items[index] = new_item
         new_props = parsed.data
 
-        if self._transaction is None:
+        if not self._transaction_active:
             command = UpdateItemCommand(self, index, old_props, new_props)
-            self._undo_stack.append(command)
-            if self._redo_stack:
-                self._redo_stack.clear()
-                self.redoStackChanged.emit()
-            self.undoStackChanged.emit()
+            self._history.execute(command)
 
         model_index = self.index(index, 0)
         self.dataChanged.emit(model_index, model_index, [])
@@ -412,38 +404,22 @@ class CanvasModel(QAbstractListModel):
         return len(self._items)
 
     def _canUndo(self) -> bool:
-        return len(self._undo_stack) > 0
+        return self._history.can_undo
 
     canUndo = Property(bool, _canUndo, notify=undoStackChanged)
 
     @Slot(result=bool)
     def undo(self) -> bool:
-        if not self._undo_stack:
-            return False
-
-        command = self._undo_stack.pop()
-        command.undo()
-        self._redo_stack.append(command)
-        self.undoStackChanged.emit()
-        self.redoStackChanged.emit()
-        return True
+        return self._history.undo()
 
     def _canRedo(self) -> bool:
-        return len(self._redo_stack) > 0
+        return self._history.can_redo
 
     canRedo = Property(bool, _canRedo, notify=redoStackChanged)
 
     @Slot(result=bool)
     def redo(self) -> bool:
-        if not self._redo_stack:
-            return False
-
-        command = self._redo_stack.pop()
-        command.execute()
-        self._undo_stack.append(command)
-        self.undoStackChanged.emit()
-        self.redoStackChanged.emit()
-        return True
+        return self._history.redo()
 
     def getItems(self) -> List[CanvasItem]:
         return self._items
