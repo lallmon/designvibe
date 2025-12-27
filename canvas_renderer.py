@@ -67,30 +67,8 @@ class CanvasRenderer(QQuickPaintedItem):
             item.paint(painter, self._zoom_level)
     
     def _get_render_order(self) -> List['CanvasItem']:
-        """Get items in render order - REVERSED from model order.
-        
-        Z-order convention (matching typical design tools):
-        - Items at TOP of layer panel (lower index) are ON TOP visually
-        - Items at BOTTOM of layer panel (higher index) are BEHIND
-        
-        So we render in REVERSE model order:
-        - Higher indices render first (behind/bottom)
-        - Lower indices render last (in front/top)
-        
-        Returns:
-            List of CanvasItem in the order they should be painted (bottom to top)
-        """
-        from canvas_items import LayerItem, RectangleItem, EllipseItem
-        
-        items = self._model.getItems()
-        result: List['CanvasItem'] = []
-        
-        # Render items in REVERSE model order, skipping layers
-        for item in reversed(items):
-            if isinstance(item, (RectangleItem, EllipseItem)):
-                result.append(item)
-        
-        return result
+        """Get items in render order from the model."""
+        return self._model.getRenderItems() if self._model else []
     
     @Property(float, notify=zoomLevelChanged)
     def zoomLevel(self) -> float:

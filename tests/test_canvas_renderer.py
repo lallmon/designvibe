@@ -98,6 +98,13 @@ class TestCanvasRendererZOrder:
         assert render_order[0].name == "L1Child"
         assert render_order[1].name == "L2Child"
 
+    def test_renderer_delegates_render_order_to_model(self, canvas_renderer, canvas_model):
+        """Renderer should rely on model-provided render order."""
+        sentinel = ["sentinel"]
+        canvas_model.getRenderItems = lambda: sentinel  # type: ignore[attr-defined]
+        canvas_renderer.setModel(canvas_model)
+        assert canvas_renderer._get_render_order() is sentinel
+
     def test_empty_model_returns_empty_render_order(self, canvas_renderer, canvas_model):
         """Empty model should return empty render order."""
         render_order = canvas_renderer._get_render_order()

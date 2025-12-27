@@ -1575,6 +1575,15 @@ class TestLayerMoveWithChildren:
 class TestZOrderRendering:
     """Tests for z-order (render order) behavior."""
 
+    def test_get_render_items_matches_reverse_shapes(self, canvas_model):
+        """Model should expose a unified render order helper."""
+        canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10, "name": "Bottom"})
+        canvas_model.addItem({"type": "rectangle", "x": 5, "y": 5, "width": 10, "height": 10, "name": "Top"})
+
+        ordered = canvas_model.getRenderItems()
+        # Render order is bottom-to-top, reversed model order for shapes
+        assert [item.name for item in ordered] == ["Top", "Bottom"]
+
     def test_render_order_reversed_from_model(self, canvas_model):
         """Items at lower model indices should render last (on top)."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10, "name": "Bottom"})

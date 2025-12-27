@@ -434,5 +434,16 @@ class CanvasModel(QAbstractListModel):
     def getItemsForHitTest(self) -> List[Dict[str, Any]]:
         return [self._itemToDict(item) for item in self._items]
 
+    def getRenderItems(self) -> List[CanvasItem]:
+        """Return items in render order (bottom to top), skipping layers."""
+        from canvas_items import LayerItem, RectangleItem, EllipseItem
+
+        items = self._items
+        ordered: List[CanvasItem] = []
+        for item in reversed(items):
+            if isinstance(item, (RectangleItem, EllipseItem)):
+                ordered.append(item)
+        return ordered
+
     def _itemToDict(self, item: CanvasItem) -> Dict[str, Any]:
         return item_to_dict(item)
