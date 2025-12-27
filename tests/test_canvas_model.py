@@ -5,6 +5,7 @@ from canvas_items import RectangleItem, EllipseItem, LayerItem
 from commands import (
     Command, AddItemCommand, RemoveItemCommand, UpdateItemCommand, TransactionCommand
 )
+from types import SimpleNamespace
 
 
 class TestCanvasModelBasics:
@@ -151,6 +152,39 @@ class TestCanvasModelRemoval:
     def test_remove_from_empty_model(self, canvas_model):
         """Test that removing from an empty model is safely handled."""
         canvas_model.removeItem(0)
+        assert canvas_model.count() == 0
+
+    def test_remove_layer_deletes_children(self, canvas_model, qtbot):
+        """Removing a layer should delete its child shapes as well."""
+        canvas_model.addLayer()
+        layer_id = canvas_model.getItems()[0].id
+        canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
+        canvas_model.setParent(1, layer_id)
+        assert canvas_model.count() == 2
+
+        with qtbot.waitSignal(canvas_model.itemRemoved, timeout=1000) as blocker:
+            canvas_model.removeItem(0)
+
+        assert blocker.args == [0]
+        assert canvas_model.count() == 0
+
+    def test_remove_layer_with_children_supports_undo_redo(self, canvas_model):
+        """Removing a layer with children should be undoable/redoable."""
+        canvas_model.addLayer()
+        layer_id = canvas_model.getItems()[0].id
+        canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})
+        canvas_model.setParent(1, layer_id)
+        assert canvas_model.count() == 2
+
+        canvas_model.removeItem(0)
+        assert canvas_model.count() == 0
+
+        canvas_model.undo()
+        assert canvas_model.count() == 2
+        assert canvas_model.getItems()[0].id == layer_id
+        assert canvas_model.getItems()[1].parent_id == layer_id
+
+        canvas_model.redo()
         assert canvas_model.count() == 0
 
 
@@ -789,6 +823,55 @@ class TestCanvasModelRedo:
 
         with qtbot.waitSignal(canvas_model.redoStackChanged, timeout=1000):
             canvas_model.redo()
+
+
+class TestSelectionManagerLogic:
+    """Unit-level tests mirroring SelectionManager delete handling."""
+
+    def _attach_selection(self, canvas_model):
+        state = SimpleNamespace(selectedItemIndex=-1, selectedItem=None)
+
+        def on_modified(index, data):
+            if index == state.selectedItemIndex:
+                state.selectedItem = data
+
+        def on_removed(index):
+            if index == state.selectedItemIndex:
+                state.selectedItemIndex = -1
+                state.selectedItem = None
+            elif index < state.selectedItemIndex:
+                state.selectedItemIndex -= 1
+
+        def on_cleared():
+            state.selectedItemIndex = -1
+            state.selectedItem = None
+
+        canvas_model.itemModified.connect(on_modified)
+        canvas_model.itemRemoved.connect(on_removed)
+        canvas_model.itemsCleared.connect(on_cleared)
+        return state
+
+    def test_selection_clears_when_selected_item_removed(self, canvas_model):
+        canvas_model.addLayer()
+        sel = self._attach_selection(canvas_model)
+        sel.selectedItemIndex = 0
+        sel.selectedItem = canvas_model.getItemData(0)
+
+        canvas_model.removeItem(0)
+
+        assert sel.selectedItemIndex == -1
+        assert sel.selectedItem is None
+
+    def test_selection_clears_on_items_cleared(self, canvas_model):
+        canvas_model.addLayer()
+        sel = self._attach_selection(canvas_model)
+        sel.selectedItemIndex = 0
+        sel.selectedItem = canvas_model.getItemData(0)
+
+        canvas_model.clear()
+
+        assert sel.selectedItemIndex == -1
+        assert sel.selectedItem is None
 
 
 class TestCanvasModelAutoNames:
