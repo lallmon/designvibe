@@ -1094,6 +1094,18 @@ class TestCanvasModelMoveItem:
         with qtbot.waitSignal(canvas_model.itemsReordered, timeout=1000):
             canvas_model.moveItem(0, 1)
 
+    def test_move_item_many_entries(self, canvas_model):
+        """Reordering works with larger lists (UI scrolling should not affect model)."""
+        for i in range(20):
+            canvas_model.addItem({"type": "rectangle", "x": i, "y": i, "width": 10, "height": 10})
+
+        from_index = 18
+        to_index = 1
+        canvas_model.moveItem(from_index, to_index)
+
+        items = canvas_model.getItems()
+        assert items[to_index].x == 18
+
     def test_move_item_undo(self, canvas_model):
         """Undo should restore original order."""
         canvas_model.addItem({"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10})

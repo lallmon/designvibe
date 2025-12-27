@@ -69,21 +69,39 @@ Item {
             property int itemHeight: 28
             property int itemSpacing: 2
 
-            Column {
-                id: layerColumn
-                anchors.left: parent.left
-                anchors.right: parent.right
-                spacing: layerContainer.itemSpacing
+            Flickable {
+                id: layerFlickable
+                anchors.fill: parent
+                contentHeight: layerColumn.height
+                interactive: root.draggedIndex < 0
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
 
-                Repeater {
-                    id: layerRepeater
-                    model: canvasModel
+                function autoScrollIfNeeded(yInFlickable) {
+                    const edge = 30
+                    const step = 12
+                    if (yInFlickable < edge) {
+                        contentY = Math.max(0, contentY - step)
+                    } else if (yInFlickable > height - edge) {
+                        const maxY = Math.max(0, contentHeight - height)
+                        contentY = Math.min(maxY, contentY + step)
+                    }
+                }
 
-                    delegate: Item {
-                        id: delegateRoot
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        height: layerContainer.itemHeight
+                Column {
+                    id: layerColumn
+                    width: layerFlickable.width
+                    spacing: layerContainer.itemSpacing
+
+                    Repeater {
+                        id: layerRepeater
+                        model: canvasModel
+
+                        delegate: Item {
+                            id: delegateRoot
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: layerContainer.itemHeight
 
                         // Model role properties (auto-bound from QAbstractListModel)
                         required property int index
@@ -236,6 +254,8 @@ Item {
                                                 delegateRoot.dragOffsetY = translation.y
                                                 // Calculate which item we're hovering over
                                                 updateDropTarget()
+                                                const p = delegateRoot.mapToItem(layerFlickable, 0, translation.y)
+                                                layerFlickable.autoScrollIfNeeded(p.y)
                                             }
                                         }
 
@@ -432,14 +452,15 @@ Item {
                         }
                     }
                 }
-            }
+                }
 
-            Label {
-                anchors.centerIn: parent
-                visible: layerRepeater.count === 0
-                text: qsTr("No objects")
-                font.pixelSize: 11
-                color: DV.Theme.colors.textSubtle
+                Label {
+                    anchors.centerIn: parent
+                    visible: layerRepeater.count === 0
+                    text: qsTr("No objects")
+                    font.pixelSize: 11
+                    color: DV.Theme.colors.textSubtle
+                }
             }
         }
     }
