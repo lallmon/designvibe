@@ -5,6 +5,7 @@ from commands import (
     UpdateItemCommand, ClearCommand, TransactionCommand
 )
 from canvas_items import RectangleItem, EllipseItem
+from item_schema import ItemSchemaError
 
 
 class TestCommandBase:
@@ -70,10 +71,9 @@ class TestAddItemCommand:
         assert "Add" in cmd.description
 
     def test_execute_invalid_type_does_nothing(self, canvas_model):
-        """Test execute with invalid item type does nothing."""
-        cmd = AddItemCommand(canvas_model, {"type": "triangle", "x": 0, "y": 0})
-        cmd.execute()
-        assert canvas_model.count() == 0
+        """Test invalid item type raises validation error."""
+        with pytest.raises(ItemSchemaError):
+            AddItemCommand(canvas_model, {"type": "triangle", "x": 0, "y": 0})
 
     def test_undo_before_execute_does_nothing(self, canvas_model):
         """Test undo before execute does nothing safely."""
@@ -165,7 +165,19 @@ class TestUpdateItemCommand:
     def test_has_description(self, canvas_model):
         """Test command has a meaningful description."""
         canvas_model._items.append(RectangleItem(0, 0, 100, 100))
-        cmd = UpdateItemCommand(canvas_model, 0, {}, {})
+        base = {
+            "type": "rectangle",
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 100,
+            "strokeWidth": 1,
+            "strokeColor": "#ffffff",
+            "strokeOpacity": 1.0,
+            "fillColor": "#ffffff",
+            "fillOpacity": 0.0,
+        }
+        cmd = UpdateItemCommand(canvas_model, 0, base, base)
         assert cmd.description
 
     def test_execute_invalid_index_does_nothing(self, canvas_model):

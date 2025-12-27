@@ -1,13 +1,13 @@
 """Command pattern classes for undo/redo functionality."""
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Mapping
 from PySide6.QtCore import QModelIndex
 
 if TYPE_CHECKING:
     from canvas_model import CanvasModel
 
 from canvas_items import CanvasItem, RectangleItem, EllipseItem, LayerItem
-from item_schema import parse_item, item_to_dict, ItemSchemaError
+from item_schema import parse_item, parse_item_data, item_to_dict, ItemSchemaError
 
 
 def _create_item(item_data: Dict[str, Any]) -> CanvasItem:
@@ -38,9 +38,11 @@ class Command(ABC):
 class AddItemCommand(Command):
     """Command to add an item to the canvas."""
 
-    def __init__(self, model: "CanvasModel", item_data: Dict[str, Any]) -> None:
+    def __init__(self, model: "CanvasModel", item_data: Mapping[str, Any]) -> None:
         self._model = model
-        self._item_data = item_data
+        # Validate immediately so construction fails fast for bad payloads
+        parsed = parse_item_data(dict(item_data))
+        self._item_data = parsed.data
         self._index: Optional[int] = None
 
     @property
@@ -49,8 +51,6 @@ class AddItemCommand(Command):
         return f"Add {item_type}"
 
     def execute(self) -> None:
-        if self._item_data.get("type") not in ("rectangle", "ellipse", "layer"):
-            return
         self._index = len(self._model._items)
         self._model.beginInsertRows(QModelIndex(), self._index, self._index)
         self._model._items.append(_create_item(self._item_data))
@@ -131,13 +131,14 @@ class UpdateItemCommand(Command):
         self,
         model: "CanvasModel",
         index: int,
-        old_props: Dict[str, Any],
-        new_props: Dict[str, Any],
+        old_props: Mapping[str, Any],
+        new_props: Mapping[str, Any],
     ) -> None:
         self._model = model
         self._index = index
-        self._old_props = old_props
-        self._new_props = new_props
+        # Validate both payloads eagerly; they should represent valid items
+        self._old_props = parse_item_data(dict(old_props)).data
+        self._new_props = parse_item_data(dict(new_props)).data
 
     @property
     def description(self) -> str:
