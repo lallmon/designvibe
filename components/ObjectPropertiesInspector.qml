@@ -457,17 +457,23 @@ ScrollView {
             }
         }
 
-        Label {
-            visible: root.selectedItem === null
-            text: qsTr("No object selected")
-            font.pixelSize: 12
-            color: DV.Theme.colors.textSubtle
+        Item {
             Layout.fillWidth: true
-            Layout.topMargin: 8
+            Layout.fillHeight: true
+            Layout.preferredHeight: root.availableHeight
+            visible: root.selectedItem === null
+
+            Label {
+                anchors.centerIn: parent
+                text: qsTr("No object selected")
+                font.pixelSize: 12
+                color: DV.Theme.colors.textSubtle
+            }
         }
 
         Item {
             Layout.fillHeight: true
+            visible: root.selectedItem !== null
         }
     }
 }

@@ -11,6 +11,7 @@ Item {
     property string dropTargetLayerId: ""    // Layer ID we're hovering over for drop
     property var draggedItemParentId: null   // Parent ID of the item being dragged
     property var dropTargetParentId: null    // Parent ID of the item we're hovering over
+    property real lastDragYInFlick: 0
 
     ColumnLayout {
         anchors.fill: parent
@@ -68,22 +69,57 @@ Item {
 
             property int itemHeight: 28
             property int itemSpacing: 2
+            property real dragStartContentY: 0
+            property bool dragActive: false
 
-            Column {
-                id: layerColumn
-                anchors.left: parent.left
-                anchors.right: parent.right
-                spacing: layerContainer.itemSpacing
+            Flickable {
+                id: layerFlickable
+                anchors.fill: parent
+                // Ensure content area is at least viewport height so empty-state label can center vertically
+                contentHeight: Math.max(layerColumn.childrenRect.height, height)
+                property real autoScrollStep: 8    // Half the previous 16px step for slower auto-scroll
+                interactive: root.draggedIndex < 0
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
 
-                Repeater {
-                    id: layerRepeater
-                    model: canvasModel
+                function autoScrollScene(yInFlickable) {
+                    if (contentHeight <= height)
+                        return
+                    const edge = 24
+                    if (yInFlickable < edge) {
+                        contentY = Math.max(0, contentY - autoScrollStep)
+                    } else if (yInFlickable > height - edge) {
+                        const maxY = Math.max(0, contentHeight - height)
+                        contentY = Math.min(maxY, contentY + autoScrollStep)
+                    }
+                }
 
-                    delegate: Item {
-                        id: delegateRoot
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        height: layerContainer.itemHeight
+                Timer {
+                    id: autoScrollTimer
+                    interval: 30
+                    running: layerContainer.dragActive
+                    repeat: true
+                    onTriggered: {
+                        if (!layerContainer.dragActive)
+                            return
+                        layerFlickable.autoScrollScene(root.lastDragYInFlick)
+                    }
+                }
+
+                Column {
+                    id: layerColumn
+                    width: layerFlickable.width
+                    spacing: layerContainer.itemSpacing
+
+                    Repeater {
+                        id: layerRepeater
+                        model: canvasModel
+
+                        delegate: Item {
+                            id: delegateRoot
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: layerContainer.itemHeight
 
                         // Model role properties (auto-bound from QAbstractListModel)
                         required property int index
@@ -172,7 +208,12 @@ Item {
                                                     root.draggedIndex = delegateRoot.index
                                                     root.draggedItemType = delegateRoot.itemType
                                                     root.draggedItemParentId = delegateRoot.parentId
+                                                layerContainer.dragStartContentY = layerFlickable.contentY
+                                                    layerContainer.dragActive = true
+                                                    autoScrollTimer.start()
                                                 } else {
+                                                    layerContainer.dragActive = false
+                                                    autoScrollTimer.stop()
                                                     if (root.draggedIndex >= 0) {
                                                         // Calculate target model index for potential reordering
                                                         let totalItemHeight = layerContainer.itemHeight + layerContainer.itemSpacing
@@ -233,9 +274,14 @@ Item {
 
                                         onTranslationChanged: {
                                             if (active) {
-                                                delegateRoot.dragOffsetY = translation.y
+                                                // Compensate for flickable contentY changes during auto-scroll
+                                                let compensatedY = translation.y + (layerFlickable.contentY - layerContainer.dragStartContentY)
+                                                delegateRoot.dragOffsetY = compensatedY
                                                 // Calculate which item we're hovering over
                                                 updateDropTarget()
+                                                // Auto-scroll handled via timer using scene position
+                                                const p = delegateRoot.mapToItem(layerFlickable, 0, dragHandler.centroid.position.y)
+                                                root.lastDragYInFlick = p.y
                                             }
                                         }
 
@@ -432,14 +478,15 @@ Item {
                         }
                     }
                 }
-            }
+                }
 
-            Label {
-                anchors.centerIn: parent
-                visible: layerRepeater.count === 0
-                text: qsTr("No objects")
-                font.pixelSize: 11
-                color: DV.Theme.colors.textSubtle
+                Label {
+                    anchors.centerIn: parent
+                    visible: layerRepeater.count === 0
+                    text: qsTr("No objects")
+                    font.pixelSize: 11
+                    color: DV.Theme.colors.textSubtle
+                }
             }
         }
     }
