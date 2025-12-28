@@ -75,7 +75,8 @@ Item {
             Flickable {
                 id: layerFlickable
                 anchors.fill: parent
-                contentHeight: layerColumn.childrenRect.height
+                // Ensure content area is at least viewport height so empty-state label can center vertically
+                contentHeight: Math.max(layerColumn.childrenRect.height, height)
                 property real autoScrollStep: 8    // Half the previous 16px step for slower auto-scroll
                 interactive: root.draggedIndex < 0
                 boundsBehavior: Flickable.StopAtBounds
