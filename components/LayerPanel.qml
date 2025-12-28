@@ -76,6 +76,7 @@ Item {
                 id: layerFlickable
                 anchors.fill: parent
                 contentHeight: layerColumn.childrenRect.height
+                property real autoScrollStep: 8    // Half the previous 16px step for slower auto-scroll
                 interactive: root.draggedIndex < 0
                 boundsBehavior: Flickable.StopAtBounds
                 clip: true
@@ -84,12 +85,11 @@ Item {
                     if (contentHeight <= height)
                         return
                     const edge = 24
-                    const step = 16
                     if (yInFlickable < edge) {
-                        contentY = Math.max(0, contentY - step)
+                        contentY = Math.max(0, contentY - autoScrollStep)
                     } else if (yInFlickable > height - edge) {
                         const maxY = Math.max(0, contentHeight - height)
-                        contentY = Math.min(maxY, contentY + step)
+                        contentY = Math.min(maxY, contentY + autoScrollStep)
                     }
                 }
 
