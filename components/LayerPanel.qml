@@ -130,9 +130,7 @@ Item {
                         required property var itemId      // Layer's unique ID (null for shapes)
                         required property var parentId    // Parent layer ID (null for top-level items)
                         required property bool modelVisible
-                        required property bool modelEffectiveVisible
                         required property bool modelLocked
-                        required property bool modelEffectiveLocked
 
                         // Use layerRepeater.count (reactive property) not canvasModel.rowCount() (method)
                         // Methods don't trigger binding updates; properties do
@@ -451,7 +449,7 @@ Item {
 
                                         DV.PhIcon {
                                             anchors.centerIn: parent
-                                            name: delegateRoot.modelEffectiveVisible ? "eye" : "eye-closed"
+                                            name: delegateRoot.modelVisible ? "eye" : "eye-closed"
                                             size: 16
                                             color: delegateRoot.isSelected ? "white" : DV.Theme.colors.textSubtle
                                         }
