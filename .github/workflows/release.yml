@@ -136,7 +136,7 @@ jobs:
       - name: Verify build output
         shell: bash
         run: |
-          if [ ! -d "DesignVibe.app" ] && [ ! -f "DesignVibe.exe" ] && [ ! -f "DesignVibe.bin" ]; then
+          if [ ! -d "Lucent.app" ] && [ ! -f "Lucent.exe" ] && [ ! -f "Lucent.bin" ]; then
             echo "ERROR: Build output not found"
             exit 1
           fi
@@ -144,29 +144,29 @@ jobs:
       - name: Package Linux executable
         if: matrix.os == 'ubuntu-latest'
         run: |
-          mv DesignVibe.bin DesignVibe
-          chmod +x DesignVibe
-          tar -czvf "DesignVibe-${SAFE_REF_NAME}-Linux-x86_64.tar.gz" DesignVibe
+          mv Lucent.bin Lucent
+          chmod +x Lucent
+          tar -czvf "Lucent-${SAFE_REF_NAME}-Linux-x86_64.tar.gz" Lucent
       
       - name: Create DMG (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          hdiutil create -volname "DesignVibe" \
-            -srcfolder DesignVibe.app \
+          hdiutil create -volname "Lucent" \
+            -srcfolder Lucent.app \
             -ov -format UDZO \
-            "DesignVibe-${SAFE_REF_NAME}-macOS.dmg"
+            "Lucent-${SAFE_REF_NAME}-macOS.dmg"
       
       - name: Package Windows executable
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          Compress-Archive -Path DesignVibe.exe -DestinationPath "DesignVibe-$env:SAFE_REF_NAME-Windows.zip"
+          Compress-Archive -Path Lucent.exe -DestinationPath "Lucent-$env:SAFE_REF_NAME-Windows.zip"
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DesignVibe-${{ env.SAFE_REF_NAME }}-${{ matrix.platform }}
-          path: DesignVibe-*
+          name: Lucent-${{ env.SAFE_REF_NAME }}-${{ matrix.platform }}
+          path: Lucent-*
   
   release:
     name: Create GitHub Release
@@ -206,9 +206,9 @@ jobs:
           body_path: release_notes.md
           append_body: true
           files: |
-            DesignVibe-*-Linux/*
-            DesignVibe-*-macOS/*
-            DesignVibe-*-Windows/*
+            Lucent-*-Linux/*
+            Lucent-*-macOS/*
+            Lucent-*-Windows/*
           draft: false
           prerelease: false
         env:

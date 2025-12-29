@@ -1,8 +1,8 @@
 """Tests for HistoryManager undo/redo orchestration."""
 import pytest
 
-from designvibe.commands import Command, TransactionCommand
-from designvibe.history_manager import HistoryManager
+from lucent.commands import Command, TransactionCommand
+from lucent.history_manager import HistoryManager
 
 
 class DummyCommand(Command):

@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=DesignVibe
+Name=Lucent
 Comment=Hybrid vector/raster digital design application
-Exec=DesignVibe
+Exec=Lucent
 Icon=appIcon
 Categories=Graphics;2DGraphics;VectorGraphics;
 Terminal=false

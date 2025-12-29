@@ -1,8 +1,8 @@
 """Unit tests for item_schema validation and serialization."""
 import pytest
 
-from designvibe.canvas_items import RectangleItem, EllipseItem, LayerItem, CanvasItem
-from designvibe.item_schema import (
+from lucent.canvas_items import RectangleItem, EllipseItem, LayerItem, CanvasItem
+from lucent.item_schema import (
     ItemSchemaError,
     ItemType,
     parse_item,

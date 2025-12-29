@@ -1,5 +1,5 @@
 [app]
-title = DesignVibe
+title = Lucent
 version = __VERSION__
 exec_directory = .
 icon = assets/appIcon.png
@@ -24,7 +24,7 @@ extra_args = --jobs=6 --assume-yes-for-downloads --include-data-files=App.qml=Ap
 appimage = true
 
 [macos]
-bundle_identifier = org.designvibe.DesignVibe
+bundle_identifier = org.lucent.Lucent
 
 [windows]
 console = false

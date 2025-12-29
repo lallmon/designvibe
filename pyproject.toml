@@ -3,9 +3,9 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "designvibe"
+name = "lucent"
 version = "0.0.0"
-description = "DesignVibe QML app"
+description = "Lucent QML app"
 requires-python = ">=3.10"
 readme = "README.md"
 

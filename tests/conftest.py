@@ -1,9 +1,9 @@
-"""Pytest configuration and shared fixtures for DesignVibe tests."""
+"""Pytest configuration and shared fixtures for Lucent tests."""
 import pytest
 from PySide6.QtWidgets import QApplication
 from PySide6.QtQml import QQmlApplicationEngine
-from designvibe.canvas_model import CanvasModel
-from designvibe.canvas_renderer import CanvasRenderer
+from lucent.canvas_model import CanvasModel
+from lucent.canvas_renderer import CanvasRenderer
 
 
 @pytest.fixture(scope="session")

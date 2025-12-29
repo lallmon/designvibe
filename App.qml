@@ -9,7 +9,7 @@ ApplicationWindow {
     width: 1920
     height: 1080
     visible: true
-    title: qsTr("DesignVibe")
+    title: qsTr("Lucent")
 
     menuBar: MenuBar {
         viewport: viewport
