@@ -1,6 +1,6 @@
 # This Python file uses the following encoding: utf-8
 """
-DesignVibe - Main application entry point.
+Lucent - Main application entry point.
 
 This module initializes the Qt application, registers QML components,
 and launches the main window.
@@ -12,8 +12,8 @@ from pathlib import Path
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 from PySide6.QtCore import Qt
-from designvibe.canvas_renderer import CanvasRenderer
-from designvibe.canvas_model import CanvasModel
+from lucent.canvas_renderer import CanvasRenderer
+from lucent.canvas_model import CanvasModel
 
 # Version placeholder - replaced by GitHub Actions during release builds
 __version__ = "__VERSION__"

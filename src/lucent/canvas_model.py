@@ -1,15 +1,15 @@
-"""Canvas model for DesignVibe - manages canvas items with undo/redo support."""
+"""Canvas model for Lucent - manages canvas items with undo/redo support."""
 from typing import List, Optional, Dict, Any
 from PySide6.QtCore import (
     QAbstractListModel, QModelIndex, Qt, Signal, Slot, Property, QObject
 )
-from designvibe.canvas_items import CanvasItem, RectangleItem, EllipseItem, LayerItem
-from designvibe.commands import (
+from lucent.canvas_items import CanvasItem, RectangleItem, EllipseItem, LayerItem
+from lucent.commands import (
     Command, AddItemCommand, RemoveItemCommand,
     UpdateItemCommand, ClearCommand, MoveItemCommand, TransactionCommand
 )
-from designvibe.history_manager import HistoryManager
-from designvibe.item_schema import (
+from lucent.history_manager import HistoryManager
+from lucent.item_schema import (
     parse_item,
     parse_item_data,
     item_to_dict,
@@ -538,7 +538,7 @@ class CanvasModel(QAbstractListModel):
         the latest-added child paints above earlier siblings. Layers retain
         their model order.
         """
-        from designvibe.canvas_items import LayerItem, RectangleItem, EllipseItem
+        from lucent.canvas_items import LayerItem, RectangleItem, EllipseItem
 
         groups: List[List[CanvasItem]] = []
         current_group: List[CanvasItem] = []

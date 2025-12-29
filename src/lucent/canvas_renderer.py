@@ -1,5 +1,5 @@
 """
-Canvas renderer component for DesignVibe.
+Canvas renderer component for Lucent.
 
 This module provides the CanvasRenderer class, which is a QQuickPaintedItem
 that bridges QML and Python, rendering canvas items using QPainter.
@@ -10,8 +10,8 @@ from PySide6.QtQuick import QQuickPaintedItem
 from PySide6.QtGui import QPainter
 
 if TYPE_CHECKING:
-    from designvibe.canvas_model import CanvasModel
-    from designvibe.canvas_items import CanvasItem
+    from lucent.canvas_model import CanvasModel
+    from lucent.canvas_items import CanvasItem
 
 
 class CanvasRenderer(QQuickPaintedItem):
@@ -33,7 +33,7 @@ class CanvasRenderer(QQuickPaintedItem):
             model: CanvasModel instance to get items from
         """
         # Import here to avoid circular dependency
-        from designvibe.canvas_model import CanvasModel
+        from lucent.canvas_model import CanvasModel
         
         if isinstance(model, CanvasModel):
             self._model = model

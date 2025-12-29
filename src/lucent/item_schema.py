@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict
 
-from designvibe.canvas_items import CanvasItem, RectangleItem, EllipseItem, LayerItem
+from lucent.canvas_items import CanvasItem, RectangleItem, EllipseItem, LayerItem
 
 
 class ItemSchemaError(ValueError):

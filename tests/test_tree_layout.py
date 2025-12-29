@@ -1,7 +1,7 @@
 """Tests for tree-based layout/flattening of canvas items."""
 import pytest
 
-from designvibe.canvas_model import CanvasModel
+from lucent.canvas_model import CanvasModel
 
 
 def names(items):

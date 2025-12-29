@@ -2,7 +2,7 @@ pragma Singleton
 
 import QtQuick
 
-// Centralized UI constants for DesignVibe (QML-native).
+// Centralized UI constants for Lucent (QML-native).
 // Keep this file small and stable; add tokens here rather than hard-coding
 // values throughout components.
 QtObject {

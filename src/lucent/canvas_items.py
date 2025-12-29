@@ -1,5 +1,5 @@
 """
-Canvas item classes for DesignVibe.
+Canvas item classes for Lucent.
 
 This module defines the canvas item hierarchy, including:
 - CanvasItem: Abstract base class for all drawable items

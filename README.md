@@ -1,7 +1,7 @@
-# DesignVibe
+# Lucent
 
-[![Tests](https://github.com/lallmon/designvibe/actions/workflows/test.yml/badge.svg)](https://github.com/lallmon/designvibe/actions)
-[![codecov](https://codecov.io/gh/lallmon/designvibe/branch/main/graph/badge.svg)](https://codecov.io/gh/lallmon/designvibe)
+[![Tests](https://github.com/lallmon/lucent/actions/workflows/test.yml/badge.svg)](https://github.com/lallmon/lucent/actions)
+[![codecov](https://codecov.io/gh/lallmon/lucent/branch/main/graph/badge.svg)](https://codecov.io/gh/lallmon/lucent)
 
 ## What
 A modern, open source hybrid vector/raster digital design application, built with QT. Taking a Linux first approach, but planning to be multi-platform.
@@ -28,6 +28,10 @@ There's plenty to do but the end goal is pretty clear for me, so if you want to 
 Run the app: `python main.py`
 
 Run tests: `pytest -q`
+
+### Repo rename
+- GitHub: rename the repo to `lucent` in settings (GitHub adds redirects).
+- Local: `git remote set-url origin https://github.com/<user>/lucent.git` (or SSH).
 
 #### AI Contributions
 I have used AI on this project, so I am not against it, but you definitely need to wrangle that slop machine. LOL. Just straight vibe coding is definitely not something that will work in the long run.
