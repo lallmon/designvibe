@@ -10,4 +10,9 @@ repos:
         args: ["-i"]
         files: "\\.qml$"
         pass_filenames: true
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        language_version: python3.10
 
