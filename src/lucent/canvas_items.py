@@ -92,8 +92,10 @@ class RectangleItem(CanvasItem):
         local_x = self.x + offset_x
         local_y = self.y + offset_y
 
-        # Scale stroke width by zoom level
-        scaled_stroke_width = self.stroke_width / zoom_level
+        # Keep stroke width in world space, but clamp screen size at extremes.
+        stroke_px = self.stroke_width * zoom_level
+        clamped_px = max(0.3, min(6.0, stroke_px))
+        scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
 
         # Set up pen for stroke
         stroke_qcolor = QColor(self.stroke_color)
@@ -193,8 +195,10 @@ class EllipseItem(CanvasItem):
         local_center_x = self.center_x + offset_x
         local_center_y = self.center_y + offset_y
 
-        # Scale stroke width by zoom level
-        scaled_stroke_width = self.stroke_width / zoom_level
+        # Keep stroke width in world space, but clamp screen size at extremes.
+        stroke_px = self.stroke_width * zoom_level
+        clamped_px = max(0.3, min(6.0, stroke_px))
+        scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
 
         # Set up pen for stroke
         stroke_qcolor = QColor(self.stroke_color)

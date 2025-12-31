@@ -51,10 +51,10 @@ Item {
         // Renderer sized to the current viewport; we only render what is visible.
         CanvasRenderer {
             id: canvasRenderer
-            width: root.width
-            height: root.height
-            // Place the renderer so (0,0) in canvas space aligns with the center
-            // of the viewport-sized surface. This keeps item math consistent.
+            // Expand with zoom and modest padding; cap under GPU limits to reduce overdraw.
+            readonly property real _pad: 1000
+            width: Math.min(14000, (root.width / Math.max(root.zoomLevel, 0.001)) + _pad * 2)
+            height: Math.min(14000, (root.height / Math.max(root.zoomLevel, 0.001)) + _pad * 2)
             x: -width / 2
             y: -height / 2
             zoomLevel: root.zoomLevel
