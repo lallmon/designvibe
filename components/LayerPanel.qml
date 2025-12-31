@@ -300,6 +300,11 @@ Item {
                                             }
 
                                             function updateDropTarget() {
+                                                if (layerRepeater.count === 0)
+                                                    return;
+                                                if (!dragHandler.centroid || !dragHandler.centroid.position)
+                                                    return;
+
                                                 // Use pointer position within the list to determine target row
                                                 const totalItemHeight = layerContainer.itemHeight + layerContainer.itemSpacing;
                                                 const rowCount = layerRepeater.count;
