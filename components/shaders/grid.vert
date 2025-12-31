@@ -8,11 +8,15 @@ layout(location = 1) in vec2 qt_MultiTexCoord0;
 layout(location = 0) out vec2 qt_TexCoord0;
 
 // Standard ShaderEffect uniform block: qt_Matrix + qt_Opacity + custom uniforms
+// Order must match QML property order.
 layout(std140, binding = 0) uniform ubuf {
     mat4 qt_Matrix;
     float qt_Opacity;
     float baseGridSize;
     float majorMultiplier;
+    float minorThicknessPx;
+    float majorThicknessPx;
+    float featherPx;
     float zoomLevel;
     float offsetX;
     float offsetY;

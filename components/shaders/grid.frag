@@ -9,12 +9,15 @@ layout(location = 0) in vec2 qt_TexCoord0;
 
 layout(location = 0) out vec4 fragColor;
 
-// Uniforms provided via ShaderEffect properties and Qt built-ins
+// Uniforms provided via ShaderEffect properties and Qt built-ins (order matches QML)
 layout(std140, binding = 0) uniform ubuf {
     mat4 qt_Matrix;
     float qt_Opacity;
     highp float baseGridSize;
     highp float majorMultiplier;
+    highp float minorThicknessPx;
+    highp float majorThicknessPx;
+    highp float featherPx;
     highp float zoomLevel;
     highp float offsetX;
     highp float offsetY;
@@ -24,10 +27,9 @@ layout(std140, binding = 0) uniform ubuf {
 };
 
 // Compute distance in screen pixels to nearest grid line and feather for AA.
-float lineAlpha(float distPx) {
-    const float halfThickness = 0.5;
-    const float feather = 0.75;
-    return 1.0 - smoothstep(halfThickness, halfThickness + feather, distPx);
+float lineAlpha(float distPx, float thicknessPx, float featherPx_) {
+    float halfT = thicknessPx * 0.5;
+    return 1.0 - smoothstep(halfT, halfT + featherPx_, distPx);
 }
 
 void main() {
@@ -66,8 +68,8 @@ void main() {
     highp float minorDistPx = min(gx, gy) * zoomLevel;
     highp float majorDistPx = min(gmx, gmy) * zoomLevel;
 
-    lowp float minorA = showMinor ? lineAlpha(minorDistPx) : 0.0;
-    lowp float majorA = lineAlpha(majorDistPx);
+    lowp float minorA = showMinor ? lineAlpha(minorDistPx, minorThicknessPx, featherPx) : 0.0;
+    lowp float majorA = lineAlpha(majorDistPx, majorThicknessPx, featherPx);
 
     // Combine: major lines override minor where they overlap
     vec4 color = vec4(0.0);

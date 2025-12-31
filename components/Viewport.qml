@@ -44,6 +44,21 @@ Item {
 
         property real baseGridSize: 32.0
         property real majorMultiplier: 5.0
+        // Keep lines consistent across zoom by tying thickness to projected spacing.
+        // Matches shader gridSize logic (base, zoomed-out major-only, zoomed-in half).
+        // Keep lines very thin across zoom: small clamps plus modest scaling.
+        property real _gridSizePx: {
+            var g = baseGridSize;
+            if (root.zoomLevel < 0.5) {
+                g = baseGridSize * majorMultiplier;
+            } else if (root.zoomLevel > 2.0) {
+                g = baseGridSize * 0.5;
+            }
+            return g * root.zoomLevel;
+        }
+        property real minorThicknessPx: Math.min(0.6, Math.max(0.15, _gridSizePx * 0.08))
+        property real majorThicknessPx: Math.min(0.9, Math.max(0.2, _gridSizePx * 0.12))
+        property real featherPx: Math.min(0.8, Math.max(0.25, minorThicknessPx * 0.7))
         property real zoomLevel: root.zoomLevel
         property real offsetX: root.offsetX
         property real offsetY: root.offsetY
