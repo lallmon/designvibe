@@ -62,6 +62,10 @@ Pane {
             checked: root.activeTool === "rectangle"
             ButtonGroup.group: toolButtonGroup
 
+            ToolTip.visible: rectButton.hovered
+            ToolTip.delay: 500
+            ToolTip.text: "Rectangle Tool\n\nShift: Constrain to square\nAlt: Draw from center"
+
             contentItem: Item {
                 anchors.fill: parent
                 PhIcon {
