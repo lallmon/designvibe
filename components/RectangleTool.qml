@@ -170,7 +170,7 @@ Item {
     }
 
     // Update preview during mouse movement
-    function handleMouseMove(canvasX, canvasY) {
+    function handleMouseMove(canvasX, canvasY, modifiers) {
         if (!tool.active || !isDrawing)
             return;
 
@@ -183,6 +183,13 @@ Item {
         var rectY = height >= 0 ? drawStartY : canvasY;
         var rectWidth = Math.abs(width);
         var rectHeight = Math.abs(height);
+
+        // Constrain to square when Shift is held
+        if (modifiers & Qt.ShiftModifier) {
+            var size = Math.max(rectWidth, rectHeight);
+            rectWidth = size;
+            rectHeight = size;
+        }
 
         // Update current rectangle (create new object to trigger binding)
         currentRect = {

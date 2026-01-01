@@ -218,7 +218,7 @@ Item {
         }
     }
 
-    function handleMouseMove(viewportX, viewportY) {
+    function handleMouseMove(viewportX, viewportY, modifiers) {
         // Update cursor position in canvas coordinates
         var canvasCoords = viewportToCanvas(viewportX, viewportY);
         root.cursorX = canvasCoords.x;
@@ -233,7 +233,7 @@ Item {
         if (root.drawingMode === "") {
             selectTool.handleMouseMove(viewportX, viewportY);
         } else if (currentToolLoader.item) {
-            currentToolLoader.item.handleMouseMove(canvasCoords.x, canvasCoords.y);
+            currentToolLoader.item.handleMouseMove(canvasCoords.x, canvasCoords.y, modifiers);
         }
     }
 
