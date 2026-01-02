@@ -3244,6 +3244,38 @@ class TestCanvasModelDuplicate:
         assert new_indices == []
         assert canvas_model.count() == 1
 
+    def test_duplicate_group_places_parent_after_children(self, canvas_model):
+        """Duplicating container should place parent after its cloned children."""
+        canvas_model.addLayer()
+        layer_id = canvas_model.getItems()[0].id
+        canvas_model.addItem({"type": "group", "name": "G", "parentId": layer_id})
+        group_id = canvas_model.getItems()[1].id
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 1,
+                "y": 2,
+                "width": 3,
+                "height": 4,
+                "parentId": group_id,
+                "name": "C",
+            }
+        )
+
+        new_indices = canvas_model.duplicateItems([1])
+
+        assert len(new_indices) == 1
+        dup_group_index = new_indices[0]
+        dup_child_index = dup_group_index - 1
+
+        dup_group = canvas_model.getItems()[dup_group_index]
+        dup_child = canvas_model.getItems()[dup_child_index]
+
+        assert dup_group.parent_id == layer_id
+        assert dup_child.parent_id == dup_group.id
+        # Parent should come after its child in model order so it displays above
+        assert dup_child_index < dup_group_index
+
 
 class TestCoverageEdgeCases:
     """Tests for edge cases and guard clauses to improve coverage."""

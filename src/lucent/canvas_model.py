@@ -434,7 +434,12 @@ class CanvasModel(QAbstractListModel):
                 continue
             start = find_sequence_start(cmd.clone_payloads)
             if start is not None:
-                new_indices.append(start)
+                if cmd._parent_last:
+                    new_indices.append(start + len(cmd.clone_payloads) - 1)
+                else:
+                    new_indices.append(start)
+            elif cmd.result_index is not None:
+                new_indices.append(cmd.result_index)
         return new_indices
 
     @Slot()

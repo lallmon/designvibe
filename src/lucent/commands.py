@@ -269,6 +269,7 @@ class DuplicateItemCommand(Command):
         self._insert_index: Optional[int] = None
         self._result_index: Optional[int] = None
         self._id_map: Dict[str, str] = {}
+        self._parent_last: bool = False
 
     @property
     def description(self) -> str:
@@ -334,14 +335,29 @@ class DuplicateItemCommand(Command):
 
         last_index = max(indices)
         self._insert_index = min(last_index + 1, len(items))
+        parent_clone: Optional[Dict[str, Any]] = None
         for idx in indices:
             data = self._model._itemToDict(items[idx])
             clone = self._clone_item_data(data)
             if clone:
-                self._clones.append(clone)
+                is_container = clone.get("type") in ("group", "layer")
+                if idx == self._source_index and is_container:
+                    parent_clone = clone
+                else:
+                    self._clones.append(clone)
+
+        if parent_clone:
+            self._clones.append(parent_clone)
+            self._parent_last = True
 
         if self._clones:
-            self._result_index = self._insert_index
+            # For containers, select the parent (last in the block). Otherwise,
+            # first clone.
+            self._result_index = (
+                self._insert_index + len(self._clones) - 1
+                if parent_clone
+                else self._insert_index
+            )
 
     def execute(self) -> None:
         if not self._clones or self._insert_index is None:
