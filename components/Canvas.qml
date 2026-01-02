@@ -83,9 +83,9 @@ Item {
                 root.currentCursorShape = shape;
             }
 
-            onObjectClicked: (viewportX, viewportY) => {
+            onObjectClicked: (viewportX, viewportY, modifiers) => {
                 var canvasCoords = root.viewportToCanvas(viewportX, viewportY);
-                root.selectItemAt(canvasCoords.x, canvasCoords.y);
+                root.selectItemAt(canvasCoords.x, canvasCoords.y, !!(modifiers & Qt.ShiftModifier));
             }
 
             onObjectDragged: (viewportDx, viewportDy) => {
@@ -143,16 +143,16 @@ Item {
     }
 
     // Public event handlers called from Viewport MouseArea
-    function handleMousePress(viewportX, viewportY, button) {
+    function handleMousePress(viewportX, viewportY, button, modifiers) {
         // Delegate to active tool (SelectTool uses viewport coords)
         if (root.drawingMode === "") {
-            selectTool.handlePress(viewportX, viewportY, button);
+            selectTool.handlePress(viewportX, viewportY, button, modifiers);
         }
     }
 
-    function handleMouseRelease(viewportX, viewportY, button) {
+    function handleMouseRelease(viewportX, viewportY, button, modifiers) {
         if (root.drawingMode === "") {
-            selectTool.handleRelease(viewportX, viewportY, button);
+            selectTool.handleRelease(viewportX, viewportY, button, modifiers);
         }
     }
 
@@ -189,7 +189,9 @@ Item {
 
         // Select the newly created item (it's at the end of the list)
         var newIndex = canvasModel.count() - 1;
-        hitTestHelper.applySelection(DV.SelectionManager, canvasModel, newIndex);
+        DV.SelectionManager.selectedIndices = [newIndex];
+        DV.SelectionManager.selectedItemIndex = newIndex;
+        DV.SelectionManager.selectedItem = canvasModel.getItemData(newIndex);
         refreshSelectionOverlayBounds();
     }
 
@@ -227,63 +229,110 @@ Item {
     }
 
     // Select item at canvas coordinates
-    function selectItemAt(canvasX, canvasY) {
+    function selectItemAt(canvasX, canvasY, multiSelect) {
         var hitIndex = hitTest(canvasX, canvasY);
-        hitTestHelper.applySelection(DV.SelectionManager, canvasModel, hitIndex);
+        updateSelection(hitIndex, multiSelect === true);
         refreshSelectionOverlayBounds();
     }
 
     function selectionBounds() {
-        if (DV.SelectionManager.selectedItemIndex < 0)
+        var indices = DV.SelectionManager.selectedIndices;
+        if (!indices || indices.length === 0)
             return null;
-        var item = DV.SelectionManager.selectedItem;
-        if (!item)
-            return null;
-        if (item.type === "rectangle") {
-            return {
-                x: item.x,
-                y: item.y,
-                width: item.width,
-                height: item.height
-            };
-        } else if (item.type === "ellipse") {
-            return {
-                x: item.centerX - item.radiusX,
-                y: item.centerY - item.radiusY,
-                width: item.radiusX * 2,
-                height: item.radiusY * 2
-            };
-        } else if (item.type === "group" || item.type === "layer") {
-            return canvasModel.getBoundingBox(DV.SelectionManager.selectedItemIndex);
+        var bounds = null;
+        for (var i = 0; i < indices.length; i++) {
+            var b = canvasModel.getBoundingBox(indices[i]);
+            if (!b)
+                continue;
+            if (!bounds) {
+                bounds = b;
+            } else {
+                var minX = Math.min(bounds.x, b.x);
+                var minY = Math.min(bounds.y, b.y);
+                var maxX = Math.max(bounds.x + bounds.width, b.x + b.width);
+                var maxY = Math.max(bounds.y + bounds.height, b.y + b.height);
+                bounds = {
+                    x: minX,
+                    y: minY,
+                    width: maxX - minX,
+                    height: maxY - minY
+                };
+            }
         }
-        return null;
+        return bounds;
+    }
+
+    function updateSelection(hitIndex, multiSelect) {
+        var current = DV.SelectionManager.selectedIndices || [];
+        if (hitIndex < 0) {
+            if (!multiSelect) {
+                DV.SelectionManager.selectedIndices = [];
+                DV.SelectionManager.selectedItemIndex = -1;
+                DV.SelectionManager.selectedItem = null;
+            }
+            return;
+        }
+        var next = current.slice();
+        if (multiSelect) {
+            var pos = next.indexOf(hitIndex);
+            if (pos >= 0) {
+                next.splice(pos, 1);
+            } else {
+                next.push(hitIndex);
+            }
+        } else {
+            next = [hitIndex];
+        }
+        DV.SelectionManager.selectedIndices = next;
+        var primary = next.length > 0 ? next[next.length - 1] : -1;
+        DV.SelectionManager.selectedItemIndex = primary;
+        DV.SelectionManager.selectedItem = primary >= 0 ? canvasModel.getItemData(primary) : null;
     }
 
     function updateSelectedItemPosition(canvasDx, canvasDy) {
-        var index = DV.SelectionManager.selectedItemIndex;
-        if (index < 0)
+        var indices = DV.SelectionManager.selectedIndices || [];
+        if (indices.length === 0)
             return;
 
-        var item = DV.SelectionManager.selectedItem;
-        if (!item)
-            return;
-        if (canvasModel.isEffectivelyLocked(index))
-            return;
-
-        if (item.type === "rectangle") {
-            canvasModel.updateItem(index, {
-                x: item.x + canvasDx,
-                y: item.y + canvasDy
-            });
-        } else if (item.type === "ellipse") {
-            canvasModel.updateItem(index, {
-                centerX: item.centerX + canvasDx,
-                centerY: item.centerY + canvasDy
-            });
-        } else if (item.type === "group" || item.type === "layer") {
-            canvasModel.moveGroup(index, canvasDx, canvasDy);
-            refreshSelectionOverlayBounds();
+        var containerIds = {};
+        for (var i = 0; i < indices.length; i++) {
+            var d = canvasModel.getItemData(indices[i]);
+            if (d && (d.type === "group" || d.type === "layer") && d.id) {
+                containerIds[d.id] = true;
+            }
         }
+
+        var movedContainers = {};
+        for (var j = 0; j < indices.length; j++) {
+            var idx = indices[j];
+            var data = canvasModel.getItemData(idx);
+            if (!data)
+                continue;
+            if (canvasModel.isEffectivelyLocked(idx))
+                continue;
+
+            if (data.type === "group" || data.type === "layer") {
+                if (movedContainers[data.id])
+                    continue;
+                movedContainers[data.id] = true;
+                canvasModel.moveGroup(idx, canvasDx, canvasDy);
+            } else if (data.type === "rectangle") {
+                if (data.parentId && containerIds[data.parentId])
+                    continue;
+                canvasModel.updateItem(idx, {
+                    x: data.x + canvasDx,
+                    y: data.y + canvasDy
+                });
+            } else if (data.type === "ellipse") {
+                if (data.parentId && containerIds[data.parentId])
+                    continue;
+                canvasModel.updateItem(idx, {
+                    centerX: data.centerX + canvasDx,
+                    centerY: data.centerY + canvasDy
+                });
+            }
+        }
+        refreshSelectionOverlayBounds();
     }
 
     function refreshSelectionOverlayBounds() {
@@ -298,17 +347,30 @@ Item {
         function onSelectedItemIndexChanged() {
             refreshSelectionOverlayBounds();
         }
+        function onSelectedIndicesChanged() {
+            refreshSelectionOverlayBounds();
+        }
     }
 
     function deleteSelectedItem() {
-        if (DV.SelectionManager.selectedItemIndex >= 0) {
-            var index = DV.SelectionManager.selectedItemIndex;
-            if (canvasModel.isEffectivelyLocked(index))
-                return;
-            DV.SelectionManager.selectedItemIndex = -1;
-            DV.SelectionManager.selectedItem = null;
-            canvasModel.removeItem(index);
+        var indices = DV.SelectionManager.selectedIndices || [];
+        if (indices.length === 0 && DV.SelectionManager.selectedItemIndex >= 0) {
+            indices = [DV.SelectionManager.selectedItemIndex];
         }
+        if (indices.length === 0)
+            return;
+        indices.sort(function (a, b) {
+            return b - a;
+        });
+        for (var i = 0; i < indices.length; i++) {
+            var idx = indices[i];
+            if (canvasModel.isEffectivelyLocked(idx))
+                continue;
+            canvasModel.removeItem(idx);
+        }
+        DV.SelectionManager.selectedIndices = [];
+        DV.SelectionManager.selectedItemIndex = -1;
+        DV.SelectionManager.selectedItem = null;
     }
 
     // Cancel the current drawing tool operation

@@ -37,29 +37,53 @@ MenuBar {
         Action {
             text: qsTr("&Group Selection (Ctrl+G)")
             shortcut: "Ctrl+G"
-            enabled: canvasModel && DV.SelectionManager.selectedItemIndex >= 0
+            enabled: canvasModel && ((DV.SelectionManager.selectedIndices && DV.SelectionManager.selectedIndices.length > 0) || DV.SelectionManager.selectedItemIndex >= 0)
             onTriggered: {
                 if (!canvasModel)
                     return;
-                const idx = DV.SelectionManager.selectedItemIndex;
-                if (idx < 0)
+                let indices = [];
+                if (DV.SelectionManager.selectedIndices && DV.SelectionManager.selectedIndices.length > 0) {
+                    indices = DV.SelectionManager.selectedIndices.slice();
+                } else if (DV.SelectionManager.selectedItemIndex >= 0) {
+                    indices = [DV.SelectionManager.selectedItemIndex];
+                }
+                if (indices.length === 0)
                     return;
-                const itemData = canvasModel.getItemData(idx);
-                if (!itemData)
+                indices.sort(function (a, b) {
+                    return a - b;
+                });
+                const first = indices[0];
+                const firstData = canvasModel.getItemData(first);
+                if (!firstData)
                     return;
-                const parentId = itemData.parentId ? itemData.parentId : "";
+                const parentId = firstData.parentId ? firstData.parentId : "";
                 canvasModel.addItem({
                     "type": "group",
                     "parentId": parentId
                 });
                 const groupIndex = canvasModel.count() - 1;
-                canvasModel.moveItem(groupIndex, idx);
-                const groupData = canvasModel.getItemData(idx);
+                const insertAt = first;
+                canvasModel.moveItem(groupIndex, insertAt);
+                const groupData = canvasModel.getItemData(insertAt);
                 const groupId = groupData ? groupData.id : null;
                 if (groupId !== null) {
-                    canvasModel.reparentItem(idx + 1, groupId);
-                    DV.SelectionManager.selectedItemIndex = idx;
-                    DV.SelectionManager.selectedItem = canvasModel.getItemData(idx);
+                    for (let k = 0; k < indices.length; k++) {
+                        const orig = indices[k];
+                        const currentIndex = orig >= insertAt ? orig + 1 : orig;
+                        canvasModel.reparentItem(currentIndex, groupId);
+                    }
+                    // Find the group index in case reparenting changed positions
+                    let finalGroupIndex = insertAt;
+                    for (let i = 0; i < canvasModel.count(); i++) {
+                        const data = canvasModel.getItemData(i);
+                        if (data && data.type === "group" && data.id === groupId) {
+                            finalGroupIndex = i;
+                            break;
+                        }
+                    }
+                    DV.SelectionManager.selectedIndices = [finalGroupIndex];
+                    DV.SelectionManager.selectedItemIndex = finalGroupIndex;
+                    DV.SelectionManager.selectedItem = canvasModel.getItemData(finalGroupIndex);
                 }
             }
         }

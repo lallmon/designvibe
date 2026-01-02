@@ -21,6 +21,25 @@ Item {
     property int dropInsertIndex: -1
     property real lastDragYInFlick: 0
 
+    function setSelectionFromDelegate(modelIndex, multi) {
+        var current = DV.SelectionManager.selectedIndices || [];
+        var next = current.slice();
+        if (multi) {
+            var pos = next.indexOf(modelIndex);
+            if (pos >= 0) {
+                next.splice(pos, 1);
+            } else {
+                next.push(modelIndex);
+            }
+        } else {
+            next = [modelIndex];
+        }
+        DV.SelectionManager.selectedIndices = next;
+        var primary = next.length > 0 ? next[next.length - 1] : -1;
+        DV.SelectionManager.selectedItemIndex = primary;
+        DV.SelectionManager.selectedItem = primary >= 0 ? canvasModel.getItemData(primary) : null;
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -89,6 +108,7 @@ Item {
                                 "type": "group"
                             });
                             const idx = canvasModel.count() - 1;
+                            DV.SelectionManager.selectedIndices = [idx];
                             DV.SelectionManager.selectedItemIndex = idx;
                             DV.SelectionManager.selectedItem = canvasModel.getItemData(idx);
                         }
@@ -184,7 +204,7 @@ Item {
                             property int modelIndex: index
                             // Visual order is reversed so top of the list is highest Z.
                             property int displayIndex: layerRepeater.count - 1 - modelIndex
-                            property bool isSelected: modelIndex === DV.SelectionManager.selectedItemIndex
+                            property bool isSelected: DV.SelectionManager.selectedIndices && DV.SelectionManager.selectedIndices.indexOf(modelIndex) !== -1
                             property bool isBeingDragged: root.draggedIndex === modelIndex
                             property real dragOffsetY: 0
                             property bool hasParent: !!parentId
@@ -456,13 +476,11 @@ Item {
                                             acceptedButtons: Qt.LeftButton
                                             preventStealing: true
                                             cursorShape: Qt.IBeamCursor
-                                            onClicked: {
-                                                DV.SelectionManager.selectedItemIndex = delegateRoot.modelIndex;
-                                                DV.SelectionManager.selectedItem = canvasModel.getItemData(delegateRoot.modelIndex);
+                                            onClicked: function (mouse) {
+                                                root.setSelectionFromDelegate(delegateRoot.modelIndex, mouse.modifiers & Qt.ShiftModifier);
                                             }
-                                            onDoubleClicked: {
-                                                DV.SelectionManager.selectedItemIndex = delegateRoot.modelIndex;
-                                                DV.SelectionManager.selectedItem = canvasModel.getItemData(delegateRoot.modelIndex);
+                                            onDoubleClicked: function (mouse) {
+                                                root.setSelectionFromDelegate(delegateRoot.modelIndex, mouse.modifiers & Qt.ShiftModifier);
                                                 nameEditor.startEditing();
                                             }
                                         }
@@ -586,6 +604,7 @@ Item {
                                             preventStealing: true
                                             onClicked: {
                                                 // Ensure selection reflects the target being deleted
+                                                DV.SelectionManager.selectedIndices = [delegateRoot.modelIndex];
                                                 DV.SelectionManager.selectedItemIndex = delegateRoot.modelIndex;
                                                 DV.SelectionManager.selectedItem = canvasModel.getItemData(delegateRoot.modelIndex);
                                                 canvasModel.removeItem(delegateRoot.modelIndex);
