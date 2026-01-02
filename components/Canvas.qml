@@ -239,8 +239,13 @@ Item {
 
     // Generic item completion handler
     function handleItemCompleted(itemData) {
-        // Add item to the model instead of local array
+        // Add item to the model
         canvasModel.addItem(itemData);
+
+        // Select the newly created item (it's at the end of the list)
+        var newIndex = canvasModel.count() - 1;
+        DV.SelectionManager.selectedItemIndex = newIndex;
+        DV.SelectionManager.selectedItem = canvasModel.getItemData(newIndex);
     }
 
     // Set the drawing mode
