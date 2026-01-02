@@ -3207,6 +3207,31 @@ class TestCanvasModelDuplicate:
         assert dup_b["name"] == "B Copy"
         assert dup_b["y"] == rect_b["y"] + DEFAULT_DUPLICATE_OFFSET
 
+    def test_duplicate_items_appends_to_end(self, canvas_model):
+        """Duplicates are appended so they render on top."""
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 0,
+                "y": 0,
+                "width": 10,
+                "height": 10,
+                "name": "A",
+            }
+        )
+        canvas_model.addItem(
+            {"type": "rectangle", "x": 1, "y": 1, "width": 5, "height": 5, "name": "B"}
+        )
+
+        new_indices = canvas_model.duplicateItems([0])
+
+        assert canvas_model.count() == 3
+        assert new_indices == [2]  # appended
+        names = [
+            canvas_model.getItemData(i)["name"] for i in range(canvas_model.count())
+        ]
+        assert names == ["A", "B", "A Copy"]
+
     def test_duplicate_items_skips_descendant_when_parent_selected(self, canvas_model):
         """Descendants should not duplicate twice when parent container is selected."""
         canvas_model.addItem({"type": "group", "name": "Group"})

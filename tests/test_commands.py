@@ -532,3 +532,17 @@ class TestDuplicateItemCommand:
         assert child_copy.parent_id == group_copy.id
         assert child_copy.x == child.x + DEFAULT_DUPLICATE_OFFSET
         assert child_copy.y == child.y + DEFAULT_DUPLICATE_OFFSET
+
+    def test_duplicate_appends_to_end(self, canvas_model):
+        """DuplicateItemCommand appends to end and reports inserted indices."""
+        canvas_model._items = [
+            RectangleItem(0, 0, 1, 1, name="A"),
+            RectangleItem(1, 1, 1, 1, name="B"),
+        ]
+        cmd = DuplicateItemCommand(canvas_model, 0)
+
+        cmd.execute()
+
+        assert cmd.inserted_indices == [2]
+        assert canvas_model.count() == 3
+        assert canvas_model.getItems()[2].name == "A Copy"
