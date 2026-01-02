@@ -132,6 +132,12 @@ Item {
             }
         }
 
+        Keys.onEscapePressed: {
+            if (canvasComponent) {
+                canvasComponent.cancelCurrentTool();
+            }
+        }
+
         onPressed: mouse => {
             forceActiveFocus();
             if (canvasComponent) {
@@ -153,7 +159,7 @@ Item {
 
         onPositionChanged: mouse => {
             if (canvasComponent) {
-                canvasComponent.handleMouseMove(mouse.x, mouse.y);
+                canvasComponent.handleMouseMove(mouse.x, mouse.y, mouse.modifiers);
             }
         }
     }

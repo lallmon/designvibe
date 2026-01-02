@@ -218,7 +218,7 @@ Item {
         }
     }
 
-    function handleMouseMove(viewportX, viewportY) {
+    function handleMouseMove(viewportX, viewportY, modifiers) {
         // Update cursor position in canvas coordinates
         var canvasCoords = viewportToCanvas(viewportX, viewportY);
         root.cursorX = canvasCoords.x;
@@ -233,14 +233,19 @@ Item {
         if (root.drawingMode === "") {
             selectTool.handleMouseMove(viewportX, viewportY);
         } else if (currentToolLoader.item) {
-            currentToolLoader.item.handleMouseMove(canvasCoords.x, canvasCoords.y);
+            currentToolLoader.item.handleMouseMove(canvasCoords.x, canvasCoords.y, modifiers);
         }
     }
 
     // Generic item completion handler
     function handleItemCompleted(itemData) {
-        // Add item to the model instead of local array
+        // Add item to the model
         canvasModel.addItem(itemData);
+
+        // Select the newly created item (it's at the end of the list)
+        var newIndex = canvasModel.count() - 1;
+        DV.SelectionManager.selectedItemIndex = newIndex;
+        DV.SelectionManager.selectedItem = canvasModel.getItemData(newIndex);
     }
 
     // Set the drawing mode
@@ -332,6 +337,13 @@ Item {
             DV.SelectionManager.selectedItemIndex = -1;
             DV.SelectionManager.selectedItem = null;
             canvasModel.removeItem(index);
+        }
+    }
+
+    // Cancel the current drawing tool operation
+    function cancelCurrentTool() {
+        if (currentToolLoader.item) {
+            currentToolLoader.item.reset();
         }
     }
 }
