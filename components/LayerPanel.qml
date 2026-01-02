@@ -15,7 +15,7 @@ Item {
 
     property int draggedIndex: -1
     property string draggedItemType: ""
-    property string dropTargetLayerId: ""
+    property string dropTargetContainerId: ""
     property var draggedItemParentId: null
     property var dropTargetParentId: null
     property int dropInsertIndex: -1
@@ -37,27 +37,57 @@ Item {
                 Layout.fillWidth: true
             }
 
-            Rectangle {
-                id: addLayerButton
-                Layout.preferredWidth: 24
-                Layout.preferredHeight: 24
-                radius: DV.Theme.sizes.radiusSm
-                color: addLayerHover.hovered ? DV.Theme.colors.panelHover : "transparent"
+            RowLayout {
+                spacing: 4
 
-                DV.PhIcon {
-                    anchors.centerIn: parent
-                    name: "stack-plus"
-                    size: 18
-                    color: DV.Theme.colors.textSubtle
+                Rectangle {
+                    id: addLayerButton
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
+                    radius: DV.Theme.sizes.radiusSm
+                    color: addLayerHover.hovered ? DV.Theme.colors.panelHover : "transparent"
+
+                    DV.PhIcon {
+                        anchors.centerIn: parent
+                        name: "stack-plus"
+                        size: 18
+                        color: DV.Theme.colors.textSubtle
+                    }
+
+                    HoverHandler {
+                        id: addLayerHover
+                        cursorShape: Qt.PointingHandCursor
+                    }
+
+                    TapHandler {
+                        onTapped: canvasModel.addLayer()
+                    }
                 }
 
-                HoverHandler {
-                    id: addLayerHover
-                    cursorShape: Qt.PointingHandCursor
-                }
+                Rectangle {
+                    id: addGroupButton
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
+                    radius: DV.Theme.sizes.radiusSm
+                    color: addGroupHover.hovered ? DV.Theme.colors.panelHover : "transparent"
 
-                TapHandler {
-                    onTapped: canvasModel.addLayer()
+                    DV.PhIcon {
+                        anchors.centerIn: parent
+                        name: "folder-simple-plus"
+                        size: 18
+                        color: DV.Theme.colors.textSubtle
+                    }
+
+                    HoverHandler {
+                        id: addGroupHover
+                        cursorShape: Qt.PointingHandCursor
+                    }
+
+                    TapHandler {
+                        onTapped: canvasModel.addItem({
+                            "type": "group"
+                        })
+                    }
                 }
             }
         }
@@ -154,13 +184,15 @@ Item {
                             property real dragOffsetY: 0
                             property bool hasParent: !!parentId
                             property bool isLayer: itemType === "layer"
+                            property bool isGroup: itemType === "group"
+                            property bool isContainer: isLayer || isGroup
 
                             transform: Translate {
                                 y: delegateRoot.dragOffsetY
                             }
                             z: isBeingDragged ? 100 : 0
 
-                            property bool isDropTarget: delegateRoot.isLayer && root.draggedIndex >= 0 && root.draggedItemType !== "layer" && root.dropTargetLayerId === delegateRoot.itemId
+                            property bool isDropTarget: delegateRoot.isContainer && root.draggedIndex >= 0 && root.draggedItemType !== "layer" && root.dropTargetContainerId === delegateRoot.itemId
 
                             Rectangle {
                                 id: background
@@ -197,6 +229,8 @@ Item {
                                             name: {
                                                 if (delegateRoot.itemType === "layer")
                                                     return "stack";
+                                                if (delegateRoot.itemType === "group")
+                                                    return "folder-simple";
                                                 if (delegateRoot.itemType === "rectangle")
                                                     return "rectangle";
                                                 if (delegateRoot.itemType === "ellipse")
@@ -235,19 +269,17 @@ Item {
                                                             let targetModelIndex = root.modelIndexForDisplay(targetDisplayIndex);
 
                                                             // Determine the action based on drag context
-                                                            if (root.dropTargetLayerId !== "" && root.draggedItemType !== "layer") {
-                                                                // Check if dropping onto the SAME parent layer (sibling reorder, not reparent)
-                                                                if (root.dropTargetLayerId === root.draggedItemParentId) {
-                                                                    // Same parent - just reorder within the layer
+                                                            if (root.dropTargetContainerId !== "" && root.draggedItemType !== "layer") {
+                                                                // Check if dropping onto the SAME parent (sibling reorder, not reparent)
+                                                                if (root.dropTargetContainerId === root.draggedItemParentId) {
+                                                                    // Same parent - just reorder within the container
                                                                     if (targetModelIndex !== root.draggedIndex) {
                                                                         canvasModel.moveItem(root.draggedIndex, targetModelIndex);
                                                                     }
                                                                 } else {
-                                                                    // Different layer - reparent to that layer
-                                                                    // Insert directly below the layer by default, or at the drop gap if provided
-                                                                    let layerIndex = canvasModel.getLayerIndex(root.dropTargetLayerId);
-                                                                    let insertModelIndex = (root.dropInsertIndex >= 0) ? targetModelIndex : layerIndex;
-                                                                    canvasModel.reparentItem(root.draggedIndex, root.dropTargetLayerId, insertModelIndex);
+                                                                    // Different container - reparent to that container
+                                                                    let insertModelIndex = targetModelIndex;
+                                                                    canvasModel.reparentItem(root.draggedIndex, root.dropTargetContainerId, insertModelIndex);
                                                                 }
                                                             } else if (root.dropTargetParentId && root.draggedItemType !== "layer") {
                                                                 // Dropping onto a gap between children of a layer
@@ -265,7 +297,7 @@ Item {
                                                                 if (targetModelIndex !== root.draggedIndex) {
                                                                     canvasModel.moveItem(root.draggedIndex, targetModelIndex);
                                                                 }
-                                                            } else if (root.draggedItemParentId && !root.dropTargetParentId && root.dropTargetLayerId === "") {
+                                                            } else if (root.draggedItemParentId && !root.dropTargetParentId && root.dropTargetContainerId === "") {
                                                                 // Dropping a child onto a top-level item - unparent
                                                                 canvasModel.reparentItem(root.draggedIndex, "", targetModelIndex);
                                                             } else {
@@ -278,7 +310,7 @@ Item {
                                                         delegateRoot.dragOffsetY = 0;
                                                         root.draggedIndex = -1;
                                                         root.draggedItemType = "";
-                                                        root.dropTargetLayerId = "";
+                                                        root.dropTargetContainerId = "";
                                                         root.draggedItemParentId = null;
                                                         root.dropTargetParentId = null;
                                                         root.dropInsertIndex = -1;
@@ -292,7 +324,8 @@ Item {
                                                     if (typeof root !== 'undefined' && root) {
                                                         root.draggedIndex = -1;
                                                         root.draggedItemType = "";
-                                                        root.dropTargetLayerId = "";
+                                                        root.dropTargetContainerId = "";
+                                                        root.dropTargetContainerId = "";
                                                         root.draggedItemParentId = null;
                                                         root.dropTargetParentId = null;
                                                         root.dropInsertIndex = -1;
@@ -337,14 +370,14 @@ Item {
 
                                                 const targetModelIndex = root.modelIndexForDisplay(targetDisplayIndex);
                                                 const targetItem = layerRepeater.itemAt(targetModelIndex);
-                                                if (targetItem && targetItem.isLayer && root.draggedItemType !== "layer" && isLayerParentingZone) {
-                                                    // Center of a layer - show as drop target for parenting
-                                                    root.dropTargetLayerId = targetItem.itemId;
+                                                if (targetItem && targetItem.isContainer && root.draggedItemType !== "layer" && isLayerParentingZone) {
+                                                    // Center of a container - show as drop target for parenting
+                                                    root.dropTargetContainerId = targetItem.itemId;
                                                     root.dropTargetParentId = null;
                                                     root.dropInsertIndex = -1;
                                                 } else {
                                                     // Edge zone - show insertion indicator
-                                                    root.dropTargetLayerId = "";
+                                                    root.dropTargetContainerId = "";
                                                     root.dropTargetParentId = targetItem ? targetItem.parentId : null;
                                                     // Insert indicator shows on the item below the insertion gap
                                                     if (fractionalPart >= 0.5) {

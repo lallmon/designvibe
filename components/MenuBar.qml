@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import "." as DV
 
 // Main menu bar component
 MenuBar {
@@ -32,6 +33,69 @@ MenuBar {
             enabled: canvasModel ? canvasModel.canRedo : false
             onTriggered: if (canvasModel)
                 canvasModel.redo()
+        }
+        Action {
+            text: qsTr("&Group Selection (Ctrl+G)")
+            shortcut: "Ctrl+G"
+            enabled: canvasModel && DV.SelectionManager.selectedItemIndex >= 0
+            onTriggered: {
+                if (!canvasModel)
+                    return;
+                const idx = DV.SelectionManager.selectedItemIndex;
+                if (idx < 0)
+                    return;
+                const itemData = canvasModel.getItemData(idx);
+                if (!itemData)
+                    return;
+                const parentId = itemData.parentId ? itemData.parentId : "";
+                canvasModel.addItem({
+                    "type": "group",
+                    "parentId": parentId
+                });
+                const groupIndex = canvasModel.count() - 1;
+                canvasModel.moveItem(groupIndex, idx);
+                const groupData = canvasModel.getItemData(idx);
+                const groupId = groupData ? groupData.id : null;
+                if (groupId !== null) {
+                    canvasModel.reparentItem(idx + 1, groupId);
+                    DV.SelectionManager.selectedItemIndex = idx;
+                    DV.SelectionManager.selectedItem = canvasModel.getItemData(idx);
+                }
+            }
+        }
+        Action {
+            text: qsTr("&Ungroup (Ctrl+Shift+G)")
+            shortcut: "Ctrl+Shift+G"
+            enabled: canvasModel && DV.SelectionManager.selectedItem && DV.SelectionManager.selectedItem.type === "group"
+            onTriggered: {
+                if (!canvasModel)
+                    return;
+                const groupIndex = DV.SelectionManager.selectedItemIndex;
+                if (groupIndex < 0)
+                    return;
+                const groupData = canvasModel.getItemData(groupIndex);
+                if (!groupData || groupData.type !== "group")
+                    return;
+                const groupId = groupData.id;
+                const parentId = groupData.parentId ? groupData.parentId : "";
+
+                // Reparent direct children to the group's parent
+                const childIndices = [];
+                for (let i = 0; i < canvasModel.count(); i++) {
+                    const data = canvasModel.getItemData(i);
+                    if (data && data.parentId === groupId) {
+                        childIndices.push(i);
+                    }
+                }
+                for (let j = 0; j < childIndices.length; j++) {
+                    const childIdx = childIndices[j];
+                    canvasModel.reparentItem(childIdx, parentId);
+                }
+
+                canvasModel.removeItem(groupIndex);
+                DV.SelectionManager.selectedItemIndex = -1;
+                DV.SelectionManager.selectedItem = null;
+            }
         }
     }
 

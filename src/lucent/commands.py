@@ -7,7 +7,11 @@ from PySide6.QtCore import QModelIndex
 if TYPE_CHECKING:
     from lucent.canvas_model import CanvasModel
 
-from lucent.canvas_items import CanvasItem, RectangleItem, EllipseItem, LayerItem
+from lucent.canvas_items import (
+    CanvasItem,
+    LayerItem,
+    GroupItem,
+)
 from lucent.item_schema import (
     parse_item,
     parse_item_data,
@@ -91,19 +95,14 @@ class RemoveItemCommand(Command):
             item = self._model._items[self._index]
             self._item_data = self._model._itemToDict(item)
 
-            # If removing a layer, also remove its children
-            if isinstance(item, LayerItem):
-                layer_id = item.id
+            # If removing a container, also remove its descendants
+            if isinstance(item, (LayerItem, GroupItem)):
+                container_id = item.id
                 self._removed_children = []
-                # Collect child indices descending to remove safely
-                child_indices = [
-                    i
-                    for i, child in enumerate(self._model._items)
-                    if isinstance(child, (RectangleItem, EllipseItem))
-                    and child.parent_id == layer_id
-                ]
-                child_indices.sort(reverse=True)
-                for child_index in child_indices:
+                # Collect descendant indices (any depth) sorted descending
+                descendant_indices = self._model._get_descendant_indices(container_id)
+                descendant_indices.sort(reverse=True)
+                for child_index in descendant_indices:
                     child = self._model._items[child_index]
                     self._removed_children.append(
                         (child_index, self._model._itemToDict(child))
@@ -112,7 +111,7 @@ class RemoveItemCommand(Command):
                     del self._model._items[child_index]
                     self._model.endRemoveRows()
                     # Do not emit itemRemoved for children; primary removal will
-                    # emit once for the layer
+                    # emit once for the container
 
             self._model.beginRemoveRows(QModelIndex(), self._index, self._index)
             del self._model._items[self._index]
