@@ -18,6 +18,7 @@ from lucent.canvas_items import (
     EllipseItem,
     LayerItem,
     GroupItem,
+    PathItem,
 )
 from lucent.commands import (
     Command,
@@ -98,6 +99,8 @@ class CanvasModel(QAbstractListModel):
                 return "rectangle"
             elif isinstance(item, EllipseItem):
                 return "ellipse"
+            elif isinstance(item, PathItem):
+                return "path"
             elif isinstance(item, LayerItem):
                 return "layer"
             elif isinstance(item, GroupItem):
@@ -326,6 +329,7 @@ class CanvasModel(QAbstractListModel):
             ItemType.ELLIPSE.value,
             ItemType.LAYER.value,
             ItemType.GROUP.value,
+            ItemType.PATH.value,
         ):
             print(f"Warning: Unknown item type '{item_type}'")
             return
@@ -762,6 +766,16 @@ class CanvasModel(QAbstractListModel):
                 item.radius_x * 2,
                 item.radius_y * 2,
             )
+        if isinstance(item, PathItem):
+            if not item.points:
+                return None
+            xs = [p["x"] for p in item.points]
+            ys = [p["y"] for p in item.points]
+            min_x = min(xs)
+            max_x = max(xs)
+            min_y = min(ys)
+            max_y = max(ys)
+            return rect_bounds(min_x, min_y, max_x - min_x, max_y - min_y)
 
         # For containers (layer/group), compute union of all descendant shapes
         if isinstance(item, (LayerItem, GroupItem)):
@@ -798,14 +812,20 @@ class CanvasModel(QAbstractListModel):
         rendered, so they are skipped but the relative order of shapes is
         preserved exactly as in the model.
         """
-        from lucent.canvas_items import RectangleItem, EllipseItem, LayerItem, GroupItem
+        from lucent.canvas_items import (
+            RectangleItem,
+            EllipseItem,
+            LayerItem,
+            GroupItem,
+            PathItem,
+        )
 
         ordered: List[CanvasItem] = []
         for idx, item in enumerate(self._items):
             # Skip non-rendering containers but keep model ordering of shapes
             if isinstance(item, (LayerItem, GroupItem)):
                 continue
-            if isinstance(item, (RectangleItem, EllipseItem)):
+            if isinstance(item, (RectangleItem, EllipseItem, PathItem)):
                 if not self._is_effectively_visible(idx):
                     continue
                 ordered.append(item)

@@ -2,7 +2,13 @@
 
 import pytest
 
-from lucent.canvas_items import RectangleItem, EllipseItem, LayerItem, CanvasItem
+from lucent.canvas_items import (
+    RectangleItem,
+    EllipseItem,
+    LayerItem,
+    CanvasItem,
+    PathItem,
+)
 from lucent.item_schema import (
     ItemSchemaError,
     ItemType,
@@ -11,6 +17,7 @@ from lucent.item_schema import (
     validate_rectangle,
     validate_ellipse,
     validate_layer,
+    validate_path,
     item_to_dict,
 )
 
@@ -23,6 +30,32 @@ def test_parse_item_data_rejects_missing_type():
 def test_parse_item_data_rejects_unknown_type():
     with pytest.raises(ItemSchemaError):
         parse_item_data({"type": "triangle"})
+
+
+def test_validate_path_clamps_and_defaults():
+    data = {
+        "type": "path",
+        "points": [{"x": 1, "y": 2}, {"x": -3, "y": 4}],
+        "strokeWidth": -1,
+        "strokeOpacity": 2,
+        "closed": True,
+        "strokeColor": "#123456",
+        "fillColor": "#abcdef",
+        "fillOpacity": 0.8,
+    }
+    out = validate_path(data)
+    assert out["points"] == [{"x": 1.0, "y": 2.0}, {"x": -3.0, "y": 4.0}]
+    assert out["strokeWidth"] == 0.1
+    assert out["strokeOpacity"] == 1.0
+    assert out["fillOpacity"] == 0.8
+    assert out["closed"] is True
+    assert out["strokeColor"] == "#123456"
+    assert out["fillColor"] == "#abcdef"
+
+
+def test_validate_path_requires_two_points():
+    with pytest.raises(ItemSchemaError):
+        validate_path({"type": "path", "points": [{"x": 0, "y": 0}]})
 
 
 def test_validate_rectangle_clamps_and_defaults():
@@ -94,6 +127,15 @@ def test_parse_item_returns_concrete_items():
     assert isinstance(ell, EllipseItem)
     layer = parse_item({"type": "layer"})
     assert isinstance(layer, LayerItem)
+    path = parse_item(
+        {
+            "type": "path",
+            "points": [{"x": 0, "y": 0}, {"x": 5, "y": 0}],
+            "strokeWidth": 1,
+        }
+    )
+    assert isinstance(path, PathItem)
+    assert path.closed is False
 
 
 def test_item_to_dict_round_trips_rectangle():
@@ -121,6 +163,26 @@ def test_item_to_dict_round_trips_layer():
     assert out["type"] == ItemType.LAYER.value
     assert out["name"] == "L"
     assert out["id"] == "lid"
+
+
+def test_item_to_dict_round_trips_path():
+    path = PathItem(
+        points=[{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}],
+        stroke_width=2,
+        stroke_color="#00ff00",
+        stroke_opacity=0.5,
+        closed=True,
+        name="P1",
+        parent_id="layer-1",
+    )
+    out = item_to_dict(path)
+    assert out["type"] == ItemType.PATH.value
+    assert out["name"] == "P1"
+    assert out["parentId"] == "layer-1"
+    assert out["strokeWidth"] == 2
+    assert out["strokeOpacity"] == 0.5
+    assert out["closed"] is True
+    assert out["points"][0] == {"x": 0.0, "y": 0.0}
 
 
 def test_parse_item_invalid_ellipse_raises():

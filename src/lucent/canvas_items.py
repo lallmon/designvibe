@@ -11,10 +11,10 @@ All items use QPainter for rendering and support stroke/fill styling.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import uuid
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QPainterPath
+from PySide6.QtCore import QRectF, Qt, QPointF
 
 # Canvas coordinate system defaults.
 # Renderers typically pass dynamic offsets (width/2, height/2) so these serve
@@ -249,6 +249,106 @@ class EllipseItem(CanvasItem):
             fill_color=data.get("fillColor", "#ffffff"),
             fill_opacity=fill_opacity,
             stroke_opacity=stroke_opacity,
+            name=data.get("name", ""),
+            parent_id=data.get("parentId"),
+            visible=data.get("visible", True),
+            locked=data.get("locked", False),
+        )
+
+
+class PathItem(CanvasItem):
+    """Polyline/path canvas item rendered as stroke with optional fill."""
+
+    def __init__(
+        self,
+        points: List[Dict[str, float]],
+        stroke_width: float = 1,
+        stroke_color: str = "#ffffff",
+        stroke_opacity: float = 1.0,
+        fill_color: str = "#ffffff",
+        fill_opacity: float = 0.0,
+        closed: bool = False,
+        name: str = "",
+        parent_id: Optional[str] = None,
+        visible: bool = True,
+        locked: bool = False,
+    ) -> None:
+        if len(points) < 2:
+            raise ValueError("PathItem requires at least two points")
+        self.name = name
+        self.parent_id = parent_id
+        self.visible = bool(visible)
+        self.locked = bool(locked)
+
+        # Normalize points to float tuples
+        normalized: List[Dict[str, float]] = []
+        for p in points:
+            normalized.append({"x": float(p.get("x", 0)), "y": float(p.get("y", 0))})
+        self.points = normalized
+        self.closed = bool(closed)
+
+        # Validate stroke values
+        self.stroke_width = max(0.1, min(100.0, stroke_width))
+        self.stroke_color = stroke_color
+        self.stroke_opacity = max(0.0, min(1.0, stroke_opacity))
+
+        # Optional fill (defaults to stroke-only)
+        self.fill_color = fill_color
+        self.fill_opacity = max(0.0, min(1.0, fill_opacity))
+
+    def paint(
+        self,
+        painter: QPainter,
+        zoom_level: float,
+        offset_x: float = CANVAS_OFFSET_X,
+        offset_y: float = CANVAS_OFFSET_Y,
+    ) -> None:
+        """Render the polyline/path."""
+        # Keep stroke width in world space, clamped similar to other shapes
+        stroke_px = self.stroke_width * zoom_level
+        clamped_px = max(0.3, min(6.0, stroke_px))
+        scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
+
+        stroke_qcolor = QColor(self.stroke_color)
+        stroke_qcolor.setAlphaF(self.stroke_opacity)
+        pen = QPen(stroke_qcolor)
+        pen.setWidthF(scaled_stroke_width)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+
+        fill_qcolor = QColor(self.fill_color)
+        fill_qcolor.setAlphaF(self.fill_opacity)
+        painter.setBrush(QBrush(fill_qcolor))
+
+        # Build path
+        if not self.points:
+            return
+        first = self.points[0]
+        path = QPainterPath(QPointF(first["x"] + offset_x, first["y"] + offset_y))
+        for p in self.points[1:]:
+            path.lineTo(p["x"] + offset_x, p["y"] + offset_y)
+        if self.closed:
+            path.closeSubpath()
+        painter.drawPath(path)
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "PathItem":
+        """Create PathItem from QML data dictionary."""
+        points = data.get("points") or []
+        if not isinstance(points, list):
+            raise ValueError("Path points must be a list")
+        stroke_width = max(0.1, min(100.0, float(data.get("strokeWidth", 1))))
+        stroke_opacity = max(0.0, min(1.0, float(data.get("strokeOpacity", 1.0))))
+        fill_opacity = max(0.0, min(1.0, float(data.get("fillOpacity", 0.0))))
+        return PathItem(
+            points=points,
+            stroke_width=stroke_width,
+            stroke_color=data.get("strokeColor", "#ffffff"),
+            stroke_opacity=stroke_opacity,
+            fill_color=data.get("fillColor", "#ffffff"),
+            fill_opacity=fill_opacity,
+            closed=bool(data.get("closed", False)),
             name=data.get("name", ""),
             parent_id=data.get("parentId"),
             visible=data.get("visible", True),

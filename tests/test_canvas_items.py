@@ -1,11 +1,13 @@
 """Unit tests for canvas_items module."""
 
+import pytest
 from PySide6.QtGui import QPainter
 from lucent.canvas_items import (
     CanvasItem,
     RectangleItem,
     EllipseItem,
     LayerItem,
+    PathItem,
     CANVAS_OFFSET_X,
     CANVAS_OFFSET_Y,
 )
@@ -331,6 +333,118 @@ class TestEllipseItem:
         ellipse = EllipseItem.from_dict(data)
         assert ellipse.stroke_opacity == 0.0
         assert ellipse.fill_opacity == 1.0
+
+
+class TestPathItem:
+    """Tests for PathItem class."""
+
+    def test_basic_creation_defaults(self):
+        """PathItem defaults to stroke-only and open path."""
+        path = PathItem(points=[{"x": 0, "y": 0}, {"x": 5, "y": 5}])
+        assert path.stroke_width == 1
+        assert path.stroke_color == "#ffffff"
+        assert path.stroke_opacity == 1.0
+        assert path.fill_opacity == 0.0
+        assert path.closed is False
+        assert path.points == [{"x": 0.0, "y": 0.0}, {"x": 5.0, "y": 5.0}]
+
+    def test_creation_with_closed_and_clamping(self):
+        """Closed path clamps stroke and opacity values."""
+        path = PathItem(
+            points=[{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}],
+            stroke_width=0.01,
+            stroke_opacity=2.0,
+            fill_opacity=1.5,
+            closed=True,
+            stroke_color="#00ff00",
+            fill_color="#112233",
+        )
+        assert path.stroke_width == 0.1
+        assert path.stroke_opacity == 1.0
+        assert path.closed is True
+        assert path.stroke_color == "#00ff00"
+        assert path.fill_opacity == 1.0
+        assert path.fill_color == "#112233"
+
+    def test_from_dict_preserves_points_and_closed(self):
+        """from_dict creates PathItem with provided points and closed flag."""
+        data = {
+            "type": "path",
+            "points": [{"x": 1, "y": 2}, {"x": 3, "y": 4}, {"x": 5, "y": 2}],
+            "strokeWidth": 2,
+            "strokeColor": "#ff00ff",
+            "strokeOpacity": 0.75,
+            "closed": True,
+            "name": "Polyline",
+            "fillColor": "#101010",
+            "fillOpacity": 0.4,
+        }
+        path = PathItem.from_dict(data)
+        assert path.points == [
+            {"x": 1.0, "y": 2.0},
+            {"x": 3.0, "y": 4.0},
+            {"x": 5.0, "y": 2.0},
+        ]
+        assert path.stroke_width == 2
+        assert path.stroke_color == "#ff00ff"
+        assert path.stroke_opacity == 0.75
+        assert path.closed is True
+        assert path.name == "Polyline"
+        assert path.fill_color == "#101010"
+        assert path.fill_opacity == 0.4
+
+    def test_paint_runs_with_fill(self, qtbot):
+        """Smoke test: paint path with fill does not crash."""
+        img = QImage(QSize(20, 20), QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+        path = PathItem(
+            points=[{"x": -5, "y": -5}, {"x": 5, "y": -5}, {"x": 0, "y": 5}],
+            stroke_width=1,
+            stroke_color="#ffffff",
+            stroke_opacity=1.0,
+            fill_color="#ff0000",
+            fill_opacity=0.5,
+            closed=True,
+        )
+        path.paint(painter, zoom_level=1.0)
+        painter.end()
+
+    def test_path_requires_two_points(self):
+        """Constructor should reject fewer than two points."""
+        with pytest.raises(ValueError):
+            PathItem(points=[{"x": 0, "y": 0}])
+
+    def test_path_from_dict_invalid_points_raises(self):
+        """from_dict should reject non-list points."""
+        with pytest.raises(ValueError):
+            PathItem.from_dict({"type": "path", "points": "bad"})
+
+    def test_paint_no_points_returns_early(self):
+        """Paint should no-op gracefully when no points exist."""
+        img = QImage(QSize(10, 10), QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+        path = PathItem(points=[{"x": 0, "y": 0}, {"x": 1, "y": 1}])
+        # empty points to trigger early return
+        path.points = []
+        path.paint(painter, zoom_level=1.0)
+        painter.end()
+
+    def test_paint_closed_without_fill(self, qtbot):
+        """Closed path with no fill still renders stroke."""
+        img = QImage(QSize(20, 20), QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+        path = PathItem(
+            points=[{"x": -2, "y": -2}, {"x": 2, "y": -2}, {"x": 0, "y": 2}],
+            stroke_width=2,
+            stroke_color="#00ffff",
+            stroke_opacity=1.0,
+            closed=True,
+        )
+        path.paint(painter, zoom_level=1.0)
+        painter.end()
 
 
 class TestCanvasCoordinates:

@@ -16,6 +16,13 @@ QtObject {
                 strokeColor: "#ffffff",
                 fillColor: "#ffffff",
                 fillOpacity: 0.0
+            },
+            "pen": {
+                strokeWidth: 1,
+                strokeColor: "#ffffff",
+                strokeOpacity: 1.0,
+                fillColor: "#ffffff",
+                fillOpacity: 0.0
             }
         })
 }
