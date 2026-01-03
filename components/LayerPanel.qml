@@ -538,7 +538,6 @@ Item {
                                             hoverEnabled: true
                                             acceptedButtons: Qt.LeftButton
                                             preventStealing: true
-                                            cursorShape: Qt.IBeamCursor
                                             onClicked: function (mouse) {
                                                 root.setSelectionFromDelegate(delegateRoot.modelIndex, mouse.modifiers & Qt.ShiftModifier);
                                             }
