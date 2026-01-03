@@ -118,6 +118,27 @@ class TestCanvasModelBasics:
         bbox = canvas_model.getBoundingBox(0)
         assert bbox == {"x": -2.0, "y": -1.0, "width": 6.0, "height": 6.0}
 
+    def test_render_items_include_path(self, canvas_model):
+        """Path items should be included in render order when visible."""
+        canvas_model.addItem(
+            {
+                "type": "path",
+                "points": [{"x": 0, "y": 0}, {"x": 10, "y": 0}],
+                "strokeWidth": 1,
+                "strokeOpacity": 1.0,
+            }
+        )
+        canvas_model.addItem(
+            {"type": "rectangle", "x": 0, "y": 0, "width": 1, "height": 1}
+        )
+        items = canvas_model.getRenderItems()
+        assert len(items) == 2
+        # Path should be first (model order), rectangle second
+        from lucent.canvas_items import PathItem, RectangleItem
+
+        assert isinstance(items[0], PathItem)
+        assert isinstance(items[1], RectangleItem)
+
     def test_add_unknown_item_type_ignored(self, canvas_model, qtbot):
         """Test that adding an unknown item type is safely ignored."""
         item_data = {"type": "triangle", "x": 0, "y": 0}

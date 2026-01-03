@@ -353,13 +353,17 @@ class TestPathItem:
             points=[{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}],
             stroke_width=0.01,
             stroke_opacity=2.0,
+            fill_opacity=1.5,
             closed=True,
             stroke_color="#00ff00",
+            fill_color="#112233",
         )
         assert path.stroke_width == 0.1
         assert path.stroke_opacity == 1.0
         assert path.closed is True
         assert path.stroke_color == "#00ff00"
+        assert path.fill_opacity == 1.0
+        assert path.fill_color == "#112233"
 
     def test_from_dict_preserves_points_and_closed(self):
         """from_dict creates PathItem with provided points and closed flag."""
@@ -371,6 +375,8 @@ class TestPathItem:
             "strokeOpacity": 0.75,
             "closed": True,
             "name": "Polyline",
+            "fillColor": "#101010",
+            "fillOpacity": 0.4,
         }
         path = PathItem.from_dict(data)
         assert path.points == [
@@ -383,6 +389,25 @@ class TestPathItem:
         assert path.stroke_opacity == 0.75
         assert path.closed is True
         assert path.name == "Polyline"
+        assert path.fill_color == "#101010"
+        assert path.fill_opacity == 0.4
+
+    def test_paint_runs_with_fill(self, qtbot):
+        """Smoke test: paint path with fill does not crash."""
+        img = QImage(QSize(20, 20), QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+        path = PathItem(
+            points=[{"x": -5, "y": -5}, {"x": 5, "y": -5}, {"x": 0, "y": 5}],
+            stroke_width=1,
+            stroke_color="#ffffff",
+            stroke_opacity=1.0,
+            fill_color="#ff0000",
+            fill_opacity=0.5,
+            closed=True,
+        )
+        path.paint(painter, zoom_level=1.0)
+        painter.end()
 
 
 class TestCanvasCoordinates:

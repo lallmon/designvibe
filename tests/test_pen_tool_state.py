@@ -52,3 +52,22 @@ def test_to_item_data_includes_stroke_only_defaults():
     assert data["fillOpacity"] == 0.0
     assert data["closed"] is True
     assert data["points"][0] == {"x": 0.0, "y": 0.0}
+
+
+def test_to_item_data_respects_fill_settings():
+    state = PenToolState()
+    state.add_point(0, 0)
+    state.add_point(3, 4)
+    state.try_close_on(0, 0)
+
+    data = state.to_item_data(
+        {
+            "strokeWidth": 1,
+            "strokeColor": "#00ff00",
+            "strokeOpacity": 1.0,
+            "fillColor": "#123456",
+            "fillOpacity": 0.5,
+        }
+    )
+    assert data["fillOpacity"] == 0.5
+    assert data["fillColor"] == "#123456"

@@ -40,14 +40,17 @@ def test_validate_path_clamps_and_defaults():
         "strokeOpacity": 2,
         "closed": True,
         "strokeColor": "#123456",
+        "fillColor": "#abcdef",
+        "fillOpacity": 0.8,
     }
     out = validate_path(data)
     assert out["points"] == [{"x": 1.0, "y": 2.0}, {"x": -3.0, "y": 4.0}]
     assert out["strokeWidth"] == 0.1
     assert out["strokeOpacity"] == 1.0
-    assert out["fillOpacity"] == 0.0
+    assert out["fillOpacity"] == 0.8
     assert out["closed"] is True
     assert out["strokeColor"] == "#123456"
+    assert out["fillColor"] == "#abcdef"
 
 
 def test_validate_path_requires_two_points():

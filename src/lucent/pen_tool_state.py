@@ -62,12 +62,15 @@ class PenToolState:
         stroke_width = float(style.get("strokeWidth", 1))
         stroke_color = style.get("strokeColor", "#ffffff")
         stroke_opacity = float(style.get("strokeOpacity", 1.0))
+        fill_color = style.get("fillColor", "#ffffff")
+        fill_opacity = float(style.get("fillOpacity", 0.0))
         return {
             "type": "path",
             "points": [{"x": x, "y": y} for (x, y) in self.points],
             "strokeWidth": stroke_width,
             "strokeColor": stroke_color,
             "strokeOpacity": stroke_opacity,
-            "fillOpacity": 0.0,
+            "fillColor": fill_color,
+            "fillOpacity": fill_opacity,
             "closed": bool(self.closed),
         }
