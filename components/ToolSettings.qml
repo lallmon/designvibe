@@ -26,6 +26,11 @@ ToolBar {
     property color ellipseFillColor: "#ffffff"
     property real ellipseFillOpacity: 0.0
 
+    // Tool-specific settings - Pen
+    property real penStrokeWidth: 1
+    property color penStrokeColor: "#ffffff"
+    property real penStrokeOpacity: 1.0
+
     // Construct toolSettings object from individual properties
     readonly property var toolSettings: ({
             "rectangle": {
@@ -41,6 +46,12 @@ ToolBar {
                 strokeOpacity: ellipseStrokeOpacity,
                 fillColor: ellipseFillColor,
                 fillOpacity: ellipseFillOpacity
+            },
+            "pen": {
+                strokeWidth: penStrokeWidth,
+                strokeColor: penStrokeColor,
+                strokeOpacity: penStrokeOpacity,
+                fillOpacity: 0.0
             }
         })
 
@@ -468,6 +479,216 @@ ToolBar {
                     radius: DV.Theme.sizes.radiusSm
                 }
 
+                color: "#ffffff"
+            }
+
+            Label {
+                text: qsTr("%")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+        }
+
+        // Pen tool settings
+        RowLayout {
+            id: penSettings
+            visible: root.activeTool === "pen"
+            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 6
+
+            Label {
+                text: qsTr("Stroke Width:")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            TextField {
+                id: penStrokeWidthInput
+                Layout.preferredWidth: DV.Theme.sizes.settingsStrokeWidthFieldWidth
+                Layout.preferredHeight: DV.Theme.sizes.settingsFieldHeight
+                Layout.alignment: Qt.AlignVCenter
+                text: root.penStrokeWidth.toString()
+                horizontalAlignment: TextInput.AlignHCenter
+                font.pixelSize: 11
+                validator: DoubleValidator {
+                    bottom: 0.1
+                    top: 100.0
+                    decimals: 1
+                }
+
+                function commitValue() {
+                    var value = parseFloat(text);
+                    if (!isNaN(value) && value >= 0.1 && value <= 100.0) {
+                        root.penStrokeWidth = value;
+                    } else {
+                        text = root.penStrokeWidth.toString();
+                    }
+                }
+
+                onEditingFinished: commitValue()
+                onActiveFocusChanged: {
+                    if (!activeFocus) {
+                        commitValue();
+                    }
+                }
+
+                background: Rectangle {
+                    color: DV.Theme.colors.gridMinor
+                    border.color: penStrokeWidthInput.activeFocus ? DV.Theme.colors.accent : DV.Theme.colors.borderSubtle
+                    border.width: 1
+                    radius: DV.Theme.sizes.radiusSm
+                }
+                color: "#ffffff"
+            }
+
+            Label {
+                text: qsTr("px")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.preferredHeight: 16
+                Layout.alignment: Qt.AlignVCenter
+                Layout.leftMargin: 6
+                Layout.rightMargin: 6
+                color: DV.Theme.colors.borderSubtle
+            }
+
+            Label {
+                text: qsTr("Stroke Color:")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            Button {
+                id: penStrokeColorButton
+                Layout.preferredWidth: 16
+                Layout.preferredHeight: 16
+                Layout.alignment: Qt.AlignVCenter
+
+                onClicked: penStrokeColorDialog.open()
+
+                background: Rectangle {
+                    color: root.penStrokeColor
+                    border.color: DV.Theme.colors.borderSubtle
+                    border.width: 1
+                    radius: DV.Theme.sizes.radiusSm
+                }
+            }
+
+            Label {
+                text: qsTr("Opacity:")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            Slider {
+                id: penStrokeOpacitySlider
+                Layout.preferredWidth: 80
+                Layout.preferredHeight: DV.Theme.sizes.sliderHeight
+                implicitHeight: DV.Theme.sizes.sliderHeight
+                Layout.alignment: Qt.AlignVCenter
+                from: 0
+                to: 100
+                stepSize: 1
+                value: 100
+
+                onPressedChanged: {
+                    if (!pressed) {
+                        root.penStrokeOpacity = value / 100.0;
+                    }
+                }
+
+                onValueChanged: root.penStrokeOpacity = value / 100.0
+
+                Component.onCompleted: value = Math.round(root.penStrokeOpacity * 100)
+
+                Binding {
+                    target: penStrokeOpacitySlider
+                    property: "value"
+                    value: Math.round(root.penStrokeOpacity * 100)
+                    when: !penStrokeOpacitySlider.pressed
+                }
+
+                background: Rectangle {
+                    x: penStrokeOpacitySlider.leftPadding
+                    y: penStrokeOpacitySlider.topPadding + penStrokeOpacitySlider.availableHeight / 2 - height / 2
+                    width: penStrokeOpacitySlider.availableWidth
+                    height: DV.Theme.sizes.sliderTrackHeight
+                    implicitWidth: 80
+                    implicitHeight: DV.Theme.sizes.sliderTrackHeight
+                    radius: DV.Theme.sizes.radiusSm
+                    color: DV.Theme.colors.gridMinor
+
+                    Rectangle {
+                        width: penStrokeOpacitySlider.visualPosition * parent.width
+                        height: parent.height
+                        color: DV.Theme.colors.accent
+                        radius: DV.Theme.sizes.radiusSm
+                    }
+                }
+
+                handle: Rectangle {
+                    x: penStrokeOpacitySlider.leftPadding + penStrokeOpacitySlider.visualPosition * (penStrokeOpacitySlider.availableWidth - width)
+                    y: penStrokeOpacitySlider.topPadding + penStrokeOpacitySlider.availableHeight / 2 - height / 2
+                    width: DV.Theme.sizes.sliderHandleSize
+                    height: DV.Theme.sizes.sliderHandleSize
+                    implicitWidth: DV.Theme.sizes.sliderHandleSize
+                    implicitHeight: DV.Theme.sizes.sliderHandleSize
+                    radius: DV.Theme.sizes.radiusLg
+                    color: penStrokeOpacitySlider.pressed ? DV.Theme.colors.accent : "#ffffff"
+                    border.color: DV.Theme.colors.borderSubtle
+                    border.width: 1
+                }
+            }
+
+            TextField {
+                id: penStrokeOpacityInput
+                Layout.preferredWidth: DV.Theme.sizes.settingsOpacityFieldWidth
+                Layout.preferredHeight: DV.Theme.sizes.settingsFieldHeight
+                Layout.alignment: Qt.AlignVCenter
+                text: Math.round(root.penStrokeOpacity * 100).toString()
+                horizontalAlignment: TextInput.AlignHCenter
+                font.pixelSize: 11
+                validator: IntValidator {
+                    bottom: 0
+                    top: 100
+                }
+
+                function commitValue() {
+                    var value = parseInt(text);
+                    if (!isNaN(value) && value >= 0 && value <= 100) {
+                        root.penStrokeOpacity = value / 100.0;
+                    } else {
+                        text = Math.round(root.penStrokeOpacity * 100).toString();
+                    }
+                }
+
+                onEditingFinished: commitValue()
+                onActiveFocusChanged: {
+                    if (!activeFocus) {
+                        commitValue();
+                    }
+                }
+
+                Connections {
+                    target: root
+                    function onPenStrokeOpacityChanged() {
+                        if (!penStrokeOpacityInput.activeFocus) {
+                            penStrokeOpacityInput.text = Math.round(root.penStrokeOpacity * 100).toString();
+                        }
+                    }
+                }
+
+                background: Rectangle {
+                    color: DV.Theme.colors.gridMinor
+                    border.color: penStrokeOpacityInput.activeFocus ? DV.Theme.colors.accent : DV.Theme.colors.borderSubtle
+                    border.width: 1
+                    radius: DV.Theme.sizes.radiusSm
+                }
                 color: "#ffffff"
             }
 
@@ -944,6 +1165,17 @@ ToolBar {
 
             onAccepted: {
                 root.ellipseFillColor = selectedColor;
+            }
+        }
+
+        // Pen stroke color picker dialog
+        ColorDialog {
+            id: penStrokeColorDialog
+            title: qsTr("Choose Pen Stroke Color")
+            selectedColor: root.penStrokeColor
+
+            onAccepted: {
+                root.penStrokeColor = selectedColor;
             }
         }
 

@@ -101,7 +101,8 @@ Item {
             source: {
                 var toolMap = {
                     "rectangle": "RectangleTool.qml",
-                    "ellipse": "EllipseTool.qml"
+                    "ellipse": "EllipseTool.qml",
+                    "pen": "PenTool.qml"
                 };
                 return toolMap[root.drawingMode] || "";
             }

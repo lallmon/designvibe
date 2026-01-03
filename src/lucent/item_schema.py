@@ -12,6 +12,7 @@ from lucent.canvas_items import (
     EllipseItem,
     LayerItem,
     GroupItem,
+    PathItem,
 )
 
 
@@ -24,6 +25,7 @@ class ItemType(str, Enum):
     ELLIPSE = "ellipse"
     LAYER = "layer"
     GROUP = "group"
+    PATH = "path"
 
 
 @dataclass
@@ -129,6 +131,47 @@ def validate_ellipse(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def validate_path(data: Dict[str, Any]) -> Dict[str, Any]:
+    points_raw = data.get("points") or []
+    if not isinstance(points_raw, list):
+        raise ItemSchemaError("Path points must be a list")
+    if len(points_raw) < 2:
+        raise ItemSchemaError("Path requires at least two points")
+    points = []
+    try:
+        for p in points_raw:
+            points.append({"x": float(p.get("x", 0)), "y": float(p.get("y", 0))})
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ItemSchemaError(f"Invalid path point: {exc}") from exc
+
+    stroke_width = _clamp_range(float(data.get("strokeWidth", 1)), 0.1, 100.0)
+    stroke_opacity = _clamp_range(float(data.get("strokeOpacity", 1.0)), 0.0, 1.0)
+    fill_opacity = _clamp_range(float(data.get("fillOpacity", 0.0)), 0.0, 1.0)
+
+    stroke_color = str(data.get("strokeColor", "#ffffff"))
+    fill_color = str(data.get("fillColor", "#ffffff"))
+    name = str(data.get("name", ""))
+    parent_id = data.get("parentId") or None
+    visible = bool(data.get("visible", True))
+    locked = bool(data.get("locked", False))
+    closed = bool(data.get("closed", False))
+
+    return {
+        "type": ItemType.PATH.value,
+        "name": name,
+        "parentId": parent_id,
+        "visible": visible,
+        "locked": locked,
+        "points": points,
+        "strokeWidth": stroke_width,
+        "strokeColor": stroke_color,
+        "strokeOpacity": stroke_opacity,
+        "fillColor": fill_color,
+        "fillOpacity": fill_opacity,
+        "closed": closed,
+    }
+
+
 def validate_layer(data: Dict[str, Any]) -> Dict[str, Any]:
     name = str(data.get("name", ""))
     layer_id = data.get("id") or None
@@ -169,6 +212,8 @@ def parse_item_data(data: Dict[str, Any]) -> ParsedItem:
         validated = validate_layer(data)
     elif item_type is ItemType.GROUP:
         validated = validate_group(data)
+    elif item_type is ItemType.PATH:
+        validated = validate_path(data)
     else:  # pragma: no cover - exhaustive Enum
         raise ItemSchemaError(f"Unsupported item type: {item_type}")
 
@@ -208,6 +253,20 @@ def parse_item(data: Dict[str, Any]) -> CanvasItem:
             stroke_opacity=d["strokeOpacity"],
             name=d["name"],
             parent_id=d["parentId"],
+            visible=d.get("visible", True),
+            locked=d.get("locked", False),
+        )
+    if t is ItemType.PATH:
+        return PathItem(
+            points=d["points"],
+            stroke_width=d["strokeWidth"],
+            stroke_color=d["strokeColor"],
+            stroke_opacity=d["strokeOpacity"],
+            fill_color=d["fillColor"],
+            fill_opacity=d["fillOpacity"],
+            closed=d.get("closed", False),
+            name=d.get("name", ""),
+            parent_id=d.get("parentId"),
             visible=d.get("visible", True),
             locked=d.get("locked", False),
         )
@@ -280,5 +339,20 @@ def item_to_dict(item: CanvasItem) -> Dict[str, Any]:
             "parentId": item.parent_id,
             "visible": getattr(item, "visible", True),
             "locked": getattr(item, "locked", False),
+        }
+    if isinstance(item, PathItem):
+        return {
+            "type": ItemType.PATH.value,
+            "name": item.name,
+            "parentId": item.parent_id,
+            "visible": getattr(item, "visible", True),
+            "locked": getattr(item, "locked", False),
+            "points": item.points,
+            "strokeWidth": item.stroke_width,
+            "strokeColor": item.stroke_color,
+            "strokeOpacity": item.stroke_opacity,
+            "fillColor": item.fill_color,
+            "fillOpacity": item.fill_opacity,
+            "closed": item.closed,
         }
     raise ItemSchemaError(f"Cannot serialize unknown item type: {type(item).__name__}")

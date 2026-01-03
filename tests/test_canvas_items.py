@@ -6,6 +6,7 @@ from lucent.canvas_items import (
     RectangleItem,
     EllipseItem,
     LayerItem,
+    PathItem,
     CANVAS_OFFSET_X,
     CANVAS_OFFSET_Y,
 )
@@ -331,6 +332,57 @@ class TestEllipseItem:
         ellipse = EllipseItem.from_dict(data)
         assert ellipse.stroke_opacity == 0.0
         assert ellipse.fill_opacity == 1.0
+
+
+class TestPathItem:
+    """Tests for PathItem class."""
+
+    def test_basic_creation_defaults(self):
+        """PathItem defaults to stroke-only and open path."""
+        path = PathItem(points=[{"x": 0, "y": 0}, {"x": 5, "y": 5}])
+        assert path.stroke_width == 1
+        assert path.stroke_color == "#ffffff"
+        assert path.stroke_opacity == 1.0
+        assert path.fill_opacity == 0.0
+        assert path.closed is False
+        assert path.points == [{"x": 0.0, "y": 0.0}, {"x": 5.0, "y": 5.0}]
+
+    def test_creation_with_closed_and_clamping(self):
+        """Closed path clamps stroke and opacity values."""
+        path = PathItem(
+            points=[{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}],
+            stroke_width=0.01,
+            stroke_opacity=2.0,
+            closed=True,
+            stroke_color="#00ff00",
+        )
+        assert path.stroke_width == 0.1
+        assert path.stroke_opacity == 1.0
+        assert path.closed is True
+        assert path.stroke_color == "#00ff00"
+
+    def test_from_dict_preserves_points_and_closed(self):
+        """from_dict creates PathItem with provided points and closed flag."""
+        data = {
+            "type": "path",
+            "points": [{"x": 1, "y": 2}, {"x": 3, "y": 4}, {"x": 5, "y": 2}],
+            "strokeWidth": 2,
+            "strokeColor": "#ff00ff",
+            "strokeOpacity": 0.75,
+            "closed": True,
+            "name": "Polyline",
+        }
+        path = PathItem.from_dict(data)
+        assert path.points == [
+            {"x": 1.0, "y": 2.0},
+            {"x": 3.0, "y": 4.0},
+            {"x": 5.0, "y": 2.0},
+        ]
+        assert path.stroke_width == 2
+        assert path.stroke_color == "#ff00ff"
+        assert path.stroke_opacity == 0.75
+        assert path.closed is True
+        assert path.name == "Polyline"
 
 
 class TestCanvasCoordinates:

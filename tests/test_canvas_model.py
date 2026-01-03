@@ -1,6 +1,6 @@
 """Unit tests for canvas_model module."""
 
-from lucent.canvas_items import RectangleItem, EllipseItem, LayerItem
+from lucent.canvas_items import RectangleItem, EllipseItem, LayerItem, PathItem
 from lucent.commands import (
     AddItemCommand,
     DEFAULT_DUPLICATE_OFFSET,
@@ -82,6 +82,41 @@ class TestCanvasModelBasics:
         items = canvas_model.getItems()
         assert isinstance(items[0], RectangleItem)
         assert isinstance(items[1], EllipseItem)
+
+    def test_add_path_item(self, canvas_model, qtbot):
+        """Test adding a path item to the model."""
+        item_data = {
+            "type": "path",
+            "points": [{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}],
+            "strokeWidth": 1.5,
+            "strokeOpacity": 0.8,
+            "closed": True,
+        }
+
+        with qtbot.waitSignal(canvas_model.itemAdded, timeout=1000) as blocker:
+            canvas_model.addItem(item_data)
+
+        assert canvas_model.count() == 1
+        assert blocker.args == [0]
+
+        items = canvas_model.getItems()
+        assert isinstance(items[0], PathItem)
+        assert items[0].closed is True
+        # Data role should map to path type
+        index = canvas_model.index(0, 0)
+        assert canvas_model.data(index, canvas_model.TypeRole) == "path"
+
+    def test_get_bounding_box_for_path(self, canvas_model):
+        """Path bounding box should cover all points."""
+        canvas_model.addItem(
+            {
+                "type": "path",
+                "points": [{"x": -2, "y": 3}, {"x": 4, "y": 5}, {"x": 1, "y": -1}],
+                "strokeWidth": 2,
+            }
+        )
+        bbox = canvas_model.getBoundingBox(0)
+        assert bbox == {"x": -2.0, "y": -1.0, "width": 6.0, "height": 6.0}
 
     def test_add_unknown_item_type_ignored(self, canvas_model, qtbot):
         """Test that adding an unknown item type is safely ignored."""
