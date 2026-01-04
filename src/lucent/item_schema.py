@@ -211,6 +211,9 @@ def validate_text(data: Dict[str, Any]) -> Dict[str, Any]:
         y = float(data.get("y", 0))
         font_size = _clamp_range(float(data.get("fontSize", 16)), 8.0, 200.0)
         text_opacity = _clamp_range(float(data.get("textOpacity", 1.0)), 0.0, 1.0)
+        # Text box dimensions (width >= 1, height >= 0 where 0 means auto)
+        width = _clamp_min(float(data.get("width", 100)), 1.0)
+        height = _clamp_min(float(data.get("height", 0)), 0.0)
     except (TypeError, ValueError) as exc:
         raise ItemSchemaError(f"Invalid text numeric field: {exc}") from exc
 
@@ -230,6 +233,8 @@ def validate_text(data: Dict[str, Any]) -> Dict[str, Any]:
         "locked": locked,
         "x": x,
         "y": y,
+        "width": width,
+        "height": height,
         "text": text,
         "fontFamily": font_family,
         "fontSize": font_size,
@@ -332,6 +337,8 @@ def parse_item(data: Dict[str, Any]) -> CanvasItem:
             font_size=d["fontSize"],
             text_color=d["textColor"],
             text_opacity=d["textOpacity"],
+            width=d["width"],
+            height=d["height"],
             name=d["name"],
             parent_id=d["parentId"],
             visible=d.get("visible", True),
@@ -416,6 +423,8 @@ def item_to_dict(item: CanvasItem) -> Dict[str, Any]:
             "locked": getattr(item, "locked", False),
             "x": item.x,
             "y": item.y,
+            "width": item.width,
+            "height": item.height,
             "text": item.text,
             "fontFamily": item.font_family,
             "fontSize": item.font_size,

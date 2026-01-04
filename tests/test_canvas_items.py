@@ -979,3 +979,48 @@ class TestTextItem:
         }
         text = TextItem.from_dict(data)
         assert text.visible is False
+
+    def test_text_has_width_height_properties(self):
+        """TextItem should have width and height properties for text box."""
+        text = TextItem(x=0, y=0, text="Hello", width=200, height=50)
+        assert text.width == 200
+        assert text.height == 50
+
+    def test_text_width_height_default_values(self):
+        """TextItem width/height should have sensible defaults."""
+        text = TextItem(x=0, y=0, text="Hello")
+        # Default width should be reasonable for a text box
+        assert text.width == 100
+        # Default height of 0 means auto-height (not constrained)
+        assert text.height == 0
+
+    def test_text_width_minimum_clamped(self):
+        """TextItem width should be clamped to minimum of 1."""
+        text = TextItem(x=0, y=0, text="Hello", width=-10)
+        assert text.width == 1
+
+    def test_text_height_minimum_clamped(self):
+        """TextItem height should be clamped to minimum of 0 (auto)."""
+        text = TextItem(x=0, y=0, text="Hello", height=-10)
+        assert text.height == 0
+
+    def test_from_dict_with_width_height(self):
+        """TextItem.from_dict should parse width and height."""
+        data = {
+            "type": "text",
+            "x": 10,
+            "y": 20,
+            "text": "Box Text",
+            "width": 300,
+            "height": 100,
+        }
+        text = TextItem.from_dict(data)
+        assert text.width == 300
+        assert text.height == 100
+
+    def test_from_dict_width_height_defaults(self):
+        """TextItem.from_dict should use defaults for missing width/height."""
+        data = {"type": "text", "x": 0, "y": 0, "text": "Hello"}
+        text = TextItem.from_dict(data)
+        assert text.width == 100
+        assert text.height == 0

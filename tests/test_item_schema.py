@@ -159,6 +159,8 @@ def test_validate_text_defaults():
     assert out["textColor"] == "#ffffff"
     assert out["textOpacity"] == 1.0
     assert out["name"] == ""
+    assert out["width"] == 100
+    assert out["height"] == 0
     assert out["parentId"] is None
     assert out["visible"] is True
     assert out["locked"] is False
@@ -250,6 +252,8 @@ def test_item_to_dict_round_trips_text():
         font_size=24,
         text_color="#ff0000",
         text_opacity=0.8,
+        width=200,
+        height=50,
         name="T1",
         parent_id="layer-2",
     )
@@ -257,6 +261,8 @@ def test_item_to_dict_round_trips_text():
     assert out["type"] == ItemType.TEXT.value
     assert out["x"] == 10
     assert out["y"] == 20
+    assert out["width"] == 200
+    assert out["height"] == 50
     assert out["text"] == "Hello World"
     assert out["fontFamily"] == "Monospace"
     assert out["fontSize"] == 24

@@ -788,12 +788,10 @@ class CanvasModel(QAbstractListModel):
             max_y = max(ys)
             return rect_bounds(min_x, min_y, max_x - min_x, max_y - min_y)
         if isinstance(item, TextItem):
-            # Approximate bounding box based on text length and font size
-            # y is stored as the TOP of the text
-            # Height is roughly font_size * 1.2 to account for descenders
-            approx_char_width = item.font_size * 0.6
-            width = len(item.text) * approx_char_width if item.text else item.font_size
-            height = item.font_size * 1.2
+            # Use stored text box dimensions
+            # If height is 0 (auto), estimate based on font size
+            width = item.width
+            height = item.height if item.height > 0 else item.font_size * 1.2
             return rect_bounds(item.x, item.y, width, height)
 
         # For containers (layer/group), compute union of all descendant shapes

@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import "." as DV
 
-// Text tool component for creating text on the canvas
+// Text tool component for creating text boxes on the canvas
 Item {
     id: tool
 
@@ -11,45 +11,72 @@ Item {
     property bool active: false
     property var settings: null  // Tool settings object
 
-    // State for text input
+    // Two-point helper for click-drag box creation
+    TwoPointToolHelper {
+        id: helper
+    }
+
+    // Current text box being drawn
+    property var currentBox: null
+
+    // State for text editing (after box is created)
     property bool isEditing: false
-    property real textX: 0
-    property real textY: 0
+    property real boxX: 0
+    property real boxY: 0
+    property real boxWidth: 100
+    property real boxHeight: 0
 
     // Signal emitted when a text item is completed
     signal itemCompleted(var itemData)
 
-    // Text input overlay (shown while editing)
-    Item {
-        id: textInputContainer
-        visible: tool.isEditing
-        x: tool.textX
-        y: tool.textY
+    // Placeholder text constant
+    readonly property string placeholderText: "Type here..."
 
-        // Live preview text (shows what the text will look like)
-        Text {
-            id: previewText
-            x: 0
-            y: -font.pixelSize  // Position above baseline
-            text: textInput.text || " "
-            font.family: settings ? settings.fontFamily : "Sans Serif"
-            font.pixelSize: (settings ? settings.fontSize : 16) / tool.zoomLevel
-            color: {
-                if (!settings)
-                    return DV.PaletteBridge.active.text;
-                var c = Qt.color(settings.textColor);
-                c.a = settings.textOpacity !== undefined ? settings.textOpacity : 1.0;
-                return c;
-            }
-            opacity: 0.5  // Show preview at lower opacity
-            visible: textInput.text.length > 0
+    // Box preview rectangle (shown while drawing)
+    Rectangle {
+        id: boxPreview
+        visible: helper.isDrawing && currentBox !== null && currentBox.width > 1 && currentBox.height > 1
+
+        x: currentBox ? currentBox.x : 0
+        y: currentBox ? currentBox.y : 0
+        width: currentBox ? currentBox.width : 0
+        height: currentBox ? currentBox.height : 0
+
+        color: "transparent"
+        border.color: DV.PaletteBridge.active.highlight
+        border.width: 2 / tool.zoomLevel
+
+        // Dashed border effect using inner rectangle
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 1 / tool.zoomLevel
+            color: "transparent"
+            border.color: DV.PaletteBridge.active.base
+            border.width: 1 / tool.zoomLevel
+            opacity: 0.5
         }
+    }
 
-        // Editable text input
-        TextInput {
-            id: textInput
-            x: 0
-            y: -font.pixelSize  // Position above baseline
+    // Text editing container (shown after box is created)
+    Rectangle {
+        id: textEditContainer
+        visible: tool.isEditing
+
+        x: tool.boxX
+        y: tool.boxY
+        width: tool.boxWidth
+        height: Math.max(tool.boxHeight, textEdit.contentHeight + 8 / tool.zoomLevel)
+
+        color: "transparent"
+        border.color: DV.PaletteBridge.active.highlight
+        border.width: 2 / tool.zoomLevel
+        radius: 2 / tool.zoomLevel
+
+        TextEdit {
+            id: textEdit
+            anchors.fill: parent
+            anchors.margins: 4 / tool.zoomLevel
+
             font.family: settings ? settings.fontFamily : "Sans Serif"
             font.pixelSize: (settings ? settings.fontSize : 16) / tool.zoomLevel
             color: {
@@ -59,88 +86,146 @@ Item {
                 c.a = settings.textOpacity !== undefined ? settings.textOpacity : 1.0;
                 return c;
             }
-            cursorVisible: true
+            selectionColor: DV.PaletteBridge.active.highlight
+
+            wrapMode: TextEdit.Wrap
+            selectByMouse: true
             focus: tool.isEditing
 
-            // Placeholder text when empty
-            property string placeholderText: "Type here..."
-            Text {
-                anchors.fill: parent
-                text: parent.placeholderText
-                color: DV.PaletteBridge.active.mid
-                font: parent.font
-                visible: !parent.text && !parent.activeFocus
+            // Start with placeholder text selected
+            text: tool.placeholderText
+
+            Component.onCompleted: {
+                if (tool.isEditing) {
+                    selectAll();
+                    forceActiveFocus();
+                }
             }
 
-            Keys.onReturnPressed: {
-                tool.commitText();
+            onActiveFocusChanged: {
+                if (activeFocus && text === tool.placeholderText) {
+                    selectAll();
+                }
             }
 
-            Keys.onEnterPressed: {
-                tool.commitText();
+            Keys.onReturnPressed: function (event) {
+                if (event.modifiers & Qt.ShiftModifier) {
+                    // Shift+Enter: Insert newline
+                    event.accepted = false;
+                } else {
+                    // Enter: Commit text
+                    tool.commitText();
+                    event.accepted = true;
+                }
+            }
+
+            Keys.onEnterPressed: function (event) {
+                if (event.modifiers & Qt.ShiftModifier) {
+                    event.accepted = false;
+                } else {
+                    tool.commitText();
+                    event.accepted = true;
+                }
             }
 
             Keys.onEscapePressed: {
                 tool.cancelText();
             }
         }
-
-        // Cursor indicator (blinking line)
-        Rectangle {
-            id: cursor
-            x: textInput.cursorRectangle.x
-            y: textInput.cursorRectangle.y - textInput.font.pixelSize
-            width: 2 / tool.zoomLevel
-            height: textInput.font.pixelSize * 1.2
-            color: DV.PaletteBridge.active.text
-            visible: tool.isEditing && textInput.activeFocus
-
-            SequentialAnimation on opacity {
-                running: cursor.visible
-                loops: Animation.Infinite
-                NumberAnimation {
-                    from: 1.0
-                    to: 0.0
-                    duration: 500
-                }
-                NumberAnimation {
-                    from: 0.0
-                    to: 1.0
-                    duration: 500
-                }
-            }
-        }
     }
 
-    // Handle clicks for text placement
+    // Handle clicks for text box creation
     function handleClick(canvasX, canvasY) {
         if (!tool.active)
             return;
 
-        if (!tool.isEditing) {
-            // First click: Start text input at this position
-            tool.textX = canvasX;
-            tool.textY = canvasY;
-            tool.isEditing = true;
-            textInput.text = "";
-            textInput.forceActiveFocus();
-        } else {
-            // Second click while editing: Commit current text and start new one
-            if (textInput.text.trim().length > 0) {
-                tool.commitText();
+        if (tool.isEditing) {
+            // If clicking outside current edit, commit and potentially start new
+            var insideX = canvasX >= tool.boxX && canvasX <= tool.boxX + tool.boxWidth;
+            var insideY = canvasY >= tool.boxY && canvasY <= tool.boxY + tool.boxHeight;
+            if (!insideX || !insideY) {
+                if (textEdit.text.trim().length > 0 && textEdit.text !== tool.placeholderText) {
+                    tool.commitText();
+                } else {
+                    tool.cancelText();
+                }
+                // Start drawing new box
+                helper.begin(canvasX, canvasY);
+                currentBox = {
+                    x: canvasX,
+                    y: canvasY,
+                    width: 1,
+                    height: 1
+                };
             }
-            // Start new text at clicked position
-            tool.textX = canvasX;
-            tool.textY = canvasY;
-            tool.isEditing = true;
-            textInput.text = "";
-            textInput.forceActiveFocus();
+            return;
         }
+
+        if (!helper.isDrawing) {
+            // First click: Start drawing the text box
+            helper.begin(canvasX, canvasY);
+            currentBox = {
+                x: canvasX,
+                y: canvasY,
+                width: 1,
+                height: 1
+            };
+        } else {
+            // Second click: Finalize box and start editing
+            if (currentBox && currentBox.width > 10 && currentBox.height > 10) {
+                tool.boxX = currentBox.x;
+                tool.boxY = currentBox.y;
+                tool.boxWidth = currentBox.width;
+                tool.boxHeight = currentBox.height;
+                tool.isEditing = true;
+
+                // Initialize with placeholder and select it
+                textEdit.text = tool.placeholderText;
+                textEdit.selectAll();
+                textEdit.forceActiveFocus();
+            }
+            currentBox = null;
+            helper.reset();
+        }
+    }
+
+    // Update preview during mouse movement
+    function handleMouseMove(canvasX, canvasY, modifiers) {
+        if (!tool.active || !helper.isDrawing)
+            return;
+
+        // Calculate box dimensions from start to current point
+        var deltaX = canvasX - helper.startX;
+        var deltaY = canvasY - helper.startY;
+        var boxWidth = Math.abs(deltaX);
+        var boxHeight = Math.abs(deltaY);
+
+        // Constrain to square when Shift is held
+        if (modifiers & Qt.ShiftModifier) {
+            var size = Math.max(boxWidth, boxHeight);
+            boxWidth = size;
+            boxHeight = size;
+        }
+
+        // Calculate position based on drag direction
+        var boxX = deltaX >= 0 ? helper.startX : helper.startX - boxWidth;
+        var boxY = deltaY >= 0 ? helper.startY : helper.startY - boxHeight;
+
+        // Update current box
+        currentBox = {
+            x: boxX,
+            y: boxY,
+            width: boxWidth,
+            height: boxHeight
+        };
     }
 
     // Commit the text as a canvas item
     function commitText() {
-        if (textInput.text.trim().length === 0) {
+        var finalText = textEdit.text.trim();
+
+        // Don't commit placeholder or empty text
+        if (finalText.length === 0 || finalText === tool.placeholderText) {
             tool.cancelText();
             return;
         }
@@ -150,13 +235,13 @@ Item {
         var textColor = settings ? settings.textColor : "#ffffff";
         var textOpacity = settings ? (settings.textOpacity !== undefined ? settings.textOpacity : 1.0) : 1.0;
 
-        // Store y as the top of the text (where it appears visually)
-        // The preview positions text at textY - fontSize, so that's the top
         itemCompleted({
             type: "text",
-            x: tool.textX,
-            y: tool.textY - fontSize,
-            text: textInput.text,
+            x: tool.boxX,
+            y: tool.boxY,
+            width: tool.boxWidth,
+            height: tool.boxHeight,
+            text: finalText,
             fontFamily: fontFamily,
             fontSize: fontSize,
             textColor: textColor.toString(),
@@ -165,27 +250,28 @@ Item {
 
         // Reset state
         tool.isEditing = false;
-        textInput.text = "";
+        textEdit.text = "";
     }
 
     // Cancel text input without creating an item
     function cancelText() {
         tool.isEditing = false;
-        textInput.text = "";
-    }
-
-    // Handle mouse movement (no-op for text tool)
-    function handleMouseMove(canvasX, canvasY, modifiers) {
-    // Text tool doesn't need mouse move handling
+        textEdit.text = "";
+        currentBox = null;
+        helper.reset();
     }
 
     // Reset tool state (called when switching tools)
     function reset() {
-        if (tool.isEditing && textInput.text.trim().length > 0) {
-            // Commit any pending text before switching
-            tool.commitText();
-        } else {
-            tool.cancelText();
+        if (tool.isEditing) {
+            var finalText = textEdit.text.trim();
+            if (finalText.length > 0 && finalText !== tool.placeholderText) {
+                tool.commitText();
+            } else {
+                tool.cancelText();
+            }
         }
+        currentBox = null;
+        helper.reset();
     }
 }

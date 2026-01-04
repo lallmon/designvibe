@@ -462,6 +462,8 @@ class TextItem(CanvasItem):
         font_size: float = 16,
         text_color: str = "#ffffff",
         text_opacity: float = 1.0,
+        width: float = 100,
+        height: float = 0,
         name: str = "",
         parent_id: Optional[str] = None,
         visible: bool = True,
@@ -480,6 +482,9 @@ class TextItem(CanvasItem):
         self.text_color = text_color
         # Validate text opacity (must be in range 0.0-1.0)
         self.text_opacity = max(0.0, min(1.0, text_opacity))
+        # Text box dimensions (width >= 1, height >= 0 where 0 means auto)
+        self.width = max(1.0, width)
+        self.height = max(0.0, height)
 
     def paint(
         self,
@@ -523,6 +528,10 @@ class TextItem(CanvasItem):
         # Extract and validate text opacity (must be in range 0.0-1.0)
         text_opacity = max(0.0, min(1.0, float(data.get("textOpacity", 1.0))))
 
+        # Extract and validate text box dimensions
+        width = max(1.0, float(data.get("width", 100)))
+        height = max(0.0, float(data.get("height", 0)))
+
         return TextItem(
             x=float(data.get("x", 0)),
             y=float(data.get("y", 0)),
@@ -530,6 +539,8 @@ class TextItem(CanvasItem):
             font_family=str(data.get("fontFamily", "Sans Serif")),
             font_size=font_size,
             text_color=str(data.get("textColor", "#ffffff")),
+            width=width,
+            height=height,
             text_opacity=text_opacity,
             name=str(data.get("name", "")),
             parent_id=data.get("parentId"),
