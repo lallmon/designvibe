@@ -395,12 +395,15 @@ Item {
         var textColor = settings ? settings.textColor : "#ffffff";
         var textOpacity = settings ? (settings.textOpacity !== undefined ? settings.textOpacity : 1.0) : 1.0;
 
+        // Use actual container height (which grows with content)
+        var actualHeight = textEditContainer.height;
+
         itemCompleted({
             type: "text",
             x: tool.boxX + tool.textPadding,
             y: tool.boxY + tool.textPadding,
             width: tool.boxWidth - (tool.textPadding * 2),
-            height: tool.boxHeight - (tool.textPadding * 2),
+            height: actualHeight - (tool.textPadding * 2),
             text: finalText,
             fontFamily: fontFamily,
             fontSize: fontSize,
