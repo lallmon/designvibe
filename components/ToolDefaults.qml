@@ -1,4 +1,5 @@
 import QtQuick
+import "." as DV
 
 // Centralizes default tool settings for canvas tools.
 QtObject {
