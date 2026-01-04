@@ -19,6 +19,7 @@ from lucent.canvas_items import (
     LayerItem,
     GroupItem,
     PathItem,
+    TextItem,
 )
 from lucent.commands import (
     Command,
@@ -105,6 +106,8 @@ class CanvasModel(QAbstractListModel):
                 return "layer"
             elif isinstance(item, GroupItem):
                 return "group"
+            elif isinstance(item, TextItem):
+                return "text"
             return "unknown"
         elif role == self.IndexRole:
             return index.row()
@@ -113,7 +116,9 @@ class CanvasModel(QAbstractListModel):
                 return item.id
             return None
         elif role == self.ParentIdRole:
-            if isinstance(item, (RectangleItem, EllipseItem, GroupItem)):
+            if isinstance(
+                item, (RectangleItem, EllipseItem, GroupItem, PathItem, TextItem)
+            ):
                 return item.parent_id
             return None
         elif role == self.VisibleRole:
@@ -253,6 +258,11 @@ class CanvasModel(QAbstractListModel):
                         "centerY": item.center_y + dy,
                     },
                 )
+            elif isinstance(item, TextItem):
+                self.updateItem(idx, {"x": item.x + dx, "y": item.y + dy})
+            elif isinstance(item, PathItem):
+                new_points = [{"x": p["x"] + dx, "y": p["y"] + dy} for p in item.points]
+                self.updateItem(idx, {"points": new_points})
 
     @Slot(int)
     def ungroup(self, group_index: int) -> None:
@@ -330,6 +340,7 @@ class CanvasModel(QAbstractListModel):
             ItemType.LAYER.value,
             ItemType.GROUP.value,
             ItemType.PATH.value,
+            ItemType.TEXT.value,
         ):
             print(f"Warning: Unknown item type '{item_type}'")
             return
@@ -776,6 +787,12 @@ class CanvasModel(QAbstractListModel):
             min_y = min(ys)
             max_y = max(ys)
             return rect_bounds(min_x, min_y, max_x - min_x, max_y - min_y)
+        if isinstance(item, TextItem):
+            # Use stored text box dimensions
+            # If height is 0 (auto), estimate based on font size
+            width = item.width
+            height = item.height if item.height > 0 else item.font_size * 1.2
+            return rect_bounds(item.x, item.y, width, height)
 
         # For containers (layer/group), compute union of all descendant shapes
         if isinstance(item, (LayerItem, GroupItem)):
@@ -818,6 +835,7 @@ class CanvasModel(QAbstractListModel):
             LayerItem,
             GroupItem,
             PathItem,
+            TextItem,
         )
 
         ordered: List[CanvasItem] = []
@@ -825,7 +843,7 @@ class CanvasModel(QAbstractListModel):
             # Skip non-rendering containers but keep model ordering of shapes
             if isinstance(item, (LayerItem, GroupItem)):
                 continue
-            if isinstance(item, (RectangleItem, EllipseItem, PathItem)):
+            if isinstance(item, (RectangleItem, EllipseItem, PathItem, TextItem)):
                 if not self._is_effectively_visible(idx):
                     continue
                 ordered.append(item)

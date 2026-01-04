@@ -13,7 +13,16 @@ All items use QPainter for rendering and support stroke/fill styling.
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 import uuid
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QPainterPath
+from PySide6.QtGui import (
+    QPainter,
+    QPen,
+    QBrush,
+    QColor,
+    QPainterPath,
+    QFont,
+    QTextDocument,
+    QTextOption,
+)
 from PySide6.QtCore import QRectF, Qt, QPointF
 
 # Canvas coordinate system defaults.
@@ -436,6 +445,108 @@ class GroupItem(CanvasItem):
         return GroupItem(
             name=data.get("name", ""),
             group_id=data.get("id"),
+            parent_id=data.get("parentId"),
+            visible=data.get("visible", True),
+            locked=data.get("locked", False),
+        )
+
+
+class TextItem(CanvasItem):
+    """Text canvas item for rendering text on the canvas."""
+
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        text: str,
+        font_family: str = "Sans Serif",
+        font_size: float = 16,
+        text_color: str = "#ffffff",
+        text_opacity: float = 1.0,
+        width: float = 100,
+        height: float = 0,
+        name: str = "",
+        parent_id: Optional[str] = None,
+        visible: bool = True,
+        locked: bool = False,
+    ) -> None:
+        self.name = name
+        self.parent_id = parent_id
+        self.visible = bool(visible)
+        self.locked = bool(locked)
+        self.x = x
+        self.y = y
+        self.text = text
+        self.font_family = font_family
+        # Validate font size (must be in range 8-200)
+        self.font_size = max(8.0, min(200.0, font_size))
+        self.text_color = text_color
+        # Validate text opacity (must be in range 0.0-1.0)
+        self.text_opacity = max(0.0, min(1.0, text_opacity))
+        # Text box dimensions (width >= 1, height >= 0 where 0 means auto)
+        self.width = max(1.0, width)
+        self.height = max(0.0, height)
+
+    def paint(
+        self,
+        painter: QPainter,
+        zoom_level: float,
+        offset_x: float = CANVAS_OFFSET_X,
+        offset_y: float = CANVAS_OFFSET_Y,
+    ) -> None:
+        """Render this text item using QTextDocument for rich text support."""
+        if not self.text:
+            return
+
+        local_x = self.x + offset_x
+        local_y = self.y + offset_y
+
+        font = QFont(self.font_family)
+        font.setPointSizeF(self.font_size)
+
+        text_qcolor = QColor(self.text_color)
+        text_qcolor.setAlphaF(self.text_opacity)
+
+        doc = QTextDocument()
+        doc.setDocumentMargin(0)
+        doc.setDefaultFont(font)
+        if self.width > 0:
+            doc.setTextWidth(self.width)
+
+        option = QTextOption()
+        option.setWrapMode(QTextOption.WrapMode.WordWrap)
+        doc.setDefaultTextOption(option)
+
+        # Apply color via stylesheet, then set HTML to activate it
+        doc.setDefaultStyleSheet(
+            f"body {{ color: {text_qcolor.name(QColor.NameFormat.HexArgb)}; }}"
+        )
+        doc.setHtml(f"<body>{self.text.replace(chr(10), '<br>')}</body>")
+
+        painter.save()
+        painter.translate(local_x, local_y)
+        doc.drawContents(painter)
+        painter.restore()
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "TextItem":
+        """Create TextItem from QML data dictionary."""
+        font_size = max(8.0, min(200.0, float(data.get("fontSize", 16))))
+        text_opacity = max(0.0, min(1.0, float(data.get("textOpacity", 1.0))))
+        width = max(1.0, float(data.get("width", 100)))
+        height = max(0.0, float(data.get("height", 0)))
+
+        return TextItem(
+            x=float(data.get("x", 0)),
+            y=float(data.get("y", 0)),
+            text=str(data.get("text", "")),
+            font_family=str(data.get("fontFamily", "Sans Serif")),
+            font_size=font_size,
+            text_color=str(data.get("textColor", "#ffffff")),
+            width=width,
+            height=height,
+            text_opacity=text_opacity,
+            name=str(data.get("name", "")),
             parent_id=data.get("parentId"),
             visible=data.get("visible", True),
             locked=data.get("locked", False),

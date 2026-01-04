@@ -8,6 +8,7 @@ from lucent.canvas_items import (
     EllipseItem,
     LayerItem,
     PathItem,
+    TextItem,
     CANVAS_OFFSET_X,
     CANVAS_OFFSET_Y,
 )
@@ -774,3 +775,271 @@ class TestLockedProperty:
         data = {"type": "layer", "name": "Test"}
         layer = LayerItem.from_dict(data)
         assert layer.locked is False
+
+
+class TestTextItem:
+    """Tests for TextItem class."""
+
+    def test_basic_creation(self):
+        """Test creating a basic text item with default parameters."""
+        text = TextItem(x=10, y=20, text="Hello")
+        assert text.x == 10
+        assert text.y == 20
+        assert text.text == "Hello"
+        assert text.font_family == "Sans Serif"
+        assert text.font_size == 16
+        assert text.text_color == "#ffffff"
+        assert text.text_opacity == 1.0
+
+    def test_creation_with_styling(self):
+        """Test creating a text item with custom styling."""
+        text = TextItem(
+            x=0,
+            y=0,
+            text="Styled",
+            font_family="Monospace",
+            font_size=24,
+            text_color="#ff0000",
+            text_opacity=0.8,
+        )
+        assert text.font_family == "Monospace"
+        assert text.font_size == 24
+        assert text.text_color == "#ff0000"
+        assert text.text_opacity == 0.8
+
+    def test_font_size_minimum_clamped(self):
+        """Test that font size below 8 is clamped to 8."""
+        text = TextItem(x=0, y=0, text="Small", font_size=2)
+        assert text.font_size == 8
+
+    def test_font_size_maximum_clamped(self):
+        """Test that font size above 200 is clamped to 200."""
+        text = TextItem(x=0, y=0, text="Large", font_size=500)
+        assert text.font_size == 200
+
+    def test_text_opacity_minimum_clamped(self):
+        """Test that text opacity below 0 is clamped to 0."""
+        text = TextItem(x=0, y=0, text="Faded", text_opacity=-0.5)
+        assert text.text_opacity == 0.0
+
+    def test_text_opacity_maximum_clamped(self):
+        """Test that text opacity above 1 is clamped to 1."""
+        text = TextItem(x=0, y=0, text="Solid", text_opacity=1.5)
+        assert text.text_opacity == 1.0
+
+    def test_empty_text_allowed(self):
+        """Test that empty text string is allowed."""
+        text = TextItem(x=0, y=0, text="")
+        assert text.text == ""
+
+    def test_from_dict_basic(self):
+        """Test creating text item from dictionary with basic data."""
+        data = {"type": "text", "x": 15, "y": 25, "text": "Test Text"}
+        text = TextItem.from_dict(data)
+        assert text.x == 15
+        assert text.y == 25
+        assert text.text == "Test Text"
+
+    def test_from_dict_with_styling(self):
+        """Test creating text item from dictionary with styling data."""
+        data = {
+            "type": "text",
+            "x": 0,
+            "y": 0,
+            "text": "Styled Text",
+            "fontFamily": "Serif",
+            "fontSize": 32,
+            "textColor": "#00ff00",
+            "textOpacity": 0.6,
+        }
+        text = TextItem.from_dict(data)
+        assert text.font_family == "Serif"
+        assert text.font_size == 32
+        assert text.text_color == "#00ff00"
+        assert text.text_opacity == 0.6
+
+    def test_from_dict_missing_fields_use_defaults(self):
+        """Test that missing fields in dictionary use default values."""
+        data = {"type": "text", "text": "Minimal"}
+        text = TextItem.from_dict(data)
+        assert text.x == 0
+        assert text.y == 0
+        assert text.font_family == "Sans Serif"
+        assert text.font_size == 16
+        assert text.text_color == "#ffffff"
+        assert text.text_opacity == 1.0
+
+    def test_from_dict_validates_font_size_bounds(self):
+        """Test that from_dict clamps font size to valid range."""
+        data = {"type": "text", "x": 0, "y": 0, "text": "Big", "fontSize": 999}
+        text = TextItem.from_dict(data)
+        assert text.font_size == 200
+
+    def test_from_dict_validates_opacity_bounds(self):
+        """Test that from_dict clamps opacity values."""
+        data = {"type": "text", "x": 0, "y": 0, "text": "Test", "textOpacity": 5.0}
+        text = TextItem.from_dict(data)
+        assert text.text_opacity == 1.0
+
+    def test_text_has_name_property(self):
+        """TextItem should have a name property."""
+        text = TextItem(x=0, y=0, text="Hello", name="Text 1")
+        assert text.name == "Text 1"
+
+    def test_text_name_defaults_to_empty(self):
+        """TextItem name should default to empty string."""
+        text = TextItem(x=0, y=0, text="Hello")
+        assert text.name == ""
+
+    def test_text_no_parent_by_default(self):
+        """TextItem should have no parent by default."""
+        text = TextItem(x=0, y=0, text="Hello")
+        assert text.parent_id is None
+
+    def test_text_with_parent_id(self):
+        """TextItem can be created with a parent_id."""
+        text = TextItem(x=0, y=0, text="Hello", parent_id="layer-123")
+        assert text.parent_id == "layer-123"
+
+    def test_text_unlocked_by_default(self):
+        """TextItem should be unlocked by default."""
+        text = TextItem(x=0, y=0, text="Hello")
+        assert text.locked is False
+
+    def test_text_with_locked_true(self):
+        """TextItem can be created with locked=True."""
+        text = TextItem(x=0, y=0, text="Hello", locked=True)
+        assert text.locked is True
+
+    def test_text_visible_by_default(self):
+        """TextItem should be visible by default."""
+        text = TextItem(x=0, y=0, text="Hello")
+        assert text.visible is True
+
+    def test_text_with_visible_false(self):
+        """TextItem can be created with visible=False."""
+        text = TextItem(x=0, y=0, text="Hello", visible=False)
+        assert text.visible is False
+
+    def test_text_is_canvas_item(self):
+        """TextItem should be a CanvasItem subclass."""
+        text = TextItem(x=0, y=0, text="Hello")
+        assert isinstance(text, CanvasItem)
+
+    def test_paint_runs(self, qtbot):
+        """Smoke test: paint text does not crash."""
+        img = QImage(QSize(100, 50), QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+        text = TextItem(x=0, y=0, text="Hello World", font_size=16)
+        text.paint(painter, zoom_level=1.0)
+        painter.end()
+
+    def test_paint_with_zoom(self, qtbot):
+        """Text paint should handle zoom levels."""
+        img = QImage(QSize(200, 100), QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+        text = TextItem(x=10, y=10, text="Zoomed", font_size=20)
+        text.paint(painter, zoom_level=2.0)
+        painter.end()
+
+    def test_from_dict_with_parent_id(self):
+        """TextItem.from_dict should parse parentId."""
+        data = {
+            "type": "text",
+            "x": 0,
+            "y": 0,
+            "text": "Hello",
+            "parentId": "layer-abc",
+        }
+        text = TextItem.from_dict(data)
+        assert text.parent_id == "layer-abc"
+
+    def test_from_dict_with_locked(self):
+        """TextItem.from_dict should parse locked."""
+        data = {
+            "type": "text",
+            "x": 0,
+            "y": 0,
+            "text": "Hello",
+            "locked": True,
+        }
+        text = TextItem.from_dict(data)
+        assert text.locked is True
+
+    def test_from_dict_with_visible(self):
+        """TextItem.from_dict should parse visible."""
+        data = {
+            "type": "text",
+            "x": 0,
+            "y": 0,
+            "text": "Hello",
+            "visible": False,
+        }
+        text = TextItem.from_dict(data)
+        assert text.visible is False
+
+    def test_text_has_width_height_properties(self):
+        """TextItem should have width and height properties for text box."""
+        text = TextItem(x=0, y=0, text="Hello", width=200, height=50)
+        assert text.width == 200
+        assert text.height == 50
+
+    def test_text_width_height_default_values(self):
+        """TextItem width/height should have sensible defaults."""
+        text = TextItem(x=0, y=0, text="Hello")
+        # Default width should be reasonable for a text box
+        assert text.width == 100
+        # Default height of 0 means auto-height (not constrained)
+        assert text.height == 0
+
+    def test_text_width_minimum_clamped(self):
+        """TextItem width should be clamped to minimum of 1."""
+        text = TextItem(x=0, y=0, text="Hello", width=-10)
+        assert text.width == 1
+
+    def test_text_height_minimum_clamped(self):
+        """TextItem height should be clamped to minimum of 0 (auto)."""
+        text = TextItem(x=0, y=0, text="Hello", height=-10)
+        assert text.height == 0
+
+    def test_from_dict_with_width_height(self):
+        """TextItem.from_dict should parse width and height."""
+        data = {
+            "type": "text",
+            "x": 10,
+            "y": 20,
+            "text": "Box Text",
+            "width": 300,
+            "height": 100,
+        }
+        text = TextItem.from_dict(data)
+        assert text.width == 300
+        assert text.height == 100
+
+    def test_from_dict_width_height_defaults(self):
+        """TextItem.from_dict should use defaults for missing width/height."""
+        data = {"type": "text", "x": 0, "y": 0, "text": "Hello"}
+        text = TextItem.from_dict(data)
+        assert text.width == 100
+        assert text.height == 0
+
+    def test_paint_empty_text_returns_early(self, qtbot):
+        """TextItem.paint() should return early when text is empty."""
+        img = QImage(QSize(100, 50), QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+        text = TextItem(x=0, y=0, text="")
+        # Should not crash and should return early
+        text.paint(painter, zoom_level=1.0)
+        painter.end()
+
+    def test_paint_multiline_text(self, qtbot):
+        """TextItem.paint() should handle multiline text with newlines."""
+        img = QImage(QSize(200, 100), QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+        text = TextItem(x=0, y=0, text="Line 1\nLine 2\nLine 3", width=200)
+        text.paint(painter, zoom_level=1.0)
+        painter.end()

@@ -100,7 +100,7 @@ Pane {
 
             // No custom background; rely on default ToolButton visuals
         }
-        // Pen tool button (bottom)
+        // Pen tool button
         ToolButton {
             id: penButton
             Layout.preferredWidth: DV.Styles.height.xlg
@@ -129,6 +129,37 @@ Pane {
 
             // No custom background; rely on default ToolButton visuals
         }
+
+        // Text tool button
+        ToolButton {
+            id: textButton
+            Layout.preferredWidth: DV.Styles.height.xlg
+            Layout.preferredHeight: DV.Styles.height.xlg
+            Layout.alignment: Qt.AlignHCenter
+            checkable: true
+            checked: root.activeTool === "text"
+            ButtonGroup.group: toolButtonGroup
+
+            ToolTip.visible: textButton.hovered
+            ToolTip.delay: 500
+            ToolTip.text: "Text Tool\n\nClick to place text, type, then press Enter to confirm"
+
+            contentItem: Item {
+                anchors.fill: parent
+                PhIcon {
+                    anchors.centerIn: parent
+                    name: "text-t"
+                    color: palette.buttonText
+                }
+            }
+
+            onClicked: {
+                root.toolSelected(checked ? "text" : "");
+            }
+
+            // No custom background; rely on default ToolButton visuals
+        }
+
         Item {
             Layout.fillHeight: true
         }

@@ -8,6 +8,7 @@ from lucent.canvas_items import (
     LayerItem,
     CanvasItem,
     PathItem,
+    TextItem,
 )
 from lucent.item_schema import (
     ItemSchemaError,
@@ -18,6 +19,7 @@ from lucent.item_schema import (
     validate_ellipse,
     validate_layer,
     validate_path,
+    validate_text,
     item_to_dict,
 )
 
@@ -120,6 +122,64 @@ def test_validate_layer_defaults_and_preserves_id():
     assert out2["id"] is None
 
 
+def test_validate_text_clamps_and_defaults():
+    """validate_text should clamp font size and opacity values."""
+    data = {
+        "type": "text",
+        "x": 10,
+        "y": 20,
+        "text": "Hello",
+        "fontFamily": "Monospace",
+        "fontSize": 5,  # Below minimum
+        "textColor": "#ff0000",
+        "textOpacity": 2.0,  # Above maximum
+        "name": "MyText",
+        "parentId": "layer-1",
+    }
+    out = validate_text(data)
+    assert out["x"] == 10
+    assert out["y"] == 20
+    assert out["text"] == "Hello"
+    assert out["fontFamily"] == "Monospace"
+    assert out["fontSize"] == 8  # Clamped to minimum
+    assert out["textColor"] == "#ff0000"
+    assert out["textOpacity"] == 1.0  # Clamped to maximum
+    assert out["name"] == "MyText"
+    assert out["parentId"] == "layer-1"
+
+
+def test_validate_text_defaults():
+    """validate_text should use defaults for missing fields."""
+    data = {"type": "text", "text": "Hello"}
+    out = validate_text(data)
+    assert out["x"] == 0
+    assert out["y"] == 0
+    assert out["fontFamily"] == "Sans Serif"
+    assert out["fontSize"] == 16
+    assert out["textColor"] == "#ffffff"
+    assert out["textOpacity"] == 1.0
+    assert out["name"] == ""
+    assert out["width"] == 100
+    assert out["height"] == 0
+    assert out["parentId"] is None
+    assert out["visible"] is True
+    assert out["locked"] is False
+
+
+def test_validate_text_empty_parent_id_becomes_none():
+    """validate_text should convert empty parentId to None."""
+    data = {"type": "text", "text": "Hello", "parentId": ""}
+    out = validate_text(data)
+    assert out["parentId"] is None
+
+
+def test_validate_text_invalid_numeric_raises():
+    """validate_text should raise for invalid numeric fields."""
+    data = {"type": "text", "text": "Hello", "fontSize": "not-a-number"}
+    with pytest.raises(ItemSchemaError, match="Invalid text numeric field"):
+        validate_text(data)
+
+
 def test_parse_item_returns_concrete_items():
     rect = parse_item({"type": "rectangle", "width": 1, "height": 1})
     assert isinstance(rect, RectangleItem)
@@ -136,6 +196,10 @@ def test_parse_item_returns_concrete_items():
     )
     assert isinstance(path, PathItem)
     assert path.closed is False
+    text = parse_item({"type": "text", "text": "Hello", "fontSize": 20})
+    assert isinstance(text, TextItem)
+    assert text.text == "Hello"
+    assert text.font_size == 20
 
 
 def test_item_to_dict_round_trips_rectangle():
@@ -183,6 +247,36 @@ def test_item_to_dict_round_trips_path():
     assert out["strokeOpacity"] == 0.5
     assert out["closed"] is True
     assert out["points"][0] == {"x": 0.0, "y": 0.0}
+
+
+def test_item_to_dict_round_trips_text():
+    """item_to_dict should serialize TextItem correctly."""
+    text = TextItem(
+        x=10,
+        y=20,
+        text="Hello World",
+        font_family="Monospace",
+        font_size=24,
+        text_color="#ff0000",
+        text_opacity=0.8,
+        width=200,
+        height=50,
+        name="T1",
+        parent_id="layer-2",
+    )
+    out = item_to_dict(text)
+    assert out["type"] == ItemType.TEXT.value
+    assert out["x"] == 10
+    assert out["y"] == 20
+    assert out["width"] == 200
+    assert out["height"] == 50
+    assert out["text"] == "Hello World"
+    assert out["fontFamily"] == "Monospace"
+    assert out["fontSize"] == 24
+    assert out["textColor"] == "#ff0000"
+    assert out["textOpacity"] == 0.8
+    assert out["name"] == "T1"
+    assert out["parentId"] == "layer-2"
 
 
 def test_parse_item_invalid_ellipse_raises():
@@ -298,3 +392,44 @@ class TestLockedSerialization:
         layer = LayerItem(name="Test", locked=True)
         out = item_to_dict(layer)
         assert out["locked"] is True
+
+    def test_validate_text_includes_locked(self):
+        """validate_text should include locked in output."""
+        data = {"type": "text", "text": "Hello", "locked": True}
+        out = validate_text(data)
+        assert out["locked"] is True
+
+    def test_validate_text_locked_defaults_false(self):
+        """validate_text should default locked to False."""
+        data = {"type": "text", "text": "Hello"}
+        out = validate_text(data)
+        assert out["locked"] is False
+
+    def test_validate_text_includes_visible(self):
+        """validate_text should include visible in output."""
+        data = {"type": "text", "text": "Hello", "visible": False}
+        out = validate_text(data)
+        assert out["visible"] is False
+
+    def test_validate_text_visible_defaults_true(self):
+        """validate_text should default visible to True."""
+        data = {"type": "text", "text": "Hello"}
+        out = validate_text(data)
+        assert out["visible"] is True
+
+    def test_parse_item_text_preserves_locked(self):
+        """parse_item should create TextItem with locked property."""
+        text = parse_item({"type": "text", "text": "Hello", "locked": True})
+        assert text.locked is True
+
+    def test_item_to_dict_text_includes_locked(self):
+        """item_to_dict should include locked for TextItem."""
+        text = TextItem(x=0, y=0, text="Hello", locked=True)
+        out = item_to_dict(text)
+        assert out["locked"] is True
+
+    def test_item_to_dict_text_includes_visible(self):
+        """item_to_dict should include visible for TextItem."""
+        text = TextItem(x=0, y=0, text="Hello", visible=False)
+        out = item_to_dict(text)
+        assert out["visible"] is False
