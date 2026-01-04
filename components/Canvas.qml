@@ -30,7 +30,9 @@ Item {
     }
 
     // Tool settings model - organized by tool type
-    property var toolSettings: toolDefaults.values
+    property var toolSettings: Qt.binding(function () {
+        return toolDefaults.defaults();
+    })
 
     // Current cursor shape (for dynamic cursor changes)
     property int currentCursorShape: Qt.OpenHandCursor
@@ -65,7 +67,7 @@ Item {
             selectedItem: DV.SelectionManager.selectedItem
             boundsOverride: root.selectionBounds()
             zoomLevel: root.zoomLevel
-            accentColor: DV.Theme.colors.accent
+            accentColor: DV.PaletteBridge.active.highlight
         }
 
         // Select tool for object selection (panning handled by Viewport)
