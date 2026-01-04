@@ -68,6 +68,10 @@ Item {
     property real resizeStartWidth: 0
     property real resizeStartHeight: 0
 
+    // Text selection state tracking
+    property bool isSelectingText: false
+    property int selectionAnchor: 0
+
     // Text editing container (shown after box is created)
     Rectangle {
         id: textEditContainer
@@ -197,7 +201,18 @@ Item {
         return canvasX >= handleX && canvasX <= handleX + handleSize && canvasY >= handleY && canvasY <= handleY + handleSize;
     }
 
-    // Handle mouse press (for resize detection)
+    // Check if a canvas position is inside the text area (not resize handle)
+    function isInTextArea(canvasX, canvasY) {
+        if (!tool.isEditing)
+            return false;
+
+        var insideX = canvasX >= tool.boxX && canvasX <= tool.boxX + tool.boxWidth;
+        var insideY = canvasY >= tool.boxY && canvasY <= tool.boxY + textEditContainer.height;
+
+        return insideX && insideY && !isInResizeHandle(canvasX, canvasY);
+    }
+
+    // Handle mouse press (for resize detection and text selection)
     function handleMousePress(canvasX, canvasY, button, modifiers) {
         if (!tool.active || !tool.isEditing)
             return;
@@ -208,6 +223,16 @@ Item {
             tool.resizeStartY = canvasY;
             tool.resizeStartWidth = tool.boxWidth;
             tool.resizeStartHeight = tool.boxHeight;
+        } else if (isInTextArea(canvasX, canvasY)) {
+            // Start text selection
+            var localX = canvasX - tool.boxX - tool.textPadding;
+            var localY = canvasY - tool.boxY - tool.textPadding;
+            var pos = textEdit.positionAt(localX, localY);
+
+            tool.isSelectingText = true;
+            tool.selectionAnchor = pos;
+            textEdit.cursorPosition = pos;
+            textEdit.forceActiveFocus();
         }
     }
 
@@ -221,6 +246,12 @@ Item {
             var insideX = canvasX >= tool.boxX && canvasX <= tool.boxX + tool.boxWidth;
             var insideY = canvasY >= tool.boxY && canvasY <= tool.boxY + textEditContainer.height;
 
+            // Skip click if we just finished resizing or selecting (preserve selection)
+            if (tool.justFinishedResizing) {
+                tool.justFinishedResizing = false;
+                return;
+            }
+
             if (insideX && insideY) {
                 // Click inside: position cursor at click location
                 // Convert canvas coords to TextEdit local coords
@@ -229,13 +260,6 @@ Item {
                 var pos = textEdit.positionAt(localX, localY);
                 textEdit.cursorPosition = pos;
                 textEdit.forceActiveFocus();
-                tool.justFinishedResizing = false;
-                return;
-            }
-
-            // Skip commit if we just finished resizing (avoid accidental commit)
-            if (tool.justFinishedResizing) {
-                tool.justFinishedResizing = false;
                 return;
             }
 
@@ -298,6 +322,19 @@ Item {
             return;
         }
 
+        // Handle text selection dragging
+        if (tool.isSelectingText) {
+            var localX = canvasX - tool.boxX - tool.textPadding;
+            var localY = canvasY - tool.boxY - tool.textPadding;
+            var pos = textEdit.positionAt(localX, localY);
+
+            // Select from anchor to current position
+            var start = Math.min(tool.selectionAnchor, pos);
+            var end = Math.max(tool.selectionAnchor, pos);
+            textEdit.select(start, end);
+            return;
+        }
+
         if (!helper.isDrawing)
             return;
 
@@ -327,12 +364,19 @@ Item {
         };
     }
 
-    // Handle mouse release (for resize completion)
+    // Handle mouse release (for resize and text selection completion)
     function handleMouseRelease(canvasX, canvasY) {
         if (tool.isResizing) {
             tool.isResizing = false;
             tool.justFinishedResizing = true;
             textEdit.forceActiveFocus();
+        }
+        if (tool.isSelectingText) {
+            tool.isSelectingText = false;
+            // If we selected text (not just a click), prevent click handler
+            if (textEdit.selectedText.length > 0) {
+                tool.justFinishedResizing = true;  // Reuse this flag to skip click
+            }
         }
     }
 
