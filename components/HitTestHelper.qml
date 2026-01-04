@@ -32,6 +32,16 @@ QtObject {
                         return i;
                     }
                 }
+            } else if (item.type === "text") {
+                // Hit test text using bounding box from model
+                if (boundingBoxCallback) {
+                    var textBounds = boundingBoxCallback(i);
+                    if (textBounds && textBounds.width >= 0 && textBounds.height >= 0) {
+                        if (canvasX >= textBounds.x && canvasX <= textBounds.x + textBounds.width && canvasY >= textBounds.y && canvasY <= textBounds.y + textBounds.height) {
+                            return i;
+                        }
+                    }
+                }
             } else if (item.type === "group" || item.type === "layer") {
                 if (boundingBoxCallback) {
                     var bounds = boundingBoxCallback(i);

@@ -13,6 +13,7 @@ from lucent.canvas_items import (
     LayerItem,
     GroupItem,
     PathItem,
+    TextItem,
 )
 
 
@@ -26,6 +27,7 @@ class ItemType(str, Enum):
     LAYER = "layer"
     GROUP = "group"
     PATH = "path"
+    TEXT = "text"
 
 
 @dataclass
@@ -202,6 +204,40 @@ def validate_group(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def validate_text(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate and normalize text item data."""
+    try:
+        x = float(data.get("x", 0))
+        y = float(data.get("y", 0))
+        font_size = _clamp_range(float(data.get("fontSize", 16)), 8.0, 200.0)
+        text_opacity = _clamp_range(float(data.get("textOpacity", 1.0)), 0.0, 1.0)
+    except (TypeError, ValueError) as exc:
+        raise ItemSchemaError(f"Invalid text numeric field: {exc}") from exc
+
+    text = str(data.get("text", ""))
+    font_family = str(data.get("fontFamily", "Sans Serif"))
+    text_color = str(data.get("textColor", "#ffffff"))
+    name = str(data.get("name", ""))
+    parent_id = data.get("parentId") or None
+    visible = bool(data.get("visible", True))
+    locked = bool(data.get("locked", False))
+
+    return {
+        "type": ItemType.TEXT.value,
+        "name": name,
+        "parentId": parent_id,
+        "visible": visible,
+        "locked": locked,
+        "x": x,
+        "y": y,
+        "text": text,
+        "fontFamily": font_family,
+        "fontSize": font_size,
+        "textColor": text_color,
+        "textOpacity": text_opacity,
+    }
+
+
 def parse_item_data(data: Dict[str, Any]) -> ParsedItem:
     item_type = _parse_type(data.get("type"))
     if item_type is ItemType.RECTANGLE:
@@ -214,6 +250,8 @@ def parse_item_data(data: Dict[str, Any]) -> ParsedItem:
         validated = validate_group(data)
     elif item_type is ItemType.PATH:
         validated = validate_path(data)
+    elif item_type is ItemType.TEXT:
+        validated = validate_text(data)
     else:  # pragma: no cover - exhaustive Enum
         raise ItemSchemaError(f"Unsupported item type: {item_type}")
 
@@ -282,6 +320,20 @@ def parse_item(data: Dict[str, Any]) -> CanvasItem:
             name=d["name"],
             group_id=d.get("id"),
             parent_id=d.get("parentId"),
+            visible=d.get("visible", True),
+            locked=d.get("locked", False),
+        )
+    if t is ItemType.TEXT:
+        return TextItem(
+            x=d["x"],
+            y=d["y"],
+            text=d["text"],
+            font_family=d["fontFamily"],
+            font_size=d["fontSize"],
+            text_color=d["textColor"],
+            text_opacity=d["textOpacity"],
+            name=d["name"],
+            parent_id=d["parentId"],
             visible=d.get("visible", True),
             locked=d.get("locked", False),
         )
@@ -354,5 +406,20 @@ def item_to_dict(item: CanvasItem) -> Dict[str, Any]:
             "fillColor": item.fill_color,
             "fillOpacity": item.fill_opacity,
             "closed": item.closed,
+        }
+    if isinstance(item, TextItem):
+        return {
+            "type": ItemType.TEXT.value,
+            "name": item.name,
+            "parentId": item.parent_id,
+            "visible": getattr(item, "visible", True),
+            "locked": getattr(item, "locked", False),
+            "x": item.x,
+            "y": item.y,
+            "text": item.text,
+            "fontFamily": item.font_family,
+            "fontSize": item.font_size,
+            "textColor": item.text_color,
+            "textOpacity": item.text_opacity,
         }
     raise ItemSchemaError(f"Cannot serialize unknown item type: {type(item).__name__}")

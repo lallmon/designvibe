@@ -104,7 +104,8 @@ Item {
                 var toolMap = {
                     "rectangle": "RectangleTool.qml",
                     "ellipse": "EllipseTool.qml",
-                    "pen": "PenTool.qml"
+                    "pen": "PenTool.qml",
+                    "text": "TextTool.qml"
                 };
                 return toolMap[root.drawingMode] || "";
             }
@@ -342,6 +343,27 @@ Item {
                 canvasModel.updateItem(idx, {
                     centerX: data.centerX + canvasDx,
                     centerY: data.centerY + canvasDy
+                });
+            } else if (data.type === "text") {
+                if (data.parentId && containerIds[data.parentId])
+                    continue;
+                canvasModel.updateItem(idx, {
+                    x: data.x + canvasDx,
+                    y: data.y + canvasDy
+                });
+            } else if (data.type === "path") {
+                if (data.parentId && containerIds[data.parentId])
+                    continue;
+                // Move path by translating all points
+                var newPoints = [];
+                for (var p = 0; p < data.points.length; p++) {
+                    newPoints.push({
+                        x: data.points[p].x + canvasDx,
+                        y: data.points[p].y + canvasDy
+                    });
+                }
+                canvasModel.updateItem(idx, {
+                    points: newPoints
                 });
             }
         }

@@ -300,6 +300,8 @@ Item {
                                                     return "circle";
                                                 if (delegateRoot.itemType === "path")
                                                     return "pen-nib";
+                                                if (delegateRoot.itemType === "text")
+                                                    return "text-t";
                                                 return "shapes";
                                             }
                                             size: 18

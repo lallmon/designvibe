@@ -18,6 +18,7 @@ ScrollView {
     // Helper to check if selected item is a shape with stroke/fill properties
     readonly property bool isShapeSelected: !!selectedItem && (selectedItem.type === "rectangle" || selectedItem.type === "ellipse")
     readonly property bool isPathSelected: !!selectedItem && selectedItem.type === "path"
+    readonly property bool isTextSelected: !!selectedItem && selectedItem.type === "text"
 
     // Helper to check if selected item is effectively locked (own state or parent layer locked)
     readonly property bool isLocked: (DV.SelectionManager.selectedItemIndex >= 0) && canvasModel && canvasModel.isEffectivelyLocked(DV.SelectionManager.selectedItemIndex)
@@ -294,7 +295,7 @@ ScrollView {
                         TextField {
                             id: pathStrokeWidthInput
                             Layout.fillWidth: true
-                            text: root.selectedItem ? root.selectedItem.strokeWidth.toString() : "1"
+                            text: root.isPathSelected && root.selectedItem.strokeWidth !== undefined ? root.selectedItem.strokeWidth.toString() : "1"
                             font.pixelSize: 10
                             inputMethodHints: Qt.ImhFormattedNumbersOnly
                             validator: DoubleValidator {
@@ -527,6 +528,236 @@ ScrollView {
                             Layout.alignment: Qt.AlignVCenter
                         }
                     }
+                }
+            }
+
+            // Text section - shown when a text item is selected
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                visible: root.isTextSelected
+
+                Label {
+                    text: qsTr("Text")
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: root.labelColor
+                }
+
+                GridLayout {
+                    columns: 2
+                    rowSpacing: 4
+                    columnSpacing: 8
+                    Layout.fillWidth: true
+                    enabled: !root.isLocked
+
+                    Label {
+                        text: qsTr("X:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    SpinBox {
+                        from: -100000
+                        to: 100000
+                        value: root.selectedItem ? Math.round(root.selectedItem.x) : 0
+                        editable: true
+                        Layout.fillWidth: true
+                        onValueModified: root.updateProperty("x", value)
+                    }
+
+                    Label {
+                        text: qsTr("Y:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    SpinBox {
+                        from: -100000
+                        to: 100000
+                        value: root.selectedItem ? Math.round(root.selectedItem.y) : 0
+                        editable: true
+                        Layout.fillWidth: true
+                        onValueModified: root.updateProperty("y", value)
+                    }
+
+                    Label {
+                        text: qsTr("Text:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    TextField {
+                        Layout.fillWidth: true
+                        text: root.isTextSelected ? root.selectedItem.text : ""
+                        font.pixelSize: 10
+                        selectByMouse: true
+                        onEditingFinished: root.updateProperty("text", text)
+                    }
+
+                    Label {
+                        text: qsTr("Font:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    ComboBox {
+                        id: fontFamilyCombo
+                        Layout.fillWidth: true
+                        model: ["Sans Serif", "Serif", "Monospace", "Cursive", "Fantasy"]
+                        currentIndex: root.isTextSelected ? model.indexOf(root.selectedItem.fontFamily) : 0
+                        onActivated: root.updateProperty("fontFamily", model[currentIndex])
+                    }
+
+                    Label {
+                        text: qsTr("Size:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    RowLayout {
+                        spacing: 6
+                        Layout.fillWidth: true
+
+                        TextField {
+                            id: textFontSizeInput
+                            Layout.fillWidth: true
+                            text: root.isTextSelected ? root.selectedItem.fontSize.toString() : "16"
+                            font.pixelSize: 10
+                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                            validator: DoubleValidator {
+                                bottom: 8.0
+                                top: 200.0
+                                decimals: 1
+                            }
+                            onEditingFinished: {
+                                var v = parseFloat(text);
+                                if (!isNaN(v) && v >= 8.0 && v <= 200.0) {
+                                    root.updateProperty("fontSize", v);
+                                } else {
+                                    text = root.isTextSelected ? root.selectedItem.fontSize.toString() : "16";
+                                }
+                            }
+                        }
+
+                        Label {
+                            text: qsTr("px")
+                            font.pixelSize: root.labelSize
+                            color: root.labelColor
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+
+                    Label {
+                        text: qsTr("Color:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    RowLayout {
+                        spacing: 6
+                        Layout.fillWidth: true
+
+                        Rectangle {
+                            width: 28
+                            height: 16
+                            radius: 2
+                            color: root.isTextSelected ? root.selectedItem.textColor : "transparent"
+                            border.color: palette.mid
+                            border.width: 1
+                            Layout.alignment: Qt.AlignVCenter
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    canvasModel.beginTransaction();
+                                    textColorDialog.open();
+                                }
+                            }
+                        }
+
+                        TextField {
+                            text: root.isTextSelected ? root.selectedItem.textColor : ""
+                            font.pixelSize: 10
+                            Layout.fillWidth: true
+                            selectByMouse: true
+                            onEditingFinished: root.updateProperty("textColor", text)
+                        }
+                    }
+
+                    Label {
+                        text: qsTr("Opacity:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        Slider {
+                            id: textOpacitySlider
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: DV.Styles.height.sm
+                            from: 0
+                            to: 100
+                            stepSize: 1
+                            onPressedChanged: pressed ? canvasModel.beginTransaction() : canvasModel.endTransaction()
+                            onValueChanged: if (pressed)
+                                root.updateProperty("textOpacity", value / 100.0)
+                            Component.onCompleted: value = root.selectedItem && root.selectedItem.textOpacity !== undefined ? Math.round(root.selectedItem.textOpacity * 100) : 100
+
+                            Binding {
+                                target: textOpacitySlider
+                                property: "value"
+                                value: root.selectedItem && root.selectedItem.textOpacity !== undefined ? Math.round(root.selectedItem.textOpacity * 100) : 100
+                                when: !textOpacitySlider.pressed
+                            }
+
+                            background: Rectangle {
+                                x: textOpacitySlider.leftPadding
+                                y: textOpacitySlider.topPadding + textOpacitySlider.availableHeight / 2 - height / 2
+                                width: textOpacitySlider.availableWidth
+                                height: DV.Styles.height.xxxsm
+                                implicitWidth: 80
+                                implicitHeight: DV.Styles.height.xxxsm
+                                radius: DV.Styles.rad.sm
+                                color: palette.midlight
+
+                                Rectangle {
+                                    width: textOpacitySlider.visualPosition * parent.width
+                                    height: parent.height
+                                    color: palette.highlight
+                                    radius: DV.Styles.rad.sm
+                                }
+                            }
+
+                            handle: Rectangle {
+                                x: textOpacitySlider.leftPadding + textOpacitySlider.visualPosition * (textOpacitySlider.availableWidth - width)
+                                y: textOpacitySlider.topPadding + textOpacitySlider.availableHeight / 2 - height / 2
+                                width: DV.Styles.height.xs
+                                height: DV.Styles.height.xs
+                                implicitWidth: DV.Styles.height.xs
+                                implicitHeight: DV.Styles.height.xs
+                                radius: DV.Styles.rad.lg
+                                color: textOpacitySlider.pressed ? palette.highlight : palette.text
+                                border.color: palette.mid
+                                border.width: 1
+                            }
+                        }
+
+                        Label {
+                            text: Math.round(textOpacitySlider.value) + "%"
+                            font.pixelSize: 11
+                            color: palette.text
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                }
+
+                ColorDialog {
+                    id: textColorDialog
+                    title: qsTr("Choose Text Color")
+                    onVisibleChanged: {
+                        if (visible) {
+                            selectedColor = root.isTextSelected ? root.selectedItem.textColor : palette.text;
+                        }
+                    }
+                    onSelectedColorChanged: root.updateProperty("textColor", selectedColor.toString())
+                    onAccepted: canvasModel.endTransaction()
+                    onRejected: canvasModel.endTransaction()
                 }
             }
 

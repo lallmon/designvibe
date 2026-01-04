@@ -13,7 +13,15 @@ All items use QPainter for rendering and support stroke/fill styling.
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 import uuid
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QPainterPath
+from PySide6.QtGui import (
+    QPainter,
+    QPen,
+    QBrush,
+    QColor,
+    QPainterPath,
+    QFont,
+    QFontMetricsF,
+)
 from PySide6.QtCore import QRectF, Qt, QPointF
 
 # Canvas coordinate system defaults.
@@ -436,6 +444,94 @@ class GroupItem(CanvasItem):
         return GroupItem(
             name=data.get("name", ""),
             group_id=data.get("id"),
+            parent_id=data.get("parentId"),
+            visible=data.get("visible", True),
+            locked=data.get("locked", False),
+        )
+
+
+class TextItem(CanvasItem):
+    """Text canvas item for rendering text on the canvas."""
+
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        text: str,
+        font_family: str = "Sans Serif",
+        font_size: float = 16,
+        text_color: str = "#ffffff",
+        text_opacity: float = 1.0,
+        name: str = "",
+        parent_id: Optional[str] = None,
+        visible: bool = True,
+        locked: bool = False,
+    ) -> None:
+        self.name = name
+        self.parent_id = parent_id
+        self.visible = bool(visible)
+        self.locked = bool(locked)
+        self.x = x
+        self.y = y
+        self.text = text
+        self.font_family = font_family
+        # Validate font size (must be in range 8-200)
+        self.font_size = max(8.0, min(200.0, font_size))
+        self.text_color = text_color
+        # Validate text opacity (must be in range 0.0-1.0)
+        self.text_opacity = max(0.0, min(1.0, text_opacity))
+
+    def paint(
+        self,
+        painter: QPainter,
+        zoom_level: float,
+        offset_x: float = CANVAS_OFFSET_X,
+        offset_y: float = CANVAS_OFFSET_Y,
+    ) -> None:
+        """Render this text item using QPainter."""
+        local_x = self.x + offset_x
+        local_y = self.y + offset_y
+
+        # Set up font
+        font = QFont(self.font_family)
+        font.setPointSizeF(self.font_size)
+        painter.setFont(font)
+
+        # Set up pen for text color
+        text_qcolor = QColor(self.text_color)
+        text_qcolor.setAlphaF(self.text_opacity)
+        pen = QPen(text_qcolor)
+        painter.setPen(pen)
+
+        # No brush needed for text
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        # Get font metrics to calculate baseline from top
+        # y is stored as the TOP of the text, but drawText uses baseline
+        fm = QFontMetricsF(font)
+        baseline_y = local_y + fm.ascent()
+
+        # Draw text at position (x is left edge, y is baseline)
+        painter.drawText(QPointF(local_x, baseline_y), self.text)
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "TextItem":
+        """Create TextItem from QML data dictionary."""
+        # Extract and validate font size (must be in range 8-200)
+        font_size = max(8.0, min(200.0, float(data.get("fontSize", 16))))
+
+        # Extract and validate text opacity (must be in range 0.0-1.0)
+        text_opacity = max(0.0, min(1.0, float(data.get("textOpacity", 1.0))))
+
+        return TextItem(
+            x=float(data.get("x", 0)),
+            y=float(data.get("y", 0)),
+            text=str(data.get("text", "")),
+            font_family=str(data.get("fontFamily", "Sans Serif")),
+            font_size=font_size,
+            text_color=str(data.get("textColor", "#ffffff")),
+            text_opacity=text_opacity,
+            name=str(data.get("name", "")),
             parent_id=data.get("parentId"),
             visible=data.get("visible", True),
             locked=data.get("locked", False),

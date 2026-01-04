@@ -30,6 +30,11 @@ ToolBar {
     property color penFillColor: toolDefaults.defaultFillColor
     property real penFillOpacity: toolDefaults.defaultFillOpacity
 
+    property string textFontFamily: "Sans Serif"
+    property real textFontSize: 16
+    property color textColor: toolDefaults.defaultStrokeColor
+    property real textOpacity: 1.0
+
     readonly property var toolSettings: ({
             "rectangle": {
                 strokeWidth: rectangleStrokeWidth,
@@ -51,6 +56,12 @@ ToolBar {
                 strokeOpacity: penStrokeOpacity,
                 fillColor: penFillColor,
                 fillOpacity: penFillOpacity
+            },
+            "text": {
+                fontFamily: textFontFamily,
+                fontSize: textFontSize,
+                textColor: textColor,
+                textOpacity: textOpacity
             }
         })
 
@@ -1378,6 +1389,275 @@ ToolBar {
 
             onAccepted: {
                 root.penFillColor = selectedColor;
+            }
+        }
+
+        // Text tool settings
+        RowLayout {
+            id: textSettings
+            visible: root.activeTool === "text"
+            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 6
+
+            Label {
+                text: qsTr("Font:")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            ComboBox {
+                id: fontFamilyCombo
+                Layout.preferredWidth: 120
+                Layout.preferredHeight: DV.Styles.height.md
+                Layout.alignment: Qt.AlignVCenter
+                model: ["Sans Serif", "Serif", "Monospace", "Cursive", "Fantasy"]
+                currentIndex: {
+                    var idx = model.indexOf(root.textFontFamily);
+                    return idx >= 0 ? idx : 0;
+                }
+
+                onCurrentTextChanged: {
+                    root.textFontFamily = currentText;
+                }
+
+                background: Rectangle {
+                    color: palette.base
+                    border.color: fontFamilyCombo.activeFocus ? palette.highlight : palette.mid
+                    border.width: 1
+                    radius: DV.Styles.rad.sm
+                }
+
+                contentItem: Text {
+                    text: fontFamilyCombo.displayText
+                    color: palette.text
+                    font.pixelSize: 11
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: 6
+                }
+            }
+
+            // Separator
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.preferredHeight: 16
+                Layout.alignment: Qt.AlignVCenter
+                Layout.leftMargin: 6
+                Layout.rightMargin: 6
+                color: palette.mid
+            }
+
+            Label {
+                text: qsTr("Size:")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            TextField {
+                id: textFontSizeInput
+                Layout.preferredWidth: 50
+                Layout.preferredHeight: DV.Styles.height.md
+                Layout.alignment: Qt.AlignVCenter
+                text: root.textFontSize.toString()
+                horizontalAlignment: TextInput.AlignHCenter
+                font.pixelSize: 11
+                validator: DoubleValidator {
+                    bottom: 8
+                    top: 200
+                    decimals: 0
+                }
+
+                function commitValue() {
+                    var value = parseFloat(text);
+                    if (!isNaN(value) && value >= 8 && value <= 200) {
+                        root.textFontSize = value;
+                    } else {
+                        text = root.textFontSize.toString();
+                    }
+                }
+
+                onEditingFinished: commitValue()
+                onActiveFocusChanged: {
+                    if (!activeFocus) {
+                        commitValue();
+                    }
+                }
+
+                background: Rectangle {
+                    color: palette.base
+                    border.color: textFontSizeInput.activeFocus ? palette.highlight : palette.mid
+                    border.width: 1
+                    radius: DV.Styles.rad.sm
+                }
+                color: palette.text
+            }
+
+            Label {
+                text: qsTr("px")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            // Separator
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.preferredHeight: 16
+                Layout.alignment: Qt.AlignVCenter
+                Layout.leftMargin: 6
+                Layout.rightMargin: 6
+                color: palette.mid
+            }
+
+            Label {
+                text: qsTr("Color:")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            Button {
+                id: textColorButton
+                Layout.preferredWidth: 16
+                Layout.preferredHeight: 16
+                Layout.alignment: Qt.AlignVCenter
+
+                onClicked: textColorDialog.open()
+
+                background: Rectangle {
+                    color: root.textColor
+                    border.color: palette.mid
+                    border.width: 1
+                    radius: DV.Styles.rad.sm
+                }
+            }
+
+            Label {
+                text: qsTr("Opacity:")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            Slider {
+                id: textOpacitySlider
+                Layout.preferredWidth: 80
+                Layout.preferredHeight: DV.Styles.height.sm
+                implicitHeight: DV.Styles.height.sm
+                Layout.alignment: Qt.AlignVCenter
+                from: 0
+                to: 100
+                stepSize: 1
+                value: 100
+
+                onPressedChanged: {
+                    if (!pressed) {
+                        root.textOpacity = value / 100.0;
+                    }
+                }
+
+                onValueChanged: root.textOpacity = value / 100.0
+
+                Component.onCompleted: value = Math.round(root.textOpacity * 100)
+
+                Binding {
+                    target: textOpacitySlider
+                    property: "value"
+                    value: Math.round(root.textOpacity * 100)
+                    when: !textOpacitySlider.pressed
+                }
+
+                background: Rectangle {
+                    x: textOpacitySlider.leftPadding
+                    y: textOpacitySlider.topPadding + textOpacitySlider.availableHeight / 2 - height / 2
+                    width: textOpacitySlider.availableWidth
+                    height: DV.Styles.height.xxxsm
+                    implicitWidth: 80
+                    implicitHeight: DV.Styles.height.xxxsm
+                    radius: DV.Styles.rad.sm
+                    color: palette.base
+
+                    Rectangle {
+                        width: textOpacitySlider.visualPosition * parent.width
+                        height: parent.height
+                        color: palette.highlight
+                        radius: DV.Styles.rad.sm
+                    }
+                }
+
+                handle: Rectangle {
+                    x: textOpacitySlider.leftPadding + textOpacitySlider.visualPosition * (textOpacitySlider.availableWidth - width)
+                    y: textOpacitySlider.topPadding + textOpacitySlider.availableHeight / 2 - height / 2
+                    width: DV.Styles.height.xs
+                    height: DV.Styles.height.xs
+                    implicitWidth: DV.Styles.height.xs
+                    implicitHeight: DV.Styles.height.xs
+                    radius: DV.Styles.rad.lg
+                    color: textOpacitySlider.pressed ? palette.highlight : palette.button
+                    border.color: palette.mid
+                    border.width: 1
+                }
+            }
+
+            TextField {
+                id: textOpacityInput
+                Layout.preferredWidth: 35
+                Layout.preferredHeight: DV.Styles.height.md
+                Layout.alignment: Qt.AlignVCenter
+                text: Math.round(root.textOpacity * 100).toString()
+                horizontalAlignment: TextInput.AlignHCenter
+                font.pixelSize: 11
+                validator: IntValidator {
+                    bottom: 0
+                    top: 100
+                }
+
+                function commitValue() {
+                    var value = parseInt(text);
+                    if (!isNaN(value) && value >= 0 && value <= 100) {
+                        root.textOpacity = value / 100.0;
+                    } else {
+                        text = Math.round(root.textOpacity * 100).toString();
+                    }
+                }
+
+                onEditingFinished: commitValue()
+                onActiveFocusChanged: {
+                    if (!activeFocus) {
+                        commitValue();
+                    }
+                }
+
+                Connections {
+                    target: root
+                    function onTextOpacityChanged() {
+                        if (!textOpacityInput.activeFocus) {
+                            textOpacityInput.text = Math.round(root.textOpacity * 100).toString();
+                        }
+                    }
+                }
+
+                background: Rectangle {
+                    color: palette.base
+                    border.color: textOpacityInput.activeFocus ? palette.highlight : palette.mid
+                    border.width: 1
+                    radius: DV.Styles.rad.sm
+                }
+                color: palette.text
+            }
+
+            Label {
+                text: qsTr("%")
+                font.pixelSize: 11
+                Layout.alignment: Qt.AlignVCenter
+            }
+        }
+
+        // Text color picker dialog
+        ColorDialog {
+            id: textColorDialog
+            title: qsTr("Choose Text Color")
+            selectedColor: root.textColor
+
+            onAccepted: {
+                root.textColor = selectedColor;
             }
         }
 
