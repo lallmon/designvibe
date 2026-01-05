@@ -7,6 +7,35 @@ QtObject {
     property var selectedItem: null
     property var selectedIndices: []
 
+    function setSelection(indices) {
+        var next = indices ? indices.slice() : [];
+        selectedIndices = next;
+        var primary = next.length > 0 ? next[next.length - 1] : -1;
+        selectedItemIndex = primary;
+        selectedItem = primary >= 0 ? canvasModel.getItemData(primary) : null;
+    }
+
+    function toggleSelection(index, multi) {
+        if (index < 0) {
+            if (!multi) {
+                setSelection([]);
+            }
+            return;
+        }
+        var next = selectedIndices ? selectedIndices.slice() : [];
+        if (multi) {
+            var pos = next.indexOf(index);
+            if (pos >= 0) {
+                next.splice(pos, 1);
+            } else {
+                next.push(index);
+            }
+        } else {
+            next = [index];
+        }
+        setSelection(next);
+    }
+
     Component.onCompleted: {
         canvasModel.itemModified.connect(function (index, data) {
             if (index === selectedItemIndex) {

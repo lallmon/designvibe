@@ -283,30 +283,7 @@ Item {
     }
 
     function updateSelection(hitIndex, multiSelect) {
-        var current = DV.SelectionManager.selectedIndices || [];
-        if (hitIndex < 0) {
-            if (!multiSelect) {
-                DV.SelectionManager.selectedIndices = [];
-                DV.SelectionManager.selectedItemIndex = -1;
-                DV.SelectionManager.selectedItem = null;
-            }
-            return;
-        }
-        var next = current.slice();
-        if (multiSelect) {
-            var pos = next.indexOf(hitIndex);
-            if (pos >= 0) {
-                next.splice(pos, 1);
-            } else {
-                next.push(hitIndex);
-            }
-        } else {
-            next = [hitIndex];
-        }
-        DV.SelectionManager.selectedIndices = next;
-        var primary = next.length > 0 ? next[next.length - 1] : -1;
-        DV.SelectionManager.selectedItemIndex = primary;
-        DV.SelectionManager.selectedItem = primary >= 0 ? canvasModel.getItemData(primary) : null;
+        DV.SelectionManager.toggleSelection(hitIndex, multiSelect);
     }
 
     function updateSelectedItemPosition(canvasDx, canvasDy) {

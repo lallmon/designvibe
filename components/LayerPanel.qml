@@ -23,22 +23,7 @@ Item {
     property real lastDragYInFlick: 0
 
     function setSelectionFromDelegate(modelIndex, multi) {
-        var current = DV.SelectionManager.selectedIndices || [];
-        var next = current.slice();
-        if (multi) {
-            var pos = next.indexOf(modelIndex);
-            if (pos >= 0) {
-                next.splice(pos, 1);
-            } else {
-                next.push(modelIndex);
-            }
-        } else {
-            next = [modelIndex];
-        }
-        DV.SelectionManager.selectedIndices = next;
-        var primary = next.length > 0 ? next[next.length - 1] : -1;
-        DV.SelectionManager.selectedItemIndex = primary;
-        DV.SelectionManager.selectedItem = primary >= 0 ? canvasModel.getItemData(primary) : null;
+        DV.SelectionManager.toggleSelection(modelIndex, multi);
     }
 
     ColumnLayout {
