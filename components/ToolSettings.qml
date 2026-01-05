@@ -79,60 +79,16 @@ ToolBar {
             Layout.alignment: Qt.AlignVCenter
             spacing: 6
 
-            Label {
-                text: qsTr("Stroke Width:")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
-            }
-
-            TextField {
-                id: strokeWidthInput
-                Layout.preferredWidth: 50
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: root.rectangleStrokeWidth.toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: DoubleValidator {
-                    bottom: 0.1
-                    top: 100.0
-                    decimals: 1
+            DV.LabeledNumericField {
+                labelText: qsTr("Stroke Width:")
+                value: root.rectangleStrokeWidth
+                minimum: 0.1
+                maximum: 100.0
+                decimals: 1
+                suffix: qsTr("px")
+                onCommitted: function (newValue) {
+                    root.rectangleStrokeWidth = newValue;
                 }
-
-                function commitValue() {
-                    var value = parseFloat(text);
-                    if (!isNaN(value) && value >= 0.1 && value <= 100.0) {
-                        root.rectangleStrokeWidth = value;
-                    } else {
-                        // Reset to current value if invalid
-                        text = root.rectangleStrokeWidth.toString();
-                    }
-                }
-
-                onEditingFinished: {
-                    commitValue();
-                }
-
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                background: Rectangle {
-                    color: themePalette.base
-                    border.color: strokeWidthInput.activeFocus ? themePalette.highlight : themePalette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-
-                color: themePalette.text
-            }
-
-            Label {
-                text: qsTr("px")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
 
             // Separator
@@ -239,62 +195,17 @@ ToolBar {
                 }
             }
 
-            TextField {
-                id: strokeOpacityInput
-                Layout.preferredWidth: 35
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: Math.round(root.rectangleStrokeOpacity * 100).toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: IntValidator {
-                    bottom: 0
-                    top: 100
+            DV.LabeledNumericField {
+                labelText: ""
+                value: Math.round(root.rectangleStrokeOpacity * 100)
+                minimum: 0
+                maximum: 100
+                decimals: 0
+                fieldWidth: 35
+                suffix: qsTr("%")
+                onCommitted: function (newValue) {
+                    root.rectangleStrokeOpacity = newValue / 100.0;
                 }
-
-                function commitValue() {
-                    var value = parseInt(text);
-                    if (!isNaN(value) && value >= 0 && value <= 100) {
-                        root.rectangleStrokeOpacity = value / 100.0;
-                        console.log("Stroke opacity set to:", root.rectangleStrokeOpacity);
-                    } else {
-                        text = Math.round(root.rectangleStrokeOpacity * 100).toString();
-                    }
-                }
-
-                onEditingFinished: {
-                    commitValue();
-                }
-
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                Connections {
-                    target: root
-                    function onRectangleStrokeOpacityChanged() {
-                        if (!strokeOpacityInput.activeFocus) {
-                            strokeOpacityInput.text = Math.round(root.rectangleStrokeOpacity * 100).toString();
-                        }
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: strokeOpacityInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("%")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
 
             // Separator
@@ -443,63 +354,17 @@ ToolBar {
                 }
             }
 
-            TextField {
-                id: opacityInput
-                Layout.preferredWidth: 35
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: Math.round(root.rectangleFillOpacity * 100).toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: IntValidator {
-                    bottom: 0
-                    top: 100
+            DV.LabeledNumericField {
+                labelText: ""
+                value: Math.round(root.rectangleFillOpacity * 100)
+                minimum: 0
+                maximum: 100
+                decimals: 0
+                fieldWidth: 35
+                suffix: qsTr("%")
+                onCommitted: function (newValue) {
+                    root.rectangleFillOpacity = newValue / 100.0;
                 }
-
-                function commitValue() {
-                    var value = parseInt(text);
-                    if (!isNaN(value) && value >= 0 && value <= 100) {
-                        root.rectangleFillOpacity = value / 100.0;
-                    } else {
-                        // Reset to current value if invalid
-                        text = Math.round(root.rectangleFillOpacity * 100).toString();
-                    }
-                }
-
-                onEditingFinished: {
-                    commitValue();
-                }
-
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                // Update text when property changes externally
-                Connections {
-                    target: root
-                    function onRectangleFillOpacityChanged() {
-                        if (!opacityInput.activeFocus) {
-                            opacityInput.text = Math.round(root.rectangleFillOpacity * 100).toString();
-                        }
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: opacityInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("%")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
         }
 
@@ -511,55 +376,16 @@ ToolBar {
             Layout.alignment: Qt.AlignVCenter
             spacing: 6
 
-            Label {
-                text: qsTr("Stroke Width:")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
-            }
-
-            TextField {
-                id: penStrokeWidthInput
-                Layout.preferredWidth: 50
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: root.penStrokeWidth.toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: DoubleValidator {
-                    bottom: 0.1
-                    top: 100.0
-                    decimals: 1
+            DV.LabeledNumericField {
+                labelText: qsTr("Stroke Width:")
+                value: root.penStrokeWidth
+                minimum: 0.1
+                maximum: 100.0
+                decimals: 1
+                suffix: qsTr("px")
+                onCommitted: function (newValue) {
+                    root.penStrokeWidth = newValue;
                 }
-
-                function commitValue() {
-                    var value = parseFloat(text);
-                    if (!isNaN(value) && value >= 0.1 && value <= 100.0) {
-                        root.penStrokeWidth = value;
-                    } else {
-                        text = root.penStrokeWidth.toString();
-                    }
-                }
-
-                onEditingFinished: commitValue()
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: penStrokeWidthInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("px")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
 
             Rectangle {
@@ -659,57 +485,17 @@ ToolBar {
                 }
             }
 
-            TextField {
-                id: penStrokeOpacityInput
-                Layout.preferredWidth: 35
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: Math.round(root.penStrokeOpacity * 100).toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: IntValidator {
-                    bottom: 0
-                    top: 100
+            DV.LabeledNumericField {
+                labelText: ""
+                value: Math.round(root.penStrokeOpacity * 100)
+                minimum: 0
+                maximum: 100
+                decimals: 0
+                fieldWidth: 35
+                suffix: qsTr("%")
+                onCommitted: function (newValue) {
+                    root.penStrokeOpacity = newValue / 100.0;
                 }
-
-                function commitValue() {
-                    var value = parseInt(text);
-                    if (!isNaN(value) && value >= 0 && value <= 100) {
-                        root.penStrokeOpacity = value / 100.0;
-                    } else {
-                        text = Math.round(root.penStrokeOpacity * 100).toString();
-                    }
-                }
-
-                onEditingFinished: commitValue()
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                Connections {
-                    target: root
-                    function onPenStrokeOpacityChanged() {
-                        if (!penStrokeOpacityInput.activeFocus) {
-                            penStrokeOpacityInput.text = Math.round(root.penStrokeOpacity * 100).toString();
-                        }
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: penStrokeOpacityInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("%")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
 
             // Separator
@@ -844,56 +630,17 @@ ToolBar {
                 }
             }
 
-            TextField {
-                id: penFillOpacityInput
-                Layout.preferredWidth: 35
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: Math.round(root.penFillOpacity * 100).toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: IntValidator {
-                    bottom: 0
-                    top: 100
+            DV.LabeledNumericField {
+                labelText: ""
+                value: Math.round(root.penFillOpacity * 100)
+                minimum: 0
+                maximum: 100
+                decimals: 0
+                fieldWidth: 35
+                suffix: qsTr("%")
+                onCommitted: function (newValue) {
+                    root.penFillOpacity = newValue / 100.0;
                 }
-
-                function commitValue() {
-                    var value = parseInt(text);
-                    if (!isNaN(value) && value >= 0 && value <= 100) {
-                        root.penFillOpacity = value / 100.0;
-                    } else {
-                        text = Math.round(root.penFillOpacity * 100).toString();
-                    }
-                }
-
-                onEditingFinished: commitValue()
-                onActiveFocusChanged: {
-                    if (!activeFocus)
-                        commitValue();
-                }
-
-                Connections {
-                    target: root
-                    function onPenFillOpacityChanged() {
-                        if (!penFillOpacityInput.activeFocus) {
-                            penFillOpacityInput.text = Math.round(root.penFillOpacity * 100).toString();
-                        }
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: penFillOpacityInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("%")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
         }
 
@@ -927,60 +674,16 @@ ToolBar {
             Layout.alignment: Qt.AlignVCenter
             spacing: 6
 
-            Label {
-                text: qsTr("Stroke Width:")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
-            }
-
-            TextField {
-                id: ellipseStrokeWidthInput
-                Layout.preferredWidth: 50
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: root.ellipseStrokeWidth.toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: DoubleValidator {
-                    bottom: 0.1
-                    top: 100.0
-                    decimals: 1
+            DV.LabeledNumericField {
+                labelText: qsTr("Stroke Width:")
+                value: root.ellipseStrokeWidth
+                minimum: 0.1
+                maximum: 100.0
+                decimals: 1
+                suffix: qsTr("px")
+                onCommitted: function (newValue) {
+                    root.ellipseStrokeWidth = newValue;
                 }
-
-                function commitValue() {
-                    var value = parseFloat(text);
-                    if (!isNaN(value) && value >= 0.1 && value <= 100.0) {
-                        root.ellipseStrokeWidth = value;
-                    } else {
-                        // Reset to current value if invalid
-                        text = root.ellipseStrokeWidth.toString();
-                    }
-                }
-
-                onEditingFinished: {
-                    commitValue();
-                }
-
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: ellipseStrokeWidthInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("px")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
 
             // Separator
@@ -1087,62 +790,17 @@ ToolBar {
                 }
             }
 
-            TextField {
-                id: ellipseStrokeOpacityInput
-                Layout.preferredWidth: 35
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: Math.round(root.ellipseStrokeOpacity * 100).toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: IntValidator {
-                    bottom: 0
-                    top: 100
+            DV.LabeledNumericField {
+                labelText: ""
+                value: Math.round(root.ellipseStrokeOpacity * 100)
+                minimum: 0
+                maximum: 100
+                decimals: 0
+                fieldWidth: 35
+                suffix: qsTr("%")
+                onCommitted: function (newValue) {
+                    root.ellipseStrokeOpacity = newValue / 100.0;
                 }
-
-                function commitValue() {
-                    var value = parseInt(text);
-                    if (!isNaN(value) && value >= 0 && value <= 100) {
-                        root.ellipseStrokeOpacity = value / 100.0;
-                        console.log("Ellipse stroke opacity set to:", root.ellipseStrokeOpacity);
-                    } else {
-                        text = Math.round(root.ellipseStrokeOpacity * 100).toString();
-                    }
-                }
-
-                onEditingFinished: {
-                    commitValue();
-                }
-
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                Connections {
-                    target: root
-                    function onEllipseStrokeOpacityChanged() {
-                        if (!ellipseStrokeOpacityInput.activeFocus) {
-                            ellipseStrokeOpacityInput.text = Math.round(root.ellipseStrokeOpacity * 100).toString();
-                        }
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: ellipseStrokeOpacityInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("%")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
 
             // Separator
@@ -1288,63 +946,17 @@ ToolBar {
                 }
             }
 
-            TextField {
-                id: ellipseOpacityInput
-                Layout.preferredWidth: 35
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: Math.round(root.ellipseFillOpacity * 100).toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: IntValidator {
-                    bottom: 0
-                    top: 100
+            DV.LabeledNumericField {
+                labelText: ""
+                value: Math.round(root.ellipseFillOpacity * 100)
+                minimum: 0
+                maximum: 100
+                decimals: 0
+                fieldWidth: 35
+                suffix: qsTr("%")
+                onCommitted: function (newValue) {
+                    root.ellipseFillOpacity = newValue / 100.0;
                 }
-
-                function commitValue() {
-                    var value = parseInt(text);
-                    if (!isNaN(value) && value >= 0 && value <= 100) {
-                        root.ellipseFillOpacity = value / 100.0;
-                    } else {
-                        // Reset to current value if invalid
-                        text = Math.round(root.ellipseFillOpacity * 100).toString();
-                    }
-                }
-
-                onEditingFinished: {
-                    commitValue();
-                }
-
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                // Update text when property changes externally
-                Connections {
-                    target: root
-                    function onEllipseFillOpacityChanged() {
-                        if (!ellipseOpacityInput.activeFocus) {
-                            ellipseOpacityInput.text = Math.round(root.ellipseFillOpacity * 100).toString();
-                        }
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: ellipseOpacityInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("%")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
         }
 
@@ -1636,57 +1248,17 @@ ToolBar {
                 }
             }
 
-            TextField {
-                id: textOpacityInput
-                Layout.preferredWidth: 35
-                Layout.preferredHeight: DV.Styles.height.md
-                Layout.alignment: Qt.AlignVCenter
-                text: Math.round(root.textOpacity * 100).toString()
-                horizontalAlignment: TextInput.AlignHCenter
-                font.pixelSize: 11
-                validator: IntValidator {
-                    bottom: 0
-                    top: 100
+            DV.LabeledNumericField {
+                labelText: ""
+                value: Math.round(root.textOpacity * 100)
+                minimum: 0
+                maximum: 100
+                decimals: 0
+                fieldWidth: 35
+                suffix: qsTr("%")
+                onCommitted: function (newValue) {
+                    root.textOpacity = newValue / 100.0;
                 }
-
-                function commitValue() {
-                    var value = parseInt(text);
-                    if (!isNaN(value) && value >= 0 && value <= 100) {
-                        root.textOpacity = value / 100.0;
-                    } else {
-                        text = Math.round(root.textOpacity * 100).toString();
-                    }
-                }
-
-                onEditingFinished: commitValue()
-                onActiveFocusChanged: {
-                    if (!activeFocus) {
-                        commitValue();
-                    }
-                }
-
-                Connections {
-                    target: root
-                    function onTextOpacityChanged() {
-                        if (!textOpacityInput.activeFocus) {
-                            textOpacityInput.text = Math.round(root.textOpacity * 100).toString();
-                        }
-                    }
-                }
-
-                background: Rectangle {
-                    color: palette.base
-                    border.color: textOpacityInput.activeFocus ? palette.highlight : palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                }
-                color: palette.text
-            }
-
-            Label {
-                text: qsTr("%")
-                font.pixelSize: 11
-                Layout.alignment: Qt.AlignVCenter
             }
         }
 
