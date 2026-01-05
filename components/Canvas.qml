@@ -67,7 +67,7 @@ Item {
             selectedItem: DV.SelectionManager.selectedItem
             boundsOverride: root.selectionBounds()
             zoomLevel: root.zoomLevel
-            accentColor: DV.PaletteBridge.active.highlight
+            accentColor: DV.Themed.palette.highlight
         }
 
         // Select tool for object selection (panning handled by Viewport)

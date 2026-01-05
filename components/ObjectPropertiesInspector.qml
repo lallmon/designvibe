@@ -9,7 +9,7 @@ ScrollView {
     id: root
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-    readonly property SystemPalette palette: DV.PaletteBridge.active
+    readonly property SystemPalette palette: DV.Themed.palette
 
     property var selectedItem: null
     property string originalStrokeColor: ""

@@ -4,7 +4,7 @@ import "." as DV
 
 Item {
     id: root
-    readonly property SystemPalette palette: DV.PaletteBridge.active
+    readonly property SystemPalette palette: DV.Themed.palette
 
     // Icon name (without extension), e.g. "cursor" or "square"
     property string name: ""

@@ -10,7 +10,7 @@ ToolBar {
     property ToolDefaults toolDefaults: ToolDefaults {}
 
     property string activeTool: ""  // Current tool ("select", "rectangle", "ellipse", etc.)
-    readonly property SystemPalette palette: DV.PaletteBridge.active
+    readonly property SystemPalette palette: DV.Themed.palette
 
     property real rectangleStrokeWidth: 1
     property color rectangleStrokeColor: toolDefaults.defaultStrokeColor

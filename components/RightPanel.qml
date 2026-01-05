@@ -6,7 +6,7 @@ import "." as DV
 Pane {
     id: root
     padding: 0
-    readonly property SystemPalette palette: DV.PaletteBridge.active
+    readonly property SystemPalette palette: DV.Themed.palette
 
     ColumnLayout {
         anchors.fill: parent

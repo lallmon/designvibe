@@ -10,7 +10,7 @@ Pane {
 
     signal toolSelected(string toolName)
     property string activeTool: ""
-    readonly property SystemPalette palette: DV.PaletteBridge.active
+    readonly property SystemPalette palette: DV.Themed.palette
 
     ButtonGroup {
         id: toolButtonGroup

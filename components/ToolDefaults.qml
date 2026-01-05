@@ -4,8 +4,8 @@ import "." as DV
 QtObject {
     id: toolDefaults
 
-    readonly property color defaultStrokeColor: DV.PaletteBridge.active.text
-    readonly property color defaultFillColor: DV.PaletteBridge.active.text
+    readonly property color defaultStrokeColor: DV.Themed.palette.text
+    readonly property color defaultFillColor: DV.Themed.palette.text
     readonly property real defaultStrokeOpacity: 0
     readonly property real defaultFillOpacity: 0
 

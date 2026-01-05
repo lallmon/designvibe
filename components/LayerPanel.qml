@@ -5,7 +5,7 @@ import "." as DV
 
 Item {
     id: root
-    readonly property SystemPalette palette: DV.PaletteBridge.active
+    readonly property SystemPalette palette: DV.Themed.palette
 
     // Map between visual order (top-to-bottom) and model order (append order).
     // Top of the list should correspond to the highest Z on canvas, so visual

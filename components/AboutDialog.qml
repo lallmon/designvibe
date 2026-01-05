@@ -8,7 +8,7 @@ Dialog {
     modal: true
     focus: true
     standardButtons: Dialog.Ok
-    readonly property SystemPalette palette: DV.PaletteBridge.active
+    readonly property SystemPalette palette: DV.Themed.palette
 
     // Inputs
     property string appVersion: ""
