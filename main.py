@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 
 from typing import Optional, cast
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QOpenGLContext
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 from PySide6.QtCore import Qt, QObject, Property, Signal
@@ -30,9 +30,10 @@ if __name__ == "__main__":
     os.environ["QSG_RENDER_LOOP"] = "basic"  # Use basic render loop for better sync
 
     # Enable desktop OpenGL for better performance
-    QGuiApplication.setAttribute(Qt.AA_UseDesktopOpenGL)  # type: ignore[attr-defined]
+    QApplication.setAttribute(Qt.AA_UseDesktopOpenGL)  # type: ignore[attr-defined]
 
-    app = QGuiApplication(sys.argv)
+    # Use QApplication (not QGuiApplication) to support Qt.labs.platform native dialogs
+    app = QApplication(sys.argv)
 
     class AppInfo(QObject):
         rendererBackendChanged = Signal()

@@ -1,8 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Controls.Material
-import QtQuick.Dialogs
+import Qt.labs.platform as Platform
 import "components"
 import "components" as DV
 
@@ -52,17 +51,17 @@ ApplicationWindow {
         }
     }
 
-    // File dialogs using QtQuick.Dialogs
-    FileDialog {
+    // File dialogs using native platform dialogs
+    Platform.FileDialog {
         id: openDialog
         title: qsTr("Open Document")
-        nameFilters: ["Lucent files (*.lucent)", "All files (*)"]
-        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("Lucent files (*.lucent)"), qsTr("All files (*)")]
+        fileMode: Platform.FileDialog.OpenFile
         onAccepted: {
             if (documentManager) {
                 // Update viewport state before opening (to restore later if needed)
                 documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
-                if (documentManager.openDocument(selectedFile)) {
+                if (documentManager.openDocument(file)) {
                     // Restore viewport from loaded document
                     var vp = documentManager.getViewport();
                     viewport.zoomLevel = vp.zoomLevel;
@@ -73,45 +72,45 @@ ApplicationWindow {
         }
     }
 
-    FileDialog {
+    Platform.FileDialog {
         id: saveDialog
         title: qsTr("Save Document")
-        nameFilters: ["Lucent files (*.lucent)"]
-        fileMode: FileDialog.SaveFile
+        nameFilters: [qsTr("Lucent files (*.lucent)")]
+        fileMode: Platform.FileDialog.SaveFile
         defaultSuffix: "lucent"
         onAccepted: {
             if (documentManager) {
                 // Capture current viewport state before saving
                 documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
-                documentManager.saveDocumentAs(selectedFile);
+                documentManager.saveDocumentAs(file);
             }
         }
     }
 
     // Unsaved changes confirmation dialog
-    MessageDialog {
+    Platform.MessageDialog {
         id: unsavedDialog
         title: qsTr("Unsaved Changes")
         text: qsTr("Do you want to save changes before closing?")
-        buttons: MessageDialog.Save | MessageDialog.Discard | MessageDialog.Cancel
+        buttons: Platform.MessageDialog.Save | Platform.MessageDialog.Discard | Platform.MessageDialog.Cancel
 
-        onButtonClicked: function (button, role) {
-            if (button === MessageDialog.Save) {
-                if (documentManager.filePath === "") {
-                    // Need to show save dialog first
-                    saveDialog.open();
-                } else {
-                    documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
-                    documentManager.saveDocument();
-                    root.forceClose = true;
-                    root.close();
-                }
-            } else if (button === MessageDialog.Discard) {
+        onSaveClicked: {
+            if (documentManager.filePath === "") {
+                // Need to show save dialog first
+                saveDialog.open();
+            } else {
+                documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
+                documentManager.saveDocument();
                 root.forceClose = true;
                 root.close();
             }
-        // Cancel - do nothing, dialog closes automatically
         }
+
+        onDiscardClicked: {
+            root.forceClose = true;
+            root.close();
+        }
+        // Cancel - do nothing, dialog closes automatically
     }
 
     // Handle window close event
