@@ -99,57 +99,11 @@ ToolBar {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            Button {
-                id: strokeColorButton
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
-                Layout.alignment: Qt.AlignVCenter
-
-                onClicked: {
-                    strokeColorDialog.open();
-                }
-
-                background: Rectangle {
-                    border.color: themePalette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                    color: "transparent"
-                    clip: true
-
-                    // Checkerboard pattern to show transparency
-                    Canvas {
-                        anchors.fill: parent
-                        z: 0
-                        property color checkerLight: palette.midlight
-                        property color checkerDark: palette.mid
-                        onCheckerLightChanged: requestPaint()
-                        onCheckerDarkChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var size = 4;
-                            for (var y = 0; y < height; y += size) {
-                                for (var x = 0; x < width; x += size) {
-                                    if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-                                        ctx.fillStyle = checkerLight;
-                                    } else {
-                                        ctx.fillStyle = checkerDark;
-                                    }
-                                    ctx.fillRect(x, y, size, size);
-                                }
-                            }
-                        }
-                        Component.onCompleted: requestPaint()
-                    }
-
-                    // Stroke color with opacity applied
-                    Rectangle {
-                        anchors.fill: parent
-                        z: 1
-                        color: root.rectangleStrokeColor
-                        opacity: root.rectangleStrokeOpacity
-                    }
-                }
+            DV.ColorPickerButton {
+                color: root.rectangleStrokeColor
+                colorOpacity: root.rectangleStrokeOpacity
+                dialogTitle: qsTr("Choose Stroke Color")
+                onColorPicked: newColor => root.rectangleStrokeColor = newColor
             }
 
             Label {
@@ -185,59 +139,11 @@ ToolBar {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            Button {
-                id: fillColorButton
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
-                Layout.alignment: Qt.AlignVCenter
-
-                onClicked: {
-                    fillColorDialog.open();
-                }
-
-                background: Rectangle {
-                    border.color: palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                    color: "transparent"
-                    clip: true
-
-                    // Checkerboard pattern to show transparency
-                    Canvas {
-                        anchors.fill: parent
-                        z: 0
-                        property color checkerLight: palette.midlight
-                        property color checkerDark: palette.mid
-                        onCheckerLightChanged: requestPaint()
-                        onCheckerDarkChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-
-                            // Draw checkerboard
-                            var size = 4;
-                            for (var y = 0; y < height; y += size) {
-                                for (var x = 0; x < width; x += size) {
-                                    if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-                                        ctx.fillStyle = checkerLight;
-                                    } else {
-                                        ctx.fillStyle = checkerDark;
-                                    }
-                                    ctx.fillRect(x, y, size, size);
-                                }
-                            }
-                        }
-                        Component.onCompleted: requestPaint()
-                    }
-
-                    // Fill color with opacity applied
-                    Rectangle {
-                        anchors.fill: parent
-                        z: 1
-                        color: root.rectangleFillColor
-                        opacity: root.rectangleFillOpacity
-                    }
-                }
+            DV.ColorPickerButton {
+                color: root.rectangleFillColor
+                colorOpacity: root.rectangleFillOpacity
+                dialogTitle: qsTr("Choose Fill Color")
+                onColorPicked: newColor => root.rectangleFillColor = newColor
             }
 
             Label {
@@ -294,53 +200,11 @@ ToolBar {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            Button {
-                id: penStrokeColorButton
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
-                Layout.alignment: Qt.AlignVCenter
-
-                onClicked: penStrokeColorDialog.open()
-
-                background: Rectangle {
-                    border.color: palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                    color: "transparent"
-                    clip: true
-
-                    Canvas {
-                        anchors.fill: parent
-                        z: 0
-                        property color checkerLight: palette.midlight
-                        property color checkerDark: palette.mid
-                        onCheckerLightChanged: requestPaint()
-                        onCheckerDarkChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var size = 4;
-                            for (var y = 0; y < height; y += size) {
-                                for (var x = 0; x < width; x += size) {
-                                    if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-                                        ctx.fillStyle = checkerLight;
-                                    } else {
-                                        ctx.fillStyle = checkerDark;
-                                    }
-                                    ctx.fillRect(x, y, size, size);
-                                }
-                            }
-                        }
-                        Component.onCompleted: requestPaint()
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        z: 1
-                        color: root.penStrokeColor
-                        opacity: root.penStrokeOpacity
-                    }
-                }
+            DV.ColorPickerButton {
+                color: root.penStrokeColor
+                colorOpacity: root.penStrokeOpacity
+                dialogTitle: qsTr("Choose Pen Stroke Color")
+                onColorPicked: newColor => root.penStrokeColor = newColor
             }
 
             Label {
@@ -376,54 +240,11 @@ ToolBar {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            Button {
-                id: penFillColorButton
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
-                Layout.alignment: Qt.AlignVCenter
-
-                onClicked: penFillColorDialog.open()
-
-                background: Rectangle {
-                    border.color: palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                    color: "transparent"
-                    clip: true
-
-                    // Checkerboard
-                    Canvas {
-                        anchors.fill: parent
-                        z: 0
-                        property color checkerLight: palette.midlight
-                        property color checkerDark: palette.mid
-                        onCheckerLightChanged: requestPaint()
-                        onCheckerDarkChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var size = 4;
-                            for (var y = 0; y < height; y += size) {
-                                for (var x = 0; x < width; x += size) {
-                                    if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-                                        ctx.fillStyle = checkerLight;
-                                    } else {
-                                        ctx.fillStyle = checkerDark;
-                                    }
-                                    ctx.fillRect(x, y, size, size);
-                                }
-                            }
-                        }
-                        Component.onCompleted: requestPaint()
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        z: 1
-                        color: root.penFillColor
-                        opacity: root.penFillOpacity
-                    }
-                }
+            DV.ColorPickerButton {
+                color: root.penFillColor
+                colorOpacity: root.penFillOpacity
+                dialogTitle: qsTr("Choose Pen Fill Color")
+                onColorPicked: newColor => root.penFillColor = newColor
             }
 
             Label {
@@ -449,28 +270,6 @@ ToolBar {
                 onCommitted: function (newValue) {
                     root.penFillOpacity = newValue / 100.0;
                 }
-            }
-        }
-
-        // Stroke color picker dialog
-        ColorDialog {
-            id: strokeColorDialog
-            title: qsTr("Choose Stroke Color")
-            selectedColor: root.rectangleStrokeColor
-
-            onAccepted: {
-                root.rectangleStrokeColor = selectedColor;
-            }
-        }
-
-        // Fill color picker dialog
-        ColorDialog {
-            id: fillColorDialog
-            title: qsTr("Choose Fill Color")
-            selectedColor: root.rectangleFillColor
-
-            onAccepted: {
-                root.rectangleFillColor = selectedColor;
             }
         }
 
@@ -502,55 +301,11 @@ ToolBar {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            Button {
-                id: ellipseStrokeColorButton
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
-                Layout.alignment: Qt.AlignVCenter
-
-                onClicked: {
-                    ellipseStrokeColorDialog.open();
-                }
-
-                background: Rectangle {
-                    border.color: palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                    color: "transparent"
-                    clip: true
-
-                    Canvas {
-                        anchors.fill: parent
-                        z: 0
-                        property color checkerLight: palette.midlight
-                        property color checkerDark: palette.mid
-                        onCheckerLightChanged: requestPaint()
-                        onCheckerDarkChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var size = 4;
-                            for (var y = 0; y < height; y += size) {
-                                for (var x = 0; x < width; x += size) {
-                                    if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-                                        ctx.fillStyle = checkerLight;
-                                    } else {
-                                        ctx.fillStyle = checkerDark;
-                                    }
-                                    ctx.fillRect(x, y, size, size);
-                                }
-                            }
-                        }
-                        Component.onCompleted: requestPaint()
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        z: 1
-                        color: root.ellipseStrokeColor
-                        opacity: root.ellipseStrokeOpacity
-                    }
-                }
+            DV.ColorPickerButton {
+                color: root.ellipseStrokeColor
+                colorOpacity: root.ellipseStrokeOpacity
+                dialogTitle: qsTr("Choose Ellipse Stroke Color")
+                onColorPicked: newColor => root.ellipseStrokeColor = newColor
             }
 
             Label {
@@ -586,59 +341,11 @@ ToolBar {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            Button {
-                id: ellipseFillColorButton
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
-                Layout.alignment: Qt.AlignVCenter
-
-                onClicked: {
-                    ellipseFillColorDialog.open();
-                }
-
-                background: Rectangle {
-                    border.color: palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                    color: "transparent"
-                    clip: true
-
-                    // Checkerboard pattern to show transparency
-                    Canvas {
-                        anchors.fill: parent
-                        z: 0
-                        property color checkerLight: palette.midlight
-                        property color checkerDark: palette.mid
-                        onCheckerLightChanged: requestPaint()
-                        onCheckerDarkChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-
-                            // Draw checkerboard
-                            var size = 4;
-                            for (var y = 0; y < height; y += size) {
-                                for (var x = 0; x < width; x += size) {
-                                    if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-                                        ctx.fillStyle = checkerLight;
-                                    } else {
-                                        ctx.fillStyle = checkerDark;
-                                    }
-                                    ctx.fillRect(x, y, size, size);
-                                }
-                            }
-                        }
-                        Component.onCompleted: requestPaint()
-                    }
-
-                    // Fill color with opacity applied
-                    Rectangle {
-                        anchors.fill: parent
-                        z: 1
-                        color: root.ellipseFillColor
-                        opacity: root.ellipseFillOpacity
-                    }
-                }
+            DV.ColorPickerButton {
+                color: root.ellipseFillColor
+                colorOpacity: root.ellipseFillOpacity
+                dialogTitle: qsTr("Choose Ellipse Fill Color")
+                onColorPicked: newColor => root.ellipseFillColor = newColor
             }
 
             Label {
@@ -664,50 +371,6 @@ ToolBar {
                 onCommitted: function (newValue) {
                     root.ellipseFillOpacity = newValue / 100.0;
                 }
-            }
-        }
-
-        // Ellipse stroke color picker dialog
-        ColorDialog {
-            id: ellipseStrokeColorDialog
-            title: qsTr("Choose Ellipse Stroke Color")
-            selectedColor: root.ellipseStrokeColor
-
-            onAccepted: {
-                root.ellipseStrokeColor = selectedColor;
-            }
-        }
-
-        // Ellipse fill color picker dialog
-        ColorDialog {
-            id: ellipseFillColorDialog
-            title: qsTr("Choose Ellipse Fill Color")
-            selectedColor: root.ellipseFillColor
-
-            onAccepted: {
-                root.ellipseFillColor = selectedColor;
-            }
-        }
-
-        // Pen stroke color picker dialog
-        ColorDialog {
-            id: penStrokeColorDialog
-            title: qsTr("Choose Pen Stroke Color")
-            selectedColor: root.penStrokeColor
-
-            onAccepted: {
-                root.penStrokeColor = selectedColor;
-            }
-        }
-
-        // Pen fill color picker dialog
-        ColorDialog {
-            id: penFillColorDialog
-            title: qsTr("Choose Pen Fill Color")
-            selectedColor: root.penFillColor
-
-            onAccepted: {
-                root.penFillColor = selectedColor;
             }
         }
 
@@ -857,53 +520,11 @@ ToolBar {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            Button {
-                id: textColorButton
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
-                Layout.alignment: Qt.AlignVCenter
-
-                onClicked: textColorDialog.open()
-
-                background: Rectangle {
-                    border.color: palette.mid
-                    border.width: 1
-                    radius: DV.Styles.rad.sm
-                    color: "transparent"
-                    clip: true
-
-                    Canvas {
-                        anchors.fill: parent
-                        z: 0
-                        property color checkerLight: palette.midlight
-                        property color checkerDark: palette.mid
-                        onCheckerLightChanged: requestPaint()
-                        onCheckerDarkChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var size = 4;
-                            for (var y = 0; y < height; y += size) {
-                                for (var x = 0; x < width; x += size) {
-                                    if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-                                        ctx.fillStyle = checkerLight;
-                                    } else {
-                                        ctx.fillStyle = checkerDark;
-                                    }
-                                    ctx.fillRect(x, y, size, size);
-                                }
-                            }
-                        }
-                        Component.onCompleted: requestPaint()
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        z: 1
-                        color: root.textColor
-                        opacity: root.textOpacity
-                    }
-                }
+            DV.ColorPickerButton {
+                color: root.textColor
+                colorOpacity: root.textOpacity
+                dialogTitle: qsTr("Choose Text Color")
+                onColorPicked: newColor => root.textColor = newColor
             }
 
             Label {
@@ -929,17 +550,6 @@ ToolBar {
                 onCommitted: function (newValue) {
                     root.textOpacity = newValue / 100.0;
                 }
-            }
-        }
-
-        // Text color picker dialog
-        ColorDialog {
-            id: textColorDialog
-            title: qsTr("Choose Text Color")
-            selectedColor: root.textColor
-
-            onAccepted: {
-                root.textColor = selectedColor;
             }
         }
 
