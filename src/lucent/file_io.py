@@ -94,7 +94,6 @@ def load_document(path: Union[str, Path]) -> Dict[str, Any]:
     if file_version > LUCENT_VERSION:
         raise FileVersionError(file_version, LUCENT_VERSION)
 
-    # Return document structure
     return {
         "items": data.get("items", []),
         "viewport": data.get(

@@ -21,7 +21,6 @@ class DocumentManager(QObject):
     document state for the UI (dirty indicator, window title, etc.).
     """
 
-    # Signals for QML property bindings
     dirtyChanged = Signal()
     filePathChanged = Signal()
     documentTitleChanged = Signal()
@@ -81,7 +80,6 @@ class DocumentManager(QObject):
         if self._file_path != value:
             self._file_path = value
             self.filePathChanged.emit()
-            # Update title based on file path
             self._update_title()
 
     def _update_title(self) -> None:
@@ -101,12 +99,9 @@ class DocumentManager(QObject):
         Handles both 'file:///path' URLs and plain '/path' strings.
         """
         if url_or_path.startswith("file:"):
-            # Use QUrl for proper URL parsing
             qurl = QUrl(url_or_path)
             return qurl.toLocalFile()
         return url_or_path
-
-    # Qt Properties for QML binding
 
     def _get_dirty(self) -> bool:
         return self._dirty
@@ -122,8 +117,6 @@ class DocumentManager(QObject):
         return self._document_title
 
     documentTitle = Property(str, _get_document_title, notify=documentTitleChanged)
-
-    # Slots for QML access
 
     @Slot(result=bool)
     def hasUnsavedChanges(self) -> bool:
@@ -154,10 +147,7 @@ class DocumentManager(QObject):
         self._disconnect_model_signals()
 
         self._canvas_model.clear()
-
-        # Reconnect signals
         self._connect_model_signals()
-
         self._set_file_path("")
         self._set_dirty(False)
 
@@ -173,7 +163,6 @@ class DocumentManager(QObject):
         Returns:
             True if document was opened successfully, False on error
         """
-        # Convert URL to path if needed (FileDialog returns URLs)
         local_path = self._url_to_path(path)
 
         try:
@@ -182,24 +171,19 @@ class DocumentManager(QObject):
             print(f"Error opening document: {e}")
             return False
 
-        # Disconnect signals during load to avoid dirty tracking
+        # Disconnect during load to avoid marking document dirty
         self._disconnect_model_signals()
-
-        # Clear existing items
         self._canvas_model.clear()
 
-        # Load items into model
         for item_data in data.get("items", []):
             self._canvas_model.addItem(item_data)
 
-        # Restore viewport state
         viewport = data.get("viewport", {})
         self._viewport_zoom = viewport.get("zoomLevel", 1.0)
         self._viewport_offset_x = viewport.get("offsetX", 0.0)
         self._viewport_offset_y = viewport.get("offsetY", 0.0)
         self.viewportChanged.emit()
 
-        # Reconnect signals
         self._connect_model_signals()
 
         self._set_file_path(local_path)
@@ -229,26 +213,20 @@ class DocumentManager(QObject):
         Returns:
             True if saved successfully, False on error
         """
-        # Convert URL to path if needed (FileDialog returns URLs)
         local_path = self._url_to_path(path)
 
         try:
-            # Serialize all items from canvas model
             items: List[Dict[str, Any]] = []
             for item in self._canvas_model.getItems():
                 items.append(item_to_dict(item))
 
-            # Build viewport state
             viewport = {
                 "zoomLevel": self._viewport_zoom,
                 "offsetX": self._viewport_offset_x,
                 "offsetY": self._viewport_offset_y,
             }
 
-            # Build metadata
-            meta = {
-                "name": Path(local_path).stem,
-            }
+            meta = {"name": Path(local_path).stem}
 
             save_document(path=local_path, items=items, viewport=viewport, meta=meta)
 

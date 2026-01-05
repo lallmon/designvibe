@@ -51,7 +51,6 @@ ApplicationWindow {
         }
     }
 
-    // File dialogs using native platform dialogs
     Platform.FileDialog {
         id: openDialog
         title: qsTr("Open Document")
@@ -59,10 +58,8 @@ ApplicationWindow {
         fileMode: Platform.FileDialog.OpenFile
         onAccepted: {
             if (documentManager) {
-                // Update viewport state before opening (to restore later if needed)
                 documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
                 if (documentManager.openDocument(file)) {
-                    // Restore viewport from loaded document
                     var vp = documentManager.getViewport();
                     viewport.zoomLevel = vp.zoomLevel;
                     viewport.offsetX = vp.offsetX;
@@ -80,14 +77,12 @@ ApplicationWindow {
         defaultSuffix: "lucent"
         onAccepted: {
             if (documentManager) {
-                // Capture current viewport state before saving
                 documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
                 documentManager.saveDocumentAs(file);
             }
         }
     }
 
-    // Unsaved changes confirmation dialog
     Platform.MessageDialog {
         id: unsavedDialog
         title: qsTr("Unsaved Changes")
@@ -96,7 +91,6 @@ ApplicationWindow {
 
         onSaveClicked: {
             if (documentManager.filePath === "") {
-                // Need to show save dialog first
                 saveDialog.open();
             } else {
                 documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
@@ -113,7 +107,6 @@ ApplicationWindow {
         // Cancel - do nothing, dialog closes automatically
     }
 
-    // Handle window close event
     onClosing: function (close) {
         if (root.forceClose) {
             close.accepted = true;
@@ -128,10 +121,8 @@ ApplicationWindow {
         }
     }
 
-    // File operation handlers
     function handleNew() {
         if (documentManager && documentManager.dirty) {
-            // Show save dialog first
             unsavedDialog.open();
         } else {
             if (documentManager) {
@@ -145,18 +136,15 @@ ApplicationWindow {
         if (!documentManager)
             return;
 
-        // Capture viewport state before saving
         documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
 
         if (documentManager.filePath === "") {
-            // No path set, show Save As dialog
             saveDialog.open();
         } else {
             documentManager.saveDocument();
         }
     }
 
-    // Main layout with tool settings and content
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -168,13 +156,11 @@ ApplicationWindow {
             activeTool: canvas.drawingMode === "" ? "select" : canvas.drawingMode
         }
 
-        // Main content area with toolbar and canvas
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 0
 
-            // Left tool palette
             ToolPalette {
                 id: toolPalette
                 Layout.fillHeight: true
@@ -185,7 +171,6 @@ ApplicationWindow {
                 }
             }
 
-            // Main content with viewport and right panel
             SplitView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -197,7 +182,6 @@ ApplicationWindow {
                     color: SplitHandle.hovered ? palette.highlight : palette.mid
                 }
 
-                // Main Viewport with Canvas
                 Viewport {
                     id: viewport
                     SplitView.fillWidth: true
