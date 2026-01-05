@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Controls.Material
+import Qt.labs.platform as Platform
 import "components"
 import "components" as DV
 
@@ -10,16 +11,32 @@ ApplicationWindow {
     width: 1920
     height: 1080
     visible: true
-    title: qsTr("Lucent")
+    title: (documentManager && documentManager.dirty ? "• " : "") + (documentManager ? documentManager.documentTitle : "Untitled") + " — Lucent"
     font: Qt.application.font
     readonly property SystemPalette themePalette: DV.Themed.palette
 
     readonly property var systemFont: Qt.application.font
 
+    // Track if we're in the process of closing
+    property bool isClosing: false
+    property bool forceClose: false
+
+    // Start tracking changes after app is fully loaded
+    Component.onCompleted: {
+        if (documentManager) {
+            documentManager.startTracking();
+        }
+    }
+
     menuBar: MenuBar {
         viewport: viewport
         canvas: canvas
         onAboutRequested: aboutDialog.open()
+        onNewRequested: root.handleNew()
+        onOpenRequested: openDialog.open()
+        onSaveRequested: root.handleSave()
+        onSaveAsRequested: saveDialog.open()
+        onExitRequested: root.close()
     }
 
     footer: StatusBar {
@@ -32,6 +49,113 @@ ApplicationWindow {
         sequences: [StandardKey.Duplicate, "Ctrl+D"]
         onActivated: {
             canvas.duplicateSelectedItem();
+        }
+    }
+
+    // File dialogs using native platform dialogs
+    Platform.FileDialog {
+        id: openDialog
+        title: qsTr("Open Document")
+        nameFilters: [qsTr("Lucent files (*.lucent)"), qsTr("All files (*)")]
+        fileMode: Platform.FileDialog.OpenFile
+        onAccepted: {
+            if (documentManager) {
+                // Update viewport state before opening (to restore later if needed)
+                documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
+                if (documentManager.openDocument(file)) {
+                    // Restore viewport from loaded document
+                    var vp = documentManager.getViewport();
+                    viewport.zoomLevel = vp.zoomLevel;
+                    viewport.offsetX = vp.offsetX;
+                    viewport.offsetY = vp.offsetY;
+                }
+            }
+        }
+    }
+
+    Platform.FileDialog {
+        id: saveDialog
+        title: qsTr("Save Document")
+        nameFilters: [qsTr("Lucent files (*.lucent)")]
+        fileMode: Platform.FileDialog.SaveFile
+        defaultSuffix: "lucent"
+        onAccepted: {
+            if (documentManager) {
+                // Capture current viewport state before saving
+                documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
+                documentManager.saveDocumentAs(file);
+            }
+        }
+    }
+
+    // Unsaved changes confirmation dialog
+    Platform.MessageDialog {
+        id: unsavedDialog
+        title: qsTr("Unsaved Changes")
+        text: qsTr("Do you want to save changes before closing?")
+        buttons: Platform.MessageDialog.Save | Platform.MessageDialog.Discard | Platform.MessageDialog.Cancel
+
+        onSaveClicked: {
+            if (documentManager.filePath === "") {
+                // Need to show save dialog first
+                saveDialog.open();
+                // After save dialog closes, we'll need to handle closing
+            } else {
+                documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
+                documentManager.saveDocument();
+                root.forceClose = true;
+                root.close();
+            }
+        }
+
+        onDiscardClicked: {
+            root.forceClose = true;
+            root.close();
+        }
+
+        // Cancel clicked - do nothing, stay open
+    }
+
+    // Handle window close event
+    onClosing: function (close) {
+        if (root.forceClose) {
+            close.accepted = true;
+            return;
+        }
+
+        if (documentManager && documentManager.dirty) {
+            close.accepted = false;
+            unsavedDialog.open();
+        } else {
+            close.accepted = true;
+        }
+    }
+
+    // File operation handlers
+    function handleNew() {
+        if (documentManager && documentManager.dirty) {
+            // Show save dialog first
+            unsavedDialog.open();
+        } else {
+            if (documentManager) {
+                documentManager.newDocument();
+                viewport.resetZoom();
+            }
+        }
+    }
+
+    function handleSave() {
+        if (!documentManager)
+            return;
+
+        // Capture viewport state before saving
+        documentManager.setViewport(viewport.zoomLevel, viewport.offsetX, viewport.offsetY);
+
+        if (documentManager.filePath === "") {
+            // No path set, show Save As dialog
+            saveDialog.open();
+        } else {
+            documentManager.saveDocument();
         }
     }
 
