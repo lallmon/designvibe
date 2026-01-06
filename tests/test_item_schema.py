@@ -285,9 +285,14 @@ def test_parse_item_invalid_ellipse_raises():
 
 
 def test_item_to_dict_rejects_unknown():
+    from PySide6.QtCore import QRectF
+
     class Unknown(CanvasItem):
         def paint(self, painter, zoom_level, offset_x=0, offset_y=0):
             pass
+
+        def get_bounds(self) -> QRectF:
+            return QRectF()
 
         @staticmethod
         def from_dict(data):

@@ -3646,3 +3646,131 @@ class TestCoverageEdgeCases:
         assert canvas_model.rowCount() == 1
         # Undo should not be available since we didn't record
         assert canvas_model.canUndo is False
+
+
+class TestLayerExport:
+    """Tests for layer export helper methods."""
+
+    def test_get_layer_items_empty_layer(self, canvas_model):
+        """getLayerItems returns empty list for layer with no children."""
+        canvas_model.addItem({"type": "layer", "name": "Empty Layer"})
+        layer_id = canvas_model.getItems()[0].id
+
+        items = canvas_model.getLayerItems(layer_id)
+        assert items == []
+
+    def test_get_layer_items_with_children(self, canvas_model):
+        """getLayerItems returns all items belonging to a layer."""
+        canvas_model.addItem({"type": "layer", "name": "Test Layer"})
+        layer_id = canvas_model.getItems()[0].id
+
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 10,
+                "y": 20,
+                "width": 100,
+                "height": 50,
+                "parentId": layer_id,
+            }
+        )
+        canvas_model.addItem(
+            {
+                "type": "ellipse",
+                "centerX": 50,
+                "centerY": 50,
+                "radiusX": 25,
+                "radiusY": 25,
+                "parentId": layer_id,
+            }
+        )
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 200,
+                "y": 200,
+                "width": 50,
+                "height": 50,
+            }
+        )
+
+        items = canvas_model.getLayerItems(layer_id)
+        assert len(items) == 2
+
+    def test_get_layer_items_nonexistent_layer(self, canvas_model):
+        """getLayerItems returns empty list for nonexistent layer ID."""
+        items = canvas_model.getLayerItems("nonexistent-id")
+        assert items == []
+
+    def test_get_layer_bounds_empty_layer(self, canvas_model):
+        """getLayerBounds returns zero rect for empty layer."""
+        canvas_model.addItem({"type": "layer", "name": "Empty Layer"})
+        layer_id = canvas_model.getItems()[0].id
+
+        bounds = canvas_model.getLayerBounds(layer_id)
+        assert bounds["x"] == 0
+        assert bounds["y"] == 0
+        assert bounds["width"] == 0
+        assert bounds["height"] == 0
+
+    def test_get_layer_bounds_single_item(self, canvas_model):
+        """getLayerBounds returns bounds of single child item."""
+        canvas_model.addItem({"type": "layer", "name": "Test Layer"})
+        layer_id = canvas_model.getItems()[0].id
+
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 10,
+                "y": 20,
+                "width": 100,
+                "height": 50,
+                "parentId": layer_id,
+            }
+        )
+
+        bounds = canvas_model.getLayerBounds(layer_id)
+        assert bounds["x"] == 10
+        assert bounds["y"] == 20
+        assert bounds["width"] == 100
+        assert bounds["height"] == 50
+
+    def test_get_layer_bounds_multiple_items(self, canvas_model):
+        """getLayerBounds returns combined bounds of all children."""
+        canvas_model.addItem({"type": "layer", "name": "Test Layer"})
+        layer_id = canvas_model.getItems()[0].id
+
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 0,
+                "y": 0,
+                "width": 50,
+                "height": 50,
+                "parentId": layer_id,
+            }
+        )
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 100,
+                "y": 100,
+                "width": 50,
+                "height": 50,
+                "parentId": layer_id,
+            }
+        )
+
+        bounds = canvas_model.getLayerBounds(layer_id)
+        assert bounds["x"] == 0
+        assert bounds["y"] == 0
+        assert bounds["width"] == 150
+        assert bounds["height"] == 150
+
+    def test_get_layer_bounds_nonexistent_layer(self, canvas_model):
+        """getLayerBounds returns zero rect for nonexistent layer ID."""
+        bounds = canvas_model.getLayerBounds("nonexistent-id")
+        assert bounds["x"] == 0
+        assert bounds["y"] == 0
+        assert bounds["width"] == 0
+        assert bounds["height"] == 0

@@ -7,6 +7,8 @@ Item {
     id: root
     readonly property SystemPalette themePalette: DV.Themed.palette
 
+    signal exportLayerRequested(string layerId, string layerName)
+
     // Map between visual order (top-to-bottom) and model order (append order).
     // Top of the list should correspond to the highest Z on canvas, so visual
     // index 0 maps to model index (count - 1).
@@ -519,14 +521,46 @@ Item {
                                             anchors.fill: parent
                                             enabled: !nameEditor.isEditing
                                             hoverEnabled: true
-                                            acceptedButtons: Qt.LeftButton
+                                            acceptedButtons: Qt.LeftButton | Qt.RightButton
                                             preventStealing: true
                                             onClicked: function (mouse) {
-                                                root.setSelectionFromDelegate(delegateRoot.modelIndex, mouse.modifiers & Qt.ControlModifier);
+                                                if (mouse.button === Qt.RightButton) {
+                                                    root.setSelectionFromDelegate(delegateRoot.modelIndex, false);
+                                                    itemContextMenu.popup();
+                                                } else {
+                                                    root.setSelectionFromDelegate(delegateRoot.modelIndex, mouse.modifiers & Qt.ControlModifier);
+                                                }
                                             }
                                             onDoubleClicked: function (mouse) {
                                                 root.setSelectionFromDelegate(delegateRoot.modelIndex, mouse.modifiers & Qt.ControlModifier);
                                                 nameEditor.startEditing();
+                                            }
+
+                                            Menu {
+                                                id: itemContextMenu
+
+                                                Action {
+                                                    text: qsTr("Rename")
+                                                    onTriggered: nameEditor.startEditing()
+                                                }
+
+                                                Action {
+                                                    text: qsTr("Export Layer...")
+                                                    enabled: delegateRoot.itemType === "layer"
+                                                    onTriggered: root.exportLayerRequested(delegateRoot.itemId, delegateRoot.name || "Layer")
+                                                }
+
+                                                MenuSeparator {}
+
+                                                Action {
+                                                    text: qsTr("Delete")
+                                                    onTriggered: {
+                                                        DV.SelectionManager.selectedIndices = [delegateRoot.modelIndex];
+                                                        DV.SelectionManager.selectedItemIndex = delegateRoot.modelIndex;
+                                                        DV.SelectionManager.selectedItem = canvasModel.getItemData(delegateRoot.modelIndex);
+                                                        canvasModel.removeItem(delegateRoot.modelIndex);
+                                                    }
+                                                }
                                             }
                                         }
 

@@ -263,3 +263,53 @@ class DocumentManager(QObject):
             "offsetX": self._viewport_offset_x,
             "offsetY": self._viewport_offset_y,
         }
+
+    @Slot(str, str, float, float, str, result=bool)
+    def exportLayer(
+        self,
+        layer_id: str,
+        path: str,
+        scale: float,
+        padding: float,
+        background: str,
+    ) -> bool:
+        """Export a layer to PNG or SVG.
+
+        Args:
+            layer_id: ID of the layer to export
+            path: Output file path (format determined by extension)
+            scale: Scale factor (for PNG)
+            padding: Padding in canvas units
+            background: Background color (empty for transparent)
+
+        Returns:
+            True if export succeeded, False on error
+        """
+        from lucent.exporter import (
+            ExportOptions,
+            export_png,
+            export_svg,
+            compute_bounds,
+        )
+
+        local_path = self._url_to_path(path)
+        items = self._canvas_model.getLayerItems(layer_id)
+
+        if not items:
+            return False
+
+        options = ExportOptions(
+            scale=scale,
+            padding=padding,
+            background=background if background else None,
+        )
+
+        bounds = compute_bounds(items, padding)
+        if bounds.isEmpty():
+            return False
+
+        # Determine format from extension
+        if local_path.lower().endswith(".svg"):
+            return export_svg(items, bounds, local_path, options)
+        else:
+            return export_png(items, bounds, local_path, options)

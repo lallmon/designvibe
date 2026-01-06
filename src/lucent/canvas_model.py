@@ -744,6 +744,38 @@ class CanvasModel(QAbstractListModel):
     def getItems(self) -> List[CanvasItem]:
         return self._items
 
+    @Slot(str, result="QVariant")  # type: ignore[arg-type]
+    def getLayerItems(self, layer_id: str) -> List[CanvasItem]:
+        """Get all items belonging to a layer (for export)."""
+        return [
+            item for item in self._items if getattr(item, "parent_id", None) == layer_id
+        ]
+
+    @Slot(str, result="QVariant")  # type: ignore[arg-type]
+    def getLayerBounds(self, layer_id: str) -> Dict[str, float]:
+        """Compute combined bounding box of all items in a layer."""
+        from PySide6.QtCore import QRectF
+
+        children = self.getLayerItems(layer_id)
+        if not children:
+            return {"x": 0, "y": 0, "width": 0, "height": 0}
+
+        combined = QRectF()
+        for child in children:
+            child_bounds = child.get_bounds()
+            if not child_bounds.isEmpty():
+                if combined.isEmpty():
+                    combined = child_bounds
+                else:
+                    combined = combined.united(child_bounds)
+
+        return {
+            "x": combined.x(),
+            "y": combined.y(),
+            "width": combined.width(),
+            "height": combined.height(),
+        }
+
     @Slot(int, result="QVariant")  # type: ignore[arg-type]
     def getItemData(self, index: int) -> Optional[Dict[str, Any]]:
         if 0 <= index < len(self._items):

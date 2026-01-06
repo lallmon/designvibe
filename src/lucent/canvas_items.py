@@ -46,6 +46,11 @@ class CanvasItem(ABC):
         """Paint this item using the provided QPainter"""
         pass
 
+    @abstractmethod
+    def get_bounds(self) -> QRectF:
+        """Return bounding rectangle in canvas coordinates."""
+        pass
+
     @staticmethod
     @abstractmethod
     def from_dict(data: Dict[str, Any]) -> "CanvasItem":
@@ -122,6 +127,10 @@ class RectangleItem(CanvasItem):
 
         # Draw rectangle
         painter.drawRect(QRectF(local_x, local_y, self.width, self.height))
+
+    def get_bounds(self) -> QRectF:
+        """Return bounding rectangle in canvas coordinates."""
+        return QRectF(self.x, self.y, self.width, self.height)
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "RectangleItem":
@@ -230,6 +239,15 @@ class EllipseItem(CanvasItem):
                 2 * self.radius_x,
                 2 * self.radius_y,
             )
+        )
+
+    def get_bounds(self) -> QRectF:
+        """Return bounding rectangle in canvas coordinates."""
+        return QRectF(
+            self.center_x - self.radius_x,
+            self.center_y - self.radius_y,
+            2 * self.radius_x,
+            2 * self.radius_y,
         )
 
     @staticmethod
@@ -341,6 +359,14 @@ class PathItem(CanvasItem):
             path.closeSubpath()
         painter.drawPath(path)
 
+    def get_bounds(self) -> QRectF:
+        """Return bounding rectangle of all points in canvas coordinates."""
+        if not self.points:
+            return QRectF()
+        xs = [p["x"] for p in self.points]
+        ys = [p["y"] for p in self.points]
+        return QRectF(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "PathItem":
         """Create PathItem from QML data dictionary."""
@@ -396,6 +422,10 @@ class LayerItem(CanvasItem):
         """Layers don't render directly - they are organizational containers."""
         pass
 
+    def get_bounds(self) -> QRectF:
+        """Layers have no intrinsic bounds (non-rendering containers)."""
+        return QRectF()
+
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "LayerItem":
         """Create LayerItem from QML data dictionary."""
@@ -438,6 +468,10 @@ class GroupItem(CanvasItem):
     ) -> None:
         """Groups do not render directly."""
         pass
+
+    def get_bounds(self) -> QRectF:
+        """Groups have no intrinsic bounds (non-rendering containers)."""
+        return QRectF()
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "GroupItem":
@@ -527,6 +561,21 @@ class TextItem(CanvasItem):
         painter.translate(local_x, local_y)
         doc.drawContents(painter)
         painter.restore()
+
+    def get_bounds(self) -> QRectF:
+        """Return bounding rectangle in canvas coordinates."""
+        if self.height > 0:
+            return QRectF(self.x, self.y, self.width, self.height)
+        # Auto-height: compute from text
+        doc = QTextDocument()
+        doc.setDocumentMargin(0)
+        font = QFont(self.font_family)
+        font.setPointSizeF(self.font_size)
+        doc.setDefaultFont(font)
+        if self.width > 0:
+            doc.setTextWidth(self.width)
+        doc.setPlainText(self.text or " ")
+        return QRectF(self.x, self.y, self.width, doc.size().height())
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "TextItem":

@@ -10,3 +10,4 @@ EllipseToolSettings 1.0 EllipseToolSettings.qml
 PenToolSettings 1.0 PenToolSettings.qml
 TextToolSettings 1.0 TextToolSettings.qml
 Viewport 1.0 Viewport.qml
+ExportDialog 1.0 ExportDialog.qml
