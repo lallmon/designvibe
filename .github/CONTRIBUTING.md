@@ -7,6 +7,40 @@ What I'd love are people who wish Affinity Designer had a native Linux app, to p
 - What UX can be improved?
 - What isn't working as expected?
 
+### Feature Requests
+
+Feature requests are driven with User Stories and Acceptance Criteria defined.
+
+#### User Stories
+
+User stories are written with the template of:
+- **As a** [kind of user],
+- **I want** [what the feature does],
+- **So that** [the value I get out of this feature]" 
+
+Example: 
+
+- *As a designer,*
+- *I want items on the canvas to snap to a grid,* 
+- *So I can make layouts with better precision*
+
+#### Acceptance Criteria 
+Acceptance criteria are defined with the "Given, When, Then" approach.
+- **Given** [state of the system]
+- **And** [optional other states]
+- **When** [I perform this action]
+- **Then** [the output of the action]
+- **And** [optional other outputs]
+
+So for the example user story above:
+
+- *Given I have an item selected on the canvas,*
+- *And the snapping function is enabled,*
+- *When I drag the item around the canvas,*
+- *The item snaps to the grid at it's default fidelity.*
+
+Reasoning: This allows us to have conversations about the app and it's functionality that aren't overly technical and can look for intrinsic user value.
+
 ### Developing the App
 
 Prerequisites: Python 3.10
