@@ -36,6 +36,7 @@ ApplicationWindow {
         onSaveRequested: root.handleSave()
         onSaveAsRequested: saveDialog.open()
         onExitRequested: root.close()
+        onExportLayerRequested: (layerId, layerName) => root.openExportDialog(layerId, layerName)
     }
 
     footer: StatusBar {
@@ -207,6 +208,7 @@ ApplicationWindow {
                     SplitView.minimumWidth: 128
                     SplitView.maximumWidth: 400
                     SplitView.fillHeight: true
+                    onExportLayerRequested: (layerId, layerName) => root.openExportDialog(layerId, layerName)
                 }
             }
         }
@@ -219,5 +221,16 @@ ApplicationWindow {
         rendererBackend: appInfo ? appInfo.rendererBackend : ""
         rendererType: appInfo ? appInfo.rendererType : ""
         glVendor: appInfo ? appInfo.glVendor : ""
+    }
+
+    ExportDialog {
+        id: exportDialog
+        anchors.centerIn: parent
+    }
+
+    function openExportDialog(layerId, layerName) {
+        exportDialog.layerId = layerId;
+        exportDialog.layerName = layerName;
+        exportDialog.open();
     }
 }

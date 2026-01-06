@@ -8,6 +8,8 @@ Pane {
     padding: 0
     readonly property SystemPalette themePalette: DV.Themed.palette
 
+    signal exportLayerRequested(string layerId, string layerName)
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -40,6 +42,7 @@ Pane {
 
             LayerPanel {
                 anchors.fill: parent
+                onExportLayerRequested: (layerId, layerName) => root.exportLayerRequested(layerId, layerName)
             }
         }
     }

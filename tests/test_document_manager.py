@@ -428,3 +428,104 @@ class TestViewportState:
         assert data["viewport"]["zoomLevel"] == 3.0
         assert data["viewport"]["offsetX"] == 200
         assert data["viewport"]["offsetY"] == 150
+
+
+class TestExportLayer:
+    """Tests for layer export functionality."""
+
+    def test_export_layer_creates_png(
+        self, doc_manager: DocumentManager, tmp_path: Path, canvas_model: CanvasModel
+    ) -> None:
+        """exportLayer() creates a PNG file."""
+        # Add a layer with an item
+        canvas_model.addItem({"type": "layer", "name": "Test Layer"})
+        layer_id = canvas_model.getItems()[0].id
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 50,
+                "parentId": layer_id,
+            }
+        )
+
+        output_path = tmp_path / "export.png"
+        result = doc_manager.exportLayer(layer_id, str(output_path), 1.0, 0.0, "")
+
+        assert result is True
+        assert output_path.exists()
+
+    def test_export_layer_creates_svg(
+        self, doc_manager: DocumentManager, tmp_path: Path, canvas_model: CanvasModel
+    ) -> None:
+        """exportLayer() creates an SVG file when path ends with .svg."""
+        canvas_model.addItem({"type": "layer", "name": "Test Layer"})
+        layer_id = canvas_model.getItems()[0].id
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 50,
+                "parentId": layer_id,
+            }
+        )
+
+        output_path = tmp_path / "export.svg"
+        result = doc_manager.exportLayer(layer_id, str(output_path), 1.0, 0.0, "")
+
+        assert result is True
+        assert output_path.exists()
+        assert "<svg" in output_path.read_text()
+
+    def test_export_layer_with_scale(
+        self, doc_manager: DocumentManager, tmp_path: Path, canvas_model: CanvasModel
+    ) -> None:
+        """exportLayer() applies scale to PNG output."""
+        from PySide6.QtGui import QImage
+
+        canvas_model.addItem({"type": "layer", "name": "Test Layer"})
+        layer_id = canvas_model.getItems()[0].id
+        canvas_model.addItem(
+            {
+                "type": "rectangle",
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 50,
+                "parentId": layer_id,
+            }
+        )
+
+        output_path = tmp_path / "export.png"
+        doc_manager.exportLayer(layer_id, str(output_path), 2.0, 0.0, "")
+
+        img = QImage(str(output_path))
+        assert img.width() == 200
+        assert img.height() == 100
+
+    def test_export_layer_empty_returns_false(
+        self, doc_manager: DocumentManager, tmp_path: Path, canvas_model: CanvasModel
+    ) -> None:
+        """exportLayer() returns False for empty layer."""
+        canvas_model.addItem({"type": "layer", "name": "Empty Layer"})
+        layer_id = canvas_model.getItems()[0].id
+
+        output_path = tmp_path / "export.png"
+        result = doc_manager.exportLayer(layer_id, str(output_path), 1.0, 0.0, "")
+
+        assert result is False
+
+    def test_export_layer_nonexistent_returns_false(
+        self, doc_manager: DocumentManager, tmp_path: Path
+    ) -> None:
+        """exportLayer() returns False for nonexistent layer ID."""
+        output_path = tmp_path / "export.png"
+        result = doc_manager.exportLayer(
+            "nonexistent-id", str(output_path), 1.0, 0.0, ""
+        )
+
+        assert result is False

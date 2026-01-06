@@ -18,6 +18,7 @@ MenuBar {
     signal saveRequested
     signal saveAsRequested
     signal exitRequested
+    signal exportLayerRequested(string layerId, string layerName)
 
     Menu {
         title: qsTr("&File")
@@ -45,6 +46,20 @@ MenuBar {
             text: qsTr("Save &As... (Ctrl+Shift+S)")
             shortcut: "Ctrl+Shift+S"
             onTriggered: root.saveAsRequested()
+        }
+
+        MenuSeparator {}
+
+        Action {
+            text: qsTr("Export &Layer... (Ctrl+E)")
+            shortcut: "Ctrl+E"
+            enabled: DV.SelectionManager.selectedItem && DV.SelectionManager.selectedItem.type === "layer"
+            onTriggered: {
+                var item = DV.SelectionManager.selectedItem;
+                if (item && item.type === "layer") {
+                    root.exportLayerRequested(item.id, item.name || "Layer");
+                }
+            }
         }
 
         MenuSeparator {}

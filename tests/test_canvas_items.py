@@ -7,13 +7,14 @@ from lucent.canvas_items import (
     RectangleItem,
     EllipseItem,
     LayerItem,
+    GroupItem,
     PathItem,
     TextItem,
     CANVAS_OFFSET_X,
     CANVAS_OFFSET_Y,
 )
 from PySide6.QtGui import QImage
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QSize, QRectF
 
 
 class TestRectangleItem:
@@ -1043,3 +1044,96 @@ class TestTextItem:
         text = TextItem(x=0, y=0, text="Line 1\nLine 2\nLine 3", width=200)
         text.paint(painter, zoom_level=1.0)
         painter.end()
+
+
+class TestGetBounds:
+    """Tests for get_bounds() method on canvas items."""
+
+    def test_rectangle_bounds(self):
+        """RectangleItem.get_bounds() returns correct bounding rect."""
+        rect = RectangleItem(x=10, y=20, width=100, height=50)
+        bounds = rect.get_bounds()
+        assert bounds == QRectF(10, 20, 100, 50)
+
+    def test_rectangle_bounds_at_origin(self):
+        """RectangleItem at origin returns correct bounds."""
+        rect = RectangleItem(x=0, y=0, width=50, height=30)
+        bounds = rect.get_bounds()
+        assert bounds == QRectF(0, 0, 50, 30)
+
+    def test_rectangle_bounds_negative_position(self):
+        """RectangleItem with negative position returns correct bounds."""
+        rect = RectangleItem(x=-50, y=-25, width=100, height=50)
+        bounds = rect.get_bounds()
+        assert bounds == QRectF(-50, -25, 100, 50)
+
+    def test_ellipse_bounds(self):
+        """EllipseItem.get_bounds() returns correct bounding rect."""
+        ellipse = EllipseItem(center_x=100, center_y=100, radius_x=50, radius_y=30)
+        bounds = ellipse.get_bounds()
+        assert bounds == QRectF(50, 70, 100, 60)
+
+    def test_ellipse_bounds_at_origin(self):
+        """EllipseItem centered at origin returns correct bounds."""
+        ellipse = EllipseItem(center_x=0, center_y=0, radius_x=25, radius_y=25)
+        bounds = ellipse.get_bounds()
+        assert bounds == QRectF(-25, -25, 50, 50)
+
+    def test_path_bounds(self):
+        """PathItem.get_bounds() returns bounding rect of all points."""
+        path = PathItem(
+            points=[
+                {"x": 10, "y": 20},
+                {"x": 50, "y": 10},
+                {"x": 30, "y": 60},
+            ]
+        )
+        bounds = path.get_bounds()
+        assert bounds == QRectF(10, 10, 40, 50)
+
+    def test_path_bounds_single_line(self):
+        """PathItem with two points returns correct bounds."""
+        path = PathItem(points=[{"x": 0, "y": 0}, {"x": 100, "y": 100}])
+        bounds = path.get_bounds()
+        assert bounds == QRectF(0, 0, 100, 100)
+
+    def test_path_bounds_negative_coords(self):
+        """PathItem with negative coordinates returns correct bounds."""
+        path = PathItem(
+            points=[
+                {"x": -50, "y": -30},
+                {"x": 50, "y": 30},
+            ]
+        )
+        bounds = path.get_bounds()
+        assert bounds == QRectF(-50, -30, 100, 60)
+
+    def test_text_bounds(self):
+        """TextItem.get_bounds() returns bounding rect based on position and width."""
+        text = TextItem(x=10, y=20, text="Hello", width=100, height=30)
+        bounds = text.get_bounds()
+        assert bounds.x() == 10
+        assert bounds.y() == 20
+        assert bounds.width() == 100
+        assert bounds.height() == 30
+
+    def test_text_bounds_auto_height(self, qtbot):
+        """TextItem with height=0 (auto) returns positive height based on font."""
+        text = TextItem(x=0, y=0, text="Hello", width=100, height=0, font_size=16)
+        bounds = text.get_bounds()
+        assert bounds.x() == 0
+        assert bounds.y() == 0
+        assert bounds.width() == 100
+        assert bounds.height() > 0
+
+    def test_layer_bounds_empty(self):
+        """LayerItem.get_bounds() returns empty rect (non-rendering)."""
+        layer = LayerItem(name="Test Layer")
+        bounds = layer.get_bounds()
+        assert bounds.isEmpty() or bounds == QRectF()
+
+    def test_group_bounds_empty(self):
+        """GroupItem.get_bounds() returns empty rect (non-rendering)."""
+        group = GroupItem(name="Test Group")
+        bounds = group.get_bounds()
+        assert bounds.isEmpty() or bounds == QRectF()
