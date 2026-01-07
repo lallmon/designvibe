@@ -10,6 +10,18 @@ ToolBar {
     property string activeTool: ""
     readonly property SystemPalette themePalette: Lucent.Themed.palette
 
+    // Selection awareness: when a shape is selected, show its properties
+    readonly property var selectedItem: Lucent.SelectionManager.selectedItem
+    readonly property bool hasEditableSelection: {
+        if (!selectedItem)
+            return false;
+        var t = selectedItem.type;
+        return t === "rectangle" || t === "ellipse" || t === "path" || t === "text";
+    }
+
+    // Determine which settings to display: selected item type takes priority over active tool
+    readonly property string displayType: hasEditableSelection ? selectedItem.type : activeTool
+
     // Expose tool settings for external access (e.g., when creating shapes)
     readonly property var toolSettings: ({
             "rectangle": {
@@ -49,27 +61,35 @@ ToolBar {
 
         Lucent.RectangleToolSettings {
             id: rectangleSettings
-            visible: root.activeTool === "rectangle"
+            visible: root.displayType === "rectangle"
+            editMode: root.hasEditableSelection && root.selectedItem.type === "rectangle"
+            selectedItem: root.hasEditableSelection ? root.selectedItem : null
         }
 
         Lucent.EllipseToolSettings {
             id: ellipseSettings
-            visible: root.activeTool === "ellipse"
+            visible: root.displayType === "ellipse"
+            editMode: root.hasEditableSelection && root.selectedItem.type === "ellipse"
+            selectedItem: root.hasEditableSelection ? root.selectedItem : null
         }
 
         Lucent.PenToolSettings {
             id: penSettings
-            visible: root.activeTool === "pen"
+            visible: root.displayType === "pen" || root.displayType === "path"
+            editMode: root.hasEditableSelection && root.selectedItem.type === "path"
+            selectedItem: root.hasEditableSelection ? root.selectedItem : null
         }
 
         Lucent.TextToolSettings {
             id: textSettings
-            visible: root.activeTool === "text"
+            visible: root.displayType === "text"
+            editMode: root.hasEditableSelection && root.selectedItem.type === "text"
+            selectedItem: root.hasEditableSelection ? root.selectedItem : null
         }
 
-        // Select tool settings (empty for now)
+        // Empty state when no tool selected and no shape selected
         Item {
-            visible: root.activeTool === "select" || root.activeTool === ""
+            visible: !root.hasEditableSelection && (root.activeTool === "select" || root.activeTool === "")
             Layout.fillHeight: true
             Layout.fillWidth: true
         }

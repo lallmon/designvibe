@@ -6,11 +6,41 @@ import "." as Lucent
 RowLayout {
     id: root
 
-    // Tool settings properties with theme-aware defaults
-    property string fontFamily: "Sans Serif"
-    property real fontSize: 16
-    property color textColor: Lucent.Themed.palette.text
-    property real textOpacity: 1.0
+    // Edit mode: when true, we're editing a selected text item instead of setting defaults
+    property bool editMode: false
+    property var selectedItem: null
+
+    // Internal defaults for creation mode
+    property string _defaultFontFamily: "Sans Serif"
+    property real _defaultFontSize: 16
+    property color _defaultTextColor: Lucent.Themed.palette.text
+    property real _defaultTextOpacity: 1.0
+
+    // Exposed properties: read from selectedItem in edit mode, defaults in creation mode
+    readonly property string fontFamily: editMode && selectedItem ? selectedItem.fontFamily : _defaultFontFamily
+    readonly property real fontSize: editMode && selectedItem ? selectedItem.fontSize : _defaultFontSize
+    readonly property color textColor: editMode && selectedItem ? selectedItem.textColor : _defaultTextColor
+    readonly property real textOpacity: editMode && selectedItem ? selectedItem.textOpacity : _defaultTextOpacity
+
+    // Update helper: always updates defaults, and also updates selected item in edit mode
+    function updateProperty(propName, value) {
+        // Always update defaults so new shapes use the last-used settings
+        if (propName === "fontFamily")
+            _defaultFontFamily = value;
+        else if (propName === "fontSize")
+            _defaultFontSize = value;
+        else if (propName === "textColor")
+            _defaultTextColor = value;
+        else if (propName === "textOpacity")
+            _defaultTextOpacity = value;
+
+        // Also update selected item if in edit mode
+        if (editMode && Lucent.SelectionManager.selectedItemIndex >= 0) {
+            var props = {};
+            props[propName] = value;
+            canvasModel.updateItem(Lucent.SelectionManager.selectedItemIndex, props);
+        }
+    }
 
     Layout.fillHeight: true
     Layout.alignment: Qt.AlignVCenter
@@ -30,15 +60,15 @@ RowLayout {
         model: fontProvider ? fontProvider.fonts : []
         currentIndex: fontProvider ? fontProvider.indexOf(root.fontFamily) : 0
 
-        onCurrentTextChanged: {
-            if (currentText && currentText.length > 0) {
-                root.fontFamily = currentText;
+        onActivated: index => {
+            if (index >= 0 && model[index]) {
+                root.updateProperty("fontFamily", model[index]);
             }
         }
 
         Component.onCompleted: {
-            if (fontProvider && (!root.fontFamily || root.fontFamily === "Sans Serif")) {
-                root.fontFamily = fontProvider.defaultFont();
+            if (fontProvider && (!root._defaultFontFamily || root._defaultFontFamily === "Sans Serif")) {
+                root._defaultFontFamily = fontProvider.defaultFont();
             }
         }
 
@@ -85,16 +115,16 @@ RowLayout {
             editText = Math.round(root.fontSize).toString();
         }
 
-        onCurrentIndexChanged: {
-            if (currentIndex >= 0) {
-                root.fontSize = model[currentIndex];
+        onActivated: index => {
+            if (index >= 0) {
+                root.updateProperty("fontSize", model[index]);
             }
         }
 
         onAccepted: {
             var value = parseFloat(editText);
             if (!isNaN(value) && value >= 8 && value <= 200) {
-                root.fontSize = Math.round(value);
+                root.updateProperty("fontSize", Math.round(value));
             }
             editText = Math.round(root.fontSize).toString();
         }
@@ -154,7 +184,7 @@ RowLayout {
         color: root.textColor
         colorOpacity: root.textOpacity
         dialogTitle: qsTr("Choose Text Color")
-        onColorPicked: newColor => root.textColor = newColor
+        onColorPicked: newColor => root.updateProperty("textColor", newColor.toString())
     }
 
     Label {
@@ -165,7 +195,7 @@ RowLayout {
 
     Lucent.OpacitySlider {
         opacityValue: root.textOpacity
-        onValueUpdated: newOpacity => root.textOpacity = newOpacity
+        onValueUpdated: newOpacity => root.updateProperty("textOpacity", newOpacity)
     }
 
     Lucent.LabeledNumericField {
@@ -176,6 +206,6 @@ RowLayout {
         decimals: 0
         fieldWidth: 35
         suffix: qsTr("%")
-        onCommitted: newValue => root.textOpacity = newValue / 100.0
+        onCommitted: newValue => root.updateProperty("textOpacity", newValue / 100.0)
     }
 }
