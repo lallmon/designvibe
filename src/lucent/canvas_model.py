@@ -803,19 +803,22 @@ class CanvasModel(QAbstractListModel):
             return {"x": x, "y": y, "width": w, "height": h}
 
         if isinstance(item, RectangleItem):
-            return rect_bounds(item.x, item.y, item.width, item.height)
+            geom = item.geometry
+            return rect_bounds(geom.x, geom.y, geom.width, geom.height)
         if isinstance(item, EllipseItem):
+            geom = item.geometry
             return rect_bounds(
-                item.center_x - item.radius_x,
-                item.center_y - item.radius_y,
-                item.radius_x * 2,
-                item.radius_y * 2,
+                geom.center_x - geom.radius_x,
+                geom.center_y - geom.radius_y,
+                geom.radius_x * 2,
+                geom.radius_y * 2,
             )
         if isinstance(item, PathItem):
-            if not item.points:
+            points = item.geometry.points
+            if not points:
                 return None
-            xs = [p["x"] for p in item.points]
-            ys = [p["y"] for p in item.points]
+            xs = [p["x"] for p in points]
+            ys = [p["y"] for p in points]
             min_x = min(xs)
             max_x = max(xs)
             min_y = min(ys)
@@ -879,16 +882,15 @@ class CanvasModel(QAbstractListModel):
         new_width = float(bbox.get("width", 0))
         new_height = float(bbox.get("height", 0))
 
+        # Get current item data as base
+        current_data = self._itemToDict(item)
+
         if isinstance(item, RectangleItem):
-            self.updateItem(
-                index,
-                {
-                    "x": new_x,
-                    "y": new_y,
-                    "width": new_width,
-                    "height": new_height,
-                },
-            )
+            current_data["geometry"]["x"] = new_x
+            current_data["geometry"]["y"] = new_y
+            current_data["geometry"]["width"] = new_width
+            current_data["geometry"]["height"] = new_height
+            self.updateItem(index, current_data)
             return True
 
         if isinstance(item, EllipseItem):
@@ -897,43 +899,37 @@ class CanvasModel(QAbstractListModel):
             center_y = new_y + new_height / 2
             radius_x = new_width / 2
             radius_y = new_height / 2
-            self.updateItem(
-                index,
-                {
-                    "centerX": center_x,
-                    "centerY": center_y,
-                    "radiusX": radius_x,
-                    "radiusY": radius_y,
-                },
-            )
+            current_data["geometry"]["centerX"] = center_x
+            current_data["geometry"]["centerY"] = center_y
+            current_data["geometry"]["radiusX"] = radius_x
+            current_data["geometry"]["radiusY"] = radius_y
+            self.updateItem(index, current_data)
             return True
 
         if isinstance(item, PathItem):
-            if not item.points:
+            points = item.geometry.points
+            if not points:
                 return False
             # Calculate current bounds
-            xs = [p["x"] for p in item.points]
-            ys = [p["y"] for p in item.points]
+            xs = [p["x"] for p in points]
+            ys = [p["y"] for p in points]
             old_min_x = min(xs)
             old_min_y = min(ys)
             # Calculate translation delta
             dx = new_x - old_min_x
             dy = new_y - old_min_y
             # Translate all points
-            new_points = [{"x": p["x"] + dx, "y": p["y"] + dy} for p in item.points]
-            self.updateItem(index, {"points": new_points})
+            new_points = [{"x": p["x"] + dx, "y": p["y"] + dy} for p in points]
+            current_data["geometry"]["points"] = new_points
+            self.updateItem(index, current_data)
             return True
 
         if isinstance(item, TextItem):
-            self.updateItem(
-                index,
-                {
-                    "x": new_x,
-                    "y": new_y,
-                    "width": new_width,
-                    "height": new_height,
-                },
-            )
+            current_data["x"] = new_x
+            current_data["y"] = new_y
+            current_data["width"] = new_width
+            current_data["height"] = new_height
+            self.updateItem(index, current_data)
             return True
 
         # Layers and groups are non-renderable containers
