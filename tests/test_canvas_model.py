@@ -8,7 +8,7 @@ from lucent.canvas_items import (
     TextItem,
 )
 from lucent.commands import DEFAULT_DUPLICATE_OFFSET
-from tests.test_helpers import (
+from test_helpers import (
     make_rectangle,
     make_ellipse,
     make_path,

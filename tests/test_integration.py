@@ -1,7 +1,7 @@
 """Integration tests for CanvasRenderer and Python-Qt bridge."""
 
 from PySide6.QtCore import QObject
-from tests.test_helpers import make_rectangle, make_ellipse
+from test_helpers import make_rectangle, make_ellipse
 
 
 class TestRendererModelIntegration:

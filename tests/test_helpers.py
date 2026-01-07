@@ -146,6 +146,21 @@ def make_layer(name="", layer_id=None, visible=True, locked=False):
     return data
 
 
+def make_group(name="", group_id=None, parent_id=None, visible=True, locked=False):
+    """Create group data."""
+    data = {
+        "type": "group",
+        "name": name,
+        "visible": visible,
+        "locked": locked,
+    }
+    if group_id:
+        data["id"] = group_id
+    if parent_id:
+        data["parentId"] = parent_id
+    return data
+
+
 def make_text(
     x=0,
     y=0,

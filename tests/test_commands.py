@@ -13,7 +13,7 @@ from lucent.commands import (
 )
 from lucent.canvas_items import RectangleItem, EllipseItem
 from lucent.item_schema import ItemSchemaError
-from tests.test_helpers import make_rectangle, make_ellipse, make_path
+from test_helpers import make_rectangle, make_ellipse, make_path
 
 
 class TestCommandBase:
