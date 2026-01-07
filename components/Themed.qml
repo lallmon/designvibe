@@ -18,4 +18,8 @@ QtObject {
 
     // Selection overlay accent color
     readonly property color selector: "#409cff"
+
+    // Default tool colors that switch with theme
+    readonly property color defaultStroke: "#808080"
+    readonly property color defaultFill: "#A0A0A0"
 }
