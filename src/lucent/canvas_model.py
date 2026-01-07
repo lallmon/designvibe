@@ -854,6 +854,94 @@ class CanvasModel(QAbstractListModel):
 
         return None
 
+    @Slot(int, dict, result=bool)
+    def setBoundingBox(self, index: int, bbox: Dict[str, float]) -> bool:
+        """Set bounding box for an item, translating to native properties.
+
+        For rectangles and text: updates x, y, width, height directly.
+        For ellipses: converts to centerX, centerY, radiusX, radiusY.
+        For paths: translates all points to match the new position.
+        For layers/groups: returns False (non-renderable containers).
+
+        Args:
+            index: Index of the item to update.
+            bbox: Dictionary with x, y, width, height values.
+
+        Returns:
+            True if the bounding box was set successfully, False otherwise.
+        """
+        if not (0 <= index < len(self._items)):
+            return False
+
+        item = self._items[index]
+        new_x = float(bbox.get("x", 0))
+        new_y = float(bbox.get("y", 0))
+        new_width = float(bbox.get("width", 0))
+        new_height = float(bbox.get("height", 0))
+
+        if isinstance(item, RectangleItem):
+            self.updateItem(
+                index,
+                {
+                    "x": new_x,
+                    "y": new_y,
+                    "width": new_width,
+                    "height": new_height,
+                },
+            )
+            return True
+
+        if isinstance(item, EllipseItem):
+            # Convert bbox to center/radius representation
+            center_x = new_x + new_width / 2
+            center_y = new_y + new_height / 2
+            radius_x = new_width / 2
+            radius_y = new_height / 2
+            self.updateItem(
+                index,
+                {
+                    "centerX": center_x,
+                    "centerY": center_y,
+                    "radiusX": radius_x,
+                    "radiusY": radius_y,
+                },
+            )
+            return True
+
+        if isinstance(item, PathItem):
+            if not item.points:
+                return False
+            # Calculate current bounds
+            xs = [p["x"] for p in item.points]
+            ys = [p["y"] for p in item.points]
+            old_min_x = min(xs)
+            old_min_y = min(ys)
+            # Calculate translation delta
+            dx = new_x - old_min_x
+            dy = new_y - old_min_y
+            # Translate all points
+            new_points = [{"x": p["x"] + dx, "y": p["y"] + dy} for p in item.points]
+            self.updateItem(index, {"points": new_points})
+            return True
+
+        if isinstance(item, TextItem):
+            self.updateItem(
+                index,
+                {
+                    "x": new_x,
+                    "y": new_y,
+                    "width": new_width,
+                    "height": new_height,
+                },
+            )
+            return True
+
+        # Layers and groups are non-renderable containers
+        if isinstance(item, (LayerItem, GroupItem)):
+            return False
+
+        return False
+
     def getRenderItems(self) -> List[CanvasItem]:
         """Return items in model order (bottom to top) skipping layers.
 
