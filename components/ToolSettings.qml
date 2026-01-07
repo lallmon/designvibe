@@ -10,6 +10,36 @@ ToolBar {
     property string activeTool: ""
     readonly property SystemPalette themePalette: Lucent.Themed.palette
 
+    // Selection awareness: when a shape is selected, show its properties
+    // Use a non-readonly property to avoid binding loops when itemModified updates the selection
+    property var currentSelection: null
+    property string currentSelectionType: ""
+
+    // Update selection info when SelectionManager changes (but not during property edits)
+    Connections {
+        target: Lucent.SelectionManager
+        function onSelectedItemChanged() {
+            var item = Lucent.SelectionManager.selectedItem;
+            root.currentSelection = item;
+            root.currentSelectionType = item ? item.type : "";
+        }
+    }
+
+    Component.onCompleted: {
+        // Initialize from current selection
+        var item = Lucent.SelectionManager.selectedItem;
+        currentSelection = item;
+        currentSelectionType = item ? item.type : "";
+    }
+
+    readonly property bool hasEditableSelection: {
+        var t = currentSelectionType;
+        return t === "rectangle" || t === "ellipse" || t === "path" || t === "text";
+    }
+
+    // Determine which settings to display: selected item type takes priority over active tool
+    readonly property string displayType: hasEditableSelection ? currentSelectionType : activeTool
+
     // Expose tool settings for external access (e.g., when creating shapes)
     readonly property var toolSettings: ({
             "rectangle": {
@@ -49,27 +79,35 @@ ToolBar {
 
         Lucent.RectangleToolSettings {
             id: rectangleSettings
-            visible: root.activeTool === "rectangle"
+            visible: root.displayType === "rectangle"
+            editMode: root.hasEditableSelection && root.currentSelectionType === "rectangle"
+            selectedItem: root.hasEditableSelection ? root.currentSelection : null
         }
 
         Lucent.EllipseToolSettings {
             id: ellipseSettings
-            visible: root.activeTool === "ellipse"
+            visible: root.displayType === "ellipse"
+            editMode: root.hasEditableSelection && root.currentSelectionType === "ellipse"
+            selectedItem: root.hasEditableSelection ? root.currentSelection : null
         }
 
         Lucent.PenToolSettings {
             id: penSettings
-            visible: root.activeTool === "pen"
+            visible: root.displayType === "pen" || root.displayType === "path"
+            editMode: root.hasEditableSelection && root.currentSelectionType === "path"
+            selectedItem: root.hasEditableSelection ? root.currentSelection : null
         }
 
         Lucent.TextToolSettings {
             id: textSettings
-            visible: root.activeTool === "text"
+            visible: root.displayType === "text"
+            editMode: root.hasEditableSelection && root.currentSelectionType === "text"
+            selectedItem: root.hasEditableSelection ? root.currentSelection : null
         }
 
-        // Select tool settings (empty for now)
+        // Empty state when no tool selected and no shape selected
         Item {
-            visible: root.activeTool === "select" || root.activeTool === ""
+            visible: !root.hasEditableSelection && (root.activeTool === "select" || root.activeTool === "")
             Layout.fillHeight: true
             Layout.fillWidth: true
         }

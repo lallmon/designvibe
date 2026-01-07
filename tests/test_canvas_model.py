@@ -3774,3 +3774,150 @@ class TestLayerExport:
         assert bounds["y"] == 0
         assert bounds["width"] == 0
         assert bounds["height"] == 0
+
+
+class TestSetBoundingBox:
+    """Tests for setBoundingBox method to update item transform via bounding box."""
+
+    def test_set_bounding_box_rectangle(self, canvas_model, qtbot):
+        """setBoundingBox on rectangle updates x, y, width, height directly."""
+        canvas_model.addItem(
+            {"type": "rectangle", "x": 10, "y": 20, "width": 100, "height": 50}
+        )
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 50, "y": 60, "width": 200, "height": 100}
+        )
+
+        assert result is True
+        item = canvas_model.getItems()[0]
+        assert item.x == 50
+        assert item.y == 60
+        assert item.width == 200
+        assert item.height == 100
+
+    def test_set_bounding_box_ellipse(self, canvas_model, qtbot):
+        """setBoundingBox on ellipse converts to centerX, centerY, radiusX, radiusY."""
+        canvas_model.addItem(
+            {
+                "type": "ellipse",
+                "centerX": 100,
+                "centerY": 100,
+                "radiusX": 50,
+                "radiusY": 30,
+            }
+        )
+
+        # Set bounding box: x=20, y=40, width=100, height=60
+        # Expected: centerX=70, centerY=70, radiusX=50, radiusY=30
+        result = canvas_model.setBoundingBox(
+            0, {"x": 20, "y": 40, "width": 100, "height": 60}
+        )
+
+        assert result is True
+        item = canvas_model.getItems()[0]
+        assert item.center_x == 70  # x + width/2
+        assert item.center_y == 70  # y + height/2
+        assert item.radius_x == 50  # width/2
+        assert item.radius_y == 30  # height/2
+
+    def test_set_bounding_box_path_translates_points(self, canvas_model, qtbot):
+        """setBoundingBox on path translates all points to match new position."""
+        canvas_model.addItem(
+            {
+                "type": "path",
+                "points": [{"x": 10, "y": 20}, {"x": 50, "y": 20}, {"x": 30, "y": 60}],
+            }
+        )
+        # Original bounds: x=10, y=20, width=40, height=40
+
+        # Move to x=100, y=200, keep same size
+        result = canvas_model.setBoundingBox(
+            0, {"x": 100, "y": 200, "width": 40, "height": 40}
+        )
+
+        assert result is True
+        item = canvas_model.getItems()[0]
+        # Points should be translated by dx=90, dy=180
+        assert item.points[0]["x"] == 100  # 10 + 90
+        assert item.points[0]["y"] == 200  # 20 + 180
+        assert item.points[1]["x"] == 140  # 50 + 90
+        assert item.points[1]["y"] == 200  # 20 + 180
+        assert item.points[2]["x"] == 120  # 30 + 90
+        assert item.points[2]["y"] == 240  # 60 + 180
+
+    def test_set_bounding_box_text(self, canvas_model, qtbot):
+        """setBoundingBox on text updates x, y, width, height."""
+        canvas_model.addItem(
+            {
+                "type": "text",
+                "x": 10,
+                "y": 20,
+                "text": "Hello",
+                "width": 100,
+                "height": 30,
+            }
+        )
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 50, "y": 60, "width": 200, "height": 50}
+        )
+
+        assert result is True
+        item = canvas_model.getItems()[0]
+        assert item.x == 50
+        assert item.y == 60
+        assert item.width == 200
+        assert item.height == 50
+
+    def test_set_bounding_box_invalid_index_returns_false(self, canvas_model):
+        """setBoundingBox with invalid index returns False."""
+        result = canvas_model.setBoundingBox(
+            99, {"x": 0, "y": 0, "width": 10, "height": 10}
+        )
+        assert result is False
+
+    def test_set_bounding_box_negative_index_returns_false(self, canvas_model):
+        """setBoundingBox with negative index returns False."""
+        canvas_model.addItem(
+            {"type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10}
+        )
+        result = canvas_model.setBoundingBox(
+            -1, {"x": 0, "y": 0, "width": 10, "height": 10}
+        )
+        assert result is False
+
+    def test_set_bounding_box_layer_returns_false(self, canvas_model):
+        """setBoundingBox on layer returns False (non-renderable container)."""
+        canvas_model.addItem({"type": "layer", "name": "Test Layer"})
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 0, "y": 0, "width": 100, "height": 100}
+        )
+        assert result is False
+
+    def test_set_bounding_box_group_returns_false(self, canvas_model):
+        """setBoundingBox on group returns False (non-renderable container)."""
+        canvas_model.addItem({"type": "group", "name": "Test Group"})
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 0, "y": 0, "width": 100, "height": 100}
+        )
+        assert result is False
+
+    def test_set_bounding_box_is_undoable(self, canvas_model, qtbot):
+        """setBoundingBox changes can be undone."""
+        canvas_model.addItem(
+            {"type": "rectangle", "x": 10, "y": 20, "width": 100, "height": 50}
+        )
+
+        canvas_model.setBoundingBox(0, {"x": 50, "y": 60, "width": 200, "height": 100})
+        item = canvas_model.getItems()[0]
+        assert item.x == 50
+
+        canvas_model.undo()
+        item = canvas_model.getItems()[0]
+        assert item.x == 10
+        assert item.y == 20
+        assert item.width == 100
+        assert item.height == 50

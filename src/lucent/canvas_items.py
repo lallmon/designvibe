@@ -86,8 +86,8 @@ class RectangleItem(CanvasItem):
         # Validate dimensions (must be non-negative)
         self.width = max(0.0, width)
         self.height = max(0.0, height)
-        # Validate stroke width (must be positive, clamped to reasonable range)
-        self.stroke_width = max(0.1, min(100.0, stroke_width))
+        # Validate stroke width (0 = no stroke, clamped to reasonable range)
+        self.stroke_width = max(0.0, min(100.0, stroke_width))
         self.stroke_color = stroke_color
         # Validate stroke opacity (must be in range 0.0-1.0)
         self.stroke_opacity = max(0.0, min(1.0, stroke_opacity))
@@ -106,18 +106,20 @@ class RectangleItem(CanvasItem):
         local_x = self.x + offset_x
         local_y = self.y + offset_y
 
-        # Keep stroke width in world space, but clamp screen size at extremes.
-        stroke_px = self.stroke_width * zoom_level
-        clamped_px = max(0.3, min(6.0, stroke_px))
-        scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
+        # Set up pen for stroke (NoPen if stroke_width is 0)
+        if self.stroke_width > 0:
+            stroke_px = self.stroke_width * zoom_level
+            clamped_px = max(0.3, min(6.0, stroke_px))
+            scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
 
-        # Set up pen for stroke
-        stroke_qcolor = QColor(self.stroke_color)
-        stroke_qcolor.setAlphaF(self.stroke_opacity)
-        pen = QPen(stroke_qcolor)
-        pen.setWidthF(scaled_stroke_width)
-        pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
-        painter.setPen(pen)
+            stroke_qcolor = QColor(self.stroke_color)
+            stroke_qcolor.setAlphaF(self.stroke_opacity)
+            pen = QPen(stroke_qcolor)
+            pen.setWidthF(scaled_stroke_width)
+            pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+            painter.setPen(pen)
+        else:
+            painter.setPen(Qt.PenStyle.NoPen)
 
         # Set up brush for fill
         fill_qcolor = QColor(self.fill_color)
@@ -139,8 +141,8 @@ class RectangleItem(CanvasItem):
         width = max(0.0, float(data.get("width", 0)))
         height = max(0.0, float(data.get("height", 0)))
 
-        # Extract stroke width (positive, clamped to a reasonable range)
-        stroke_width = max(0.1, min(100.0, float(data.get("strokeWidth", 1))))
+        # Extract stroke width (0 = no stroke, clamped to reasonable range)
+        stroke_width = max(0.0, min(100.0, float(data.get("strokeWidth", 1))))
 
         # Extract and validate stroke opacity (must be in range 0.0-1.0)
         stroke_opacity = max(0.0, min(1.0, float(data.get("strokeOpacity", 1.0))))
@@ -193,8 +195,8 @@ class EllipseItem(CanvasItem):
         # Validate radii (must be non-negative)
         self.radius_x = max(0.0, radius_x)
         self.radius_y = max(0.0, radius_y)
-        # Validate stroke width (must be positive, clamped to reasonable range)
-        self.stroke_width = max(0.1, min(100.0, stroke_width))
+        # Validate stroke width (0 = no stroke, clamped to reasonable range)
+        self.stroke_width = max(0.0, min(100.0, stroke_width))
         self.stroke_color = stroke_color
         # Validate stroke opacity (must be in range 0.0-1.0)
         self.stroke_opacity = max(0.0, min(1.0, stroke_opacity))
@@ -213,17 +215,19 @@ class EllipseItem(CanvasItem):
         local_center_x = self.center_x + offset_x
         local_center_y = self.center_y + offset_y
 
-        # Keep stroke width in world space, but clamp screen size at extremes.
-        stroke_px = self.stroke_width * zoom_level
-        clamped_px = max(0.3, min(6.0, stroke_px))
-        scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
+        # Set up pen for stroke (NoPen if stroke_width is 0)
+        if self.stroke_width > 0:
+            stroke_px = self.stroke_width * zoom_level
+            clamped_px = max(0.3, min(6.0, stroke_px))
+            scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
 
-        # Set up pen for stroke
-        stroke_qcolor = QColor(self.stroke_color)
-        stroke_qcolor.setAlphaF(self.stroke_opacity)
-        pen = QPen(stroke_qcolor)
-        pen.setWidthF(scaled_stroke_width)
-        painter.setPen(pen)
+            stroke_qcolor = QColor(self.stroke_color)
+            stroke_qcolor.setAlphaF(self.stroke_opacity)
+            pen = QPen(stroke_qcolor)
+            pen.setWidthF(scaled_stroke_width)
+            painter.setPen(pen)
+        else:
+            painter.setPen(Qt.PenStyle.NoPen)
 
         # Set up brush for fill
         fill_qcolor = QColor(self.fill_color)
@@ -257,8 +261,8 @@ class EllipseItem(CanvasItem):
         radius_x = max(0.0, float(data.get("radiusX", 0)))
         radius_y = max(0.0, float(data.get("radiusY", 0)))
 
-        # Extract stroke width (positive, clamped to a reasonable range)
-        stroke_width = max(0.1, min(100.0, float(data.get("strokeWidth", 1))))
+        # Extract stroke width (0 = no stroke, clamped to reasonable range)
+        stroke_width = max(0.0, min(100.0, float(data.get("strokeWidth", 1))))
 
         # Extract and validate stroke opacity (must be in range 0.0-1.0)
         stroke_opacity = max(0.0, min(1.0, float(data.get("strokeOpacity", 1.0))))
@@ -314,8 +318,8 @@ class PathItem(CanvasItem):
         self.points = normalized
         self.closed = bool(closed)
 
-        # Validate stroke values
-        self.stroke_width = max(0.1, min(100.0, stroke_width))
+        # Validate stroke values (0 = no stroke)
+        self.stroke_width = max(0.0, min(100.0, stroke_width))
         self.stroke_color = stroke_color
         self.stroke_opacity = max(0.0, min(1.0, stroke_opacity))
 
@@ -331,18 +335,21 @@ class PathItem(CanvasItem):
         offset_y: float = CANVAS_OFFSET_Y,
     ) -> None:
         """Render the polyline/path."""
-        # Keep stroke width in world space, clamped similar to other shapes
-        stroke_px = self.stroke_width * zoom_level
-        clamped_px = max(0.3, min(6.0, stroke_px))
-        scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
+        # Set up pen for stroke (NoPen if stroke_width is 0)
+        if self.stroke_width > 0:
+            stroke_px = self.stroke_width * zoom_level
+            clamped_px = max(0.3, min(6.0, stroke_px))
+            scaled_stroke_width = clamped_px / max(zoom_level, 0.0001)
 
-        stroke_qcolor = QColor(self.stroke_color)
-        stroke_qcolor.setAlphaF(self.stroke_opacity)
-        pen = QPen(stroke_qcolor)
-        pen.setWidthF(scaled_stroke_width)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        painter.setPen(pen)
+            stroke_qcolor = QColor(self.stroke_color)
+            stroke_qcolor.setAlphaF(self.stroke_opacity)
+            pen = QPen(stroke_qcolor)
+            pen.setWidthF(scaled_stroke_width)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            painter.setPen(pen)
+        else:
+            painter.setPen(Qt.PenStyle.NoPen)
 
         fill_qcolor = QColor(self.fill_color)
         fill_qcolor.setAlphaF(self.fill_opacity)
@@ -373,7 +380,7 @@ class PathItem(CanvasItem):
         points = data.get("points") or []
         if not isinstance(points, list):
             raise ValueError("Path points must be a list")
-        stroke_width = max(0.1, min(100.0, float(data.get("strokeWidth", 1))))
+        stroke_width = max(0.0, min(100.0, float(data.get("strokeWidth", 1))))
         stroke_opacity = max(0.0, min(1.0, float(data.get("strokeOpacity", 1.0))))
         fill_opacity = max(0.0, min(1.0, float(data.get("fillOpacity", 0.0))))
         return PathItem(

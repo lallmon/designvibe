@@ -14,16 +14,16 @@ Pane {
         anchors.fill: parent
         spacing: 0
 
-        // Properties section
+        // Transform section - fixed height based on content
         Pane {
             Layout.fillWidth: true
-            Layout.preferredHeight: parent.height * 0.35
-            Layout.minimumHeight: 150
             padding: 12
 
-            ObjectPropertiesInspector {
-                id: propertiesInspector
-                anchors.fill: parent
+            TranslationPanel {
+                id: translationPanel
+                anchors.left: parent.left
+                anchors.right: parent.right
+                implicitHeight: 100
             }
         }
 
@@ -47,20 +47,20 @@ Pane {
         }
     }
 
-    // Keep inspector selection in sync without introducing a binding loop
+    // Keep panel selection in sync without introducing a binding loop
     Component.onCompleted: {
-        propertiesInspector.selectedItem = Lucent.SelectionManager.selectedItem;
+        translationPanel.selectedItem = Lucent.SelectionManager.selectedItem;
     }
     Connections {
         target: Lucent.SelectionManager
         function onSelectedItemChanged() {
-            propertiesInspector.selectedItem = Lucent.SelectionManager.selectedItem;
+            translationPanel.selectedItem = Lucent.SelectionManager.selectedItem;
         }
         function onSelectedItemIndexChanged() {
-            propertiesInspector.selectedItem = Lucent.SelectionManager.selectedItem;
+            translationPanel.selectedItem = Lucent.SelectionManager.selectedItem;
         }
         function onSelectedIndicesChanged() {
-            propertiesInspector.selectedItem = Lucent.SelectionManager.selectedItem;
+            translationPanel.selectedItem = Lucent.SelectionManager.selectedItem;
         }
     }
 }

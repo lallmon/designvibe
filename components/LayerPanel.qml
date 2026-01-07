@@ -39,7 +39,6 @@ Item {
             Label {
                 text: qsTr("Layers")
                 font.pixelSize: 12
-                font.bold: true
                 color: themePalette.text
                 Layout.fillWidth: true
             }

@@ -62,10 +62,15 @@ class TestRectangleItem:
         rect = RectangleItem(x=0, y=0, width=20, height=-15)
         assert rect.height == 0.0
 
-    def test_stroke_width_minimum_clamped(self):
-        """Test that stroke width below 0.1 is clamped to 0.1."""
-        rect = RectangleItem(x=0, y=0, width=10, height=10, stroke_width=0.01)
-        assert rect.stroke_width == 0.1
+    def test_stroke_width_allows_zero(self):
+        """Test that stroke width of 0 is allowed (no stroke)."""
+        rect = RectangleItem(x=0, y=0, width=10, height=10, stroke_width=0)
+        assert rect.stroke_width == 0.0
+
+    def test_stroke_width_clamps_negative(self):
+        """Test that negative stroke width is clamped to 0."""
+        rect = RectangleItem(x=0, y=0, width=10, height=10, stroke_width=-5)
+        assert rect.stroke_width == 0.0
 
     def test_stroke_width_maximum_clamped(self):
         """Test that stroke width above 100 is clamped to 100."""
@@ -212,12 +217,19 @@ class TestEllipseItem:
         ellipse = EllipseItem(center_x=0, center_y=0, radius_x=20, radius_y=-10)
         assert ellipse.radius_y == 0.0
 
-    def test_stroke_width_minimum_clamped(self):
-        """Test that stroke width below 0.1 is clamped to 0.1."""
+    def test_stroke_width_allows_zero(self):
+        """Test that stroke width of 0 is allowed (no stroke)."""
         ellipse = EllipseItem(
-            center_x=0, center_y=0, radius_x=10, radius_y=10, stroke_width=0.05
+            center_x=0, center_y=0, radius_x=10, radius_y=10, stroke_width=0
         )
-        assert ellipse.stroke_width == 0.1
+        assert ellipse.stroke_width == 0.0
+
+    def test_stroke_width_clamps_negative(self):
+        """Test that negative stroke width is clamped to 0."""
+        ellipse = EllipseItem(
+            center_x=0, center_y=0, radius_x=10, radius_y=10, stroke_width=-1
+        )
+        assert ellipse.stroke_width == 0.0
 
     def test_stroke_width_maximum_clamped(self):
         """Test that stroke width above 100 is clamped to 100."""
@@ -309,17 +321,17 @@ class TestEllipseItem:
         assert ellipse.radius_y == 0.0
 
     def test_from_dict_validates_stroke_width_bounds(self):
-        """Test that from_dict clamps stroke width to valid range."""
+        """Test that from_dict clamps negative stroke width to 0."""
         data = {
             "type": "ellipse",
             "centerX": 0,
             "centerY": 0,
             "radiusX": 10,
             "radiusY": 10,
-            "strokeWidth": 0.001,
+            "strokeWidth": -5,
         }
         ellipse = EllipseItem.from_dict(data)
-        assert ellipse.stroke_width == 0.1
+        assert ellipse.stroke_width == 0.0
 
     def test_from_dict_validates_opacity_bounds(self):
         """Test that from_dict clamps opacity values."""
@@ -354,14 +366,14 @@ class TestPathItem:
         """Closed path clamps stroke and opacity values."""
         path = PathItem(
             points=[{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}],
-            stroke_width=0.01,
+            stroke_width=-5,
             stroke_opacity=2.0,
             fill_opacity=1.5,
             closed=True,
             stroke_color="#00ff00",
             fill_color="#112233",
         )
-        assert path.stroke_width == 0.1
+        assert path.stroke_width == 0.0
         assert path.stroke_opacity == 1.0
         assert path.closed is True
         assert path.stroke_color == "#00ff00"
