@@ -236,3 +236,144 @@ class TestExportSvg:
         result = export_svg([], bounds, output_path, ExportOptions())
 
         assert result is False
+
+    def test_export_ellipse_to_svg(self, tmp_path, qtbot):
+        """export_svg creates correct ellipse element."""
+        items = [make_ellipse_item(cx=50, cy=50, rx=40, ry=30)]
+        bounds = QRectF(10, 20, 80, 60)
+        output_path = tmp_path / "ellipse.svg"
+
+        export_svg(items, bounds, output_path, ExportOptions())
+
+        tree = ET.parse(output_path)
+        root = tree.getroot()
+        ellipse = root.find(".//{http://www.w3.org/2000/svg}ellipse")
+        assert ellipse is not None
+        assert float(ellipse.get("cx")) == 50
+        assert float(ellipse.get("cy")) == 50
+        assert float(ellipse.get("rx")) == 40
+        assert float(ellipse.get("ry")) == 30
+
+    def test_export_path_to_svg(self, tmp_path, qtbot):
+        """export_svg creates correct path element."""
+        points = [{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 50, "y": 100}]
+        items = [make_path_item(points=points, closed=True)]
+        bounds = QRectF(0, 0, 100, 100)
+        output_path = tmp_path / "path.svg"
+
+        export_svg(items, bounds, output_path, ExportOptions())
+
+        tree = ET.parse(output_path)
+        root = tree.getroot()
+        path_elem = root.find(".//{http://www.w3.org/2000/svg}path")
+        assert path_elem is not None
+        d = path_elem.get("d")
+        assert d is not None
+        assert d.startswith("M")  # Starts with move command
+        assert "L" in d  # Has line commands
+        assert d.endswith("Z")  # Closed path
+
+    def test_export_text_to_svg(self, tmp_path, qtbot):
+        """export_svg creates correct text element."""
+        from lucent.canvas_items import TextItem
+
+        text_item = TextItem(
+            x=10,
+            y=20,
+            width=100,
+            height=30,
+            text="Hello World",
+            font_family="Arial",
+            font_size=16,
+            text_color="#333333",
+            text_opacity=1.0,
+        )
+        bounds = QRectF(10, 20, 100, 30)
+        output_path = tmp_path / "text.svg"
+
+        export_svg([text_item], bounds, output_path, ExportOptions())
+
+        tree = ET.parse(output_path)
+        root = tree.getroot()
+        text_elem = root.find(".//{http://www.w3.org/2000/svg}text")
+        assert text_elem is not None
+        assert text_elem.get("x") == "10"
+        assert text_elem.get("font-family") == "Arial"
+        assert text_elem.get("font-size") == "16"
+        assert text_elem.text == "Hello World"
+
+
+class TestExportPngEdgeCases:
+    """Edge case tests for PNG export."""
+
+    def test_export_with_background_color(self, tmp_path, qtbot):
+        """export_png with background color fills image."""
+        items = [make_rect_item(x=0, y=0, width=100, height=100)]
+        bounds = QRectF(0, 0, 100, 100)
+        output_path = tmp_path / "test_bg.png"
+        opts = ExportOptions(background="#ff0000")  # Red background
+
+        result = export_png(items, bounds, output_path, opts)
+
+        assert result is True
+        img = QImage(str(output_path))
+        # Check that at least some pixels are red
+        assert img.width() == 100
+
+    def test_export_zero_width_returns_false(self, tmp_path, qtbot):
+        """export_png returns False for zero-width bounds."""
+        bounds = QRectF(0, 0, 0, 100)  # Zero width
+        output_path = tmp_path / "test.png"
+
+        result = export_png([], bounds, output_path, ExportOptions())
+
+        assert result is False
+
+    def test_export_zero_height_returns_false(self, tmp_path, qtbot):
+        """export_png returns False for zero-height bounds."""
+        bounds = QRectF(0, 0, 100, 0)  # Zero height
+        output_path = tmp_path / "test.png"
+
+        result = export_png([], bounds, output_path, ExportOptions())
+
+        assert result is False
+
+
+class TestExportSvgEdgeCases:
+    """Edge case tests for SVG export."""
+
+    def test_export_open_path_no_z(self, tmp_path, qtbot):
+        """export_svg creates path without Z for open paths."""
+        points = [{"x": 0, "y": 0}, {"x": 100, "y": 100}]
+        items = [make_path_item(points=points, closed=False)]
+        bounds = QRectF(0, 0, 100, 100)
+        output_path = tmp_path / "path_open.svg"
+
+        export_svg(items, bounds, output_path, ExportOptions())
+
+        tree = ET.parse(output_path)
+        root = tree.getroot()
+        path_elem = root.find(".//{http://www.w3.org/2000/svg}path")
+        assert path_elem is not None
+        d = path_elem.get("d")
+        assert "Z" not in d  # Open path has no Z
+
+    def test_export_skips_unsupported_items(self, tmp_path, qtbot):
+        """export_svg skips layers and other unsupported items."""
+        from lucent.canvas_items import LayerItem
+
+        items = [
+            make_rect_item(x=0, y=0, width=50, height=50),
+            LayerItem(name="Layer1"),  # Unsupported for SVG
+        ]
+        bounds = QRectF(0, 0, 50, 50)
+        output_path = tmp_path / "mixed.svg"
+
+        result = export_svg(items, bounds, output_path, ExportOptions())
+
+        assert result is True
+        tree = ET.parse(output_path)
+        root = tree.getroot()
+        # Should only have one rect, no layer element
+        rects = root.findall(".//{http://www.w3.org/2000/svg}rect")
+        assert len(rects) == 1

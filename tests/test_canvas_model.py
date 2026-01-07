@@ -355,3 +355,387 @@ class TestCanvasModelLock:
 
         items = canvas_model.getItems()
         assert items[0].locked is True
+
+
+class TestCanvasModelSetBoundingBox:
+    """Tests for setBoundingBox method."""
+
+    def test_set_rectangle_bounding_box(self, canvas_model):
+        """Test setting bounding box for rectangle."""
+        canvas_model.addItem(make_rectangle(x=0, y=0, width=50, height=50))
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 100, "y": 100, "width": 75, "height": 25}
+        )
+        assert result is True
+
+        item = canvas_model.getItems()[0]
+        assert item.geometry.x == 100
+        assert item.geometry.y == 100
+        assert item.geometry.width == 75
+        assert item.geometry.height == 25
+
+    def test_set_ellipse_bounding_box(self, canvas_model):
+        """Test setting bounding box for ellipse."""
+        canvas_model.addItem(
+            make_ellipse(center_x=50, center_y=50, radius_x=25, radius_y=25)
+        )
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 0, "y": 0, "width": 100, "height": 50}
+        )
+        assert result is True
+
+        item = canvas_model.getItems()[0]
+        assert item.geometry.center_x == 50
+        assert item.geometry.center_y == 25
+        assert item.geometry.radius_x == 50
+        assert item.geometry.radius_y == 25
+
+    def test_set_path_bounding_box(self, canvas_model):
+        """Test setting bounding box for path translates points."""
+        canvas_model.addItem(make_path(points=[{"x": 0, "y": 0}, {"x": 10, "y": 10}]))
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 100, "y": 100, "width": 10, "height": 10}
+        )
+        assert result is True
+
+        item = canvas_model.getItems()[0]
+        assert item.geometry.points[0]["x"] == 100
+        assert item.geometry.points[0]["y"] == 100
+        assert item.geometry.points[1]["x"] == 110
+        assert item.geometry.points[1]["y"] == 110
+
+    def test_set_text_bounding_box(self, canvas_model):
+        """Test setting bounding box for text."""
+        canvas_model.addItem(make_text(x=0, y=0, text="Hello"))
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 50, "y": 50, "width": 200, "height": 30}
+        )
+        assert result is True
+
+        item = canvas_model.getItems()[0]
+        assert item.x == 50
+        assert item.y == 50
+        assert item.width == 200
+        assert item.height == 30
+
+    def test_set_bounding_box_invalid_index(self, canvas_model):
+        """Test setting bounding box with invalid index returns False."""
+        result = canvas_model.setBoundingBox(
+            999, {"x": 0, "y": 0, "width": 10, "height": 10}
+        )
+        assert result is False
+
+    def test_set_bounding_box_layer_returns_false(self, canvas_model):
+        """Test setting bounding box on layer returns False."""
+        canvas_model.addItem(make_layer())
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 0, "y": 0, "width": 10, "height": 10}
+        )
+        assert result is False
+
+    def test_set_path_bounding_box_empty_points(self, canvas_model):
+        """Test setting bounding box on empty path returns False."""
+        canvas_model.addItem(make_path(points=[]))
+
+        result = canvas_model.setBoundingBox(
+            0, {"x": 0, "y": 0, "width": 10, "height": 10}
+        )
+        assert result is False
+
+
+class TestCanvasModelGrouping:
+    """Tests for grouping and ungrouping items."""
+
+    def test_group_items(self, canvas_model):
+        """Test grouping multiple items."""
+        canvas_model.addItem(make_rectangle(name="A"))
+        canvas_model.addItem(make_rectangle(name="B"))
+
+        group_idx = canvas_model.groupItems([0, 1])
+        assert group_idx >= 0
+        # Group should exist
+        assert canvas_model.count() == 3
+
+    def test_ungroup_items(self, canvas_model):
+        """Test ungrouping a group."""
+        canvas_model.addItem(make_rectangle(name="A"))
+        canvas_model.addItem(make_rectangle(name="B"))
+
+        group_idx = canvas_model.groupItems([0, 1])
+
+        canvas_model.ungroup(group_idx)
+        # Group should be removed, items should remain
+        # Only shapes should remain (group is removed)
+        items = canvas_model.getItems()
+        shapes = [i for i in items if isinstance(i, RectangleItem)]
+        assert len(shapes) == 2
+
+    def test_ungroup_invalid_index(self, canvas_model):
+        """Test ungrouping invalid index does nothing."""
+        canvas_model.addItem(make_rectangle())
+        canvas_model.ungroup(999)  # Should not crash
+        assert canvas_model.count() == 1
+
+    def test_ungroup_non_group_item(self, canvas_model):
+        """Test ungrouping a non-group item does nothing."""
+        canvas_model.addItem(make_rectangle())
+        canvas_model.ungroup(0)  # Rectangle is not a group
+        assert canvas_model.count() == 1
+
+
+class TestCanvasModelMoveGroup:
+    """Tests for moving groups."""
+
+    def test_move_group_translates_children(self, canvas_model):
+        """Test that moveGroup translates all descendant shapes."""
+        canvas_model.addItem(make_rectangle(x=0, y=0, width=10, height=10, name="A"))
+        canvas_model.addItem(make_rectangle(x=20, y=20, width=10, height=10, name="B"))
+
+        group_idx = canvas_model.groupItems([0, 1])
+
+        canvas_model.moveGroup(group_idx, 100, 50)
+
+        items = canvas_model.getItems()
+        rects = [i for i in items if isinstance(i, RectangleItem)]
+        assert rects[0].geometry.x == 100
+        assert rects[0].geometry.y == 50
+        assert rects[1].geometry.x == 120
+        assert rects[1].geometry.y == 70
+
+    def test_move_group_invalid_index(self, canvas_model):
+        """Test moveGroup with invalid index does nothing."""
+        canvas_model.addItem(make_rectangle(x=0, y=0, width=10, height=10))
+        canvas_model.moveGroup(999, 100, 50)  # Should not crash
+        item = canvas_model.getItems()[0]
+        assert item.geometry.x == 0
+
+    def test_move_group_non_container(self, canvas_model):
+        """Test moveGroup on non-container does nothing."""
+        canvas_model.addItem(make_rectangle(x=0, y=0, width=10, height=10))
+        canvas_model.moveGroup(0, 100, 50)  # Rectangle is not a container
+        item = canvas_model.getItems()[0]
+        assert item.geometry.x == 0
+
+
+class TestCanvasModelReparent:
+    """Tests for reparenting items."""
+
+    def test_reparent_item_to_layer(self, canvas_model):
+        """Test reparenting an item to a layer."""
+        canvas_model.addItem(make_layer(name="Layer1", layer_id="layer-1"))
+        canvas_model.addItem(make_rectangle(name="Rect"))
+
+        canvas_model.reparentItem(1, "layer-1")
+
+        items = canvas_model.getItems()
+        rect = [i for i in items if isinstance(i, RectangleItem)][0]
+        assert rect.parent_id == "layer-1"
+
+    def test_reparent_invalid_index(self, canvas_model):
+        """Test reparenting invalid index does nothing."""
+        canvas_model.addItem(make_layer(layer_id="layer-1"))
+        canvas_model.reparentItem(999, "layer-1")  # Should not crash
+
+
+class TestCanvasModelEffectivelyLocked:
+    """Tests for isEffectivelyLocked method."""
+
+    def test_is_effectively_locked_item_locked(self, canvas_model):
+        """Test that locked item returns True."""
+        canvas_model.addItem(make_rectangle(locked=True))
+        assert canvas_model.isEffectivelyLocked(0) is True
+
+    def test_is_effectively_locked_parent_locked(self, canvas_model):
+        """Test that item with locked parent returns True."""
+        canvas_model.addItem(make_layer(layer_id="layer-1", locked=True))
+        canvas_model.addItem(make_rectangle(parent_id="layer-1", locked=False))
+        assert canvas_model.isEffectivelyLocked(1) is True
+
+    def test_is_effectively_locked_unlocked(self, canvas_model):
+        """Test that unlocked item with unlocked parent returns False."""
+        canvas_model.addItem(make_layer(layer_id="layer-1", locked=False))
+        canvas_model.addItem(make_rectangle(parent_id="layer-1", locked=False))
+        assert canvas_model.isEffectivelyLocked(1) is False
+
+
+class TestCanvasModelDuplicateItems:
+    """Tests for duplicating multiple items."""
+
+    def test_duplicate_multiple_items(self, canvas_model):
+        """Test duplicating multiple items at once."""
+        canvas_model.addItem(make_rectangle(x=10, y=10, name="A"))
+        canvas_model.addItem(make_rectangle(x=20, y=20, name="B"))
+
+        new_indices = canvas_model.duplicateItems([0, 1])
+
+        assert len(new_indices) == 2
+        assert canvas_model.count() == 4
+
+
+class TestCanvasModelRenameItem:
+    """Tests for renaming items."""
+
+    def test_rename_item(self, canvas_model, qtbot):
+        """Test renaming an item."""
+        canvas_model.addItem(make_rectangle(name="Original"))
+
+        with qtbot.waitSignal(canvas_model.itemModified, timeout=1000):
+            canvas_model.renameItem(0, "Renamed")
+
+        items = canvas_model.getItems()
+        assert items[0].name == "Renamed"
+
+    def test_rename_invalid_index(self, canvas_model):
+        """Test renaming invalid index does nothing."""
+        canvas_model.addItem(make_rectangle(name="Original"))
+        canvas_model.renameItem(999, "Renamed")  # Should not crash
+        items = canvas_model.getItems()
+        assert items[0].name == "Original"
+
+
+class TestCanvasModelUndoRedo:
+    """Tests for undo/redo functionality."""
+
+    def test_undo_add_item(self, canvas_model):
+        """Test undoing an add operation."""
+        canvas_model.addItem(make_rectangle())
+        assert canvas_model.count() == 1
+
+        result = canvas_model.undo()
+        assert result is True
+        assert canvas_model.count() == 0
+
+    def test_redo_add_item(self, canvas_model):
+        """Test redoing an add operation."""
+        canvas_model.addItem(make_rectangle())
+        canvas_model.undo()
+        assert canvas_model.count() == 0
+
+        result = canvas_model.redo()
+        assert result is True
+        assert canvas_model.count() == 1
+
+    def test_can_undo_property(self, canvas_model):
+        """Test canUndo property."""
+        assert canvas_model.canUndo is False
+        canvas_model.addItem(make_rectangle())
+        assert canvas_model.canUndo is True
+
+    def test_can_redo_property(self, canvas_model):
+        """Test canRedo property."""
+        canvas_model.addItem(make_rectangle())
+        assert canvas_model.canRedo is False
+        canvas_model.undo()
+        assert canvas_model.canRedo is True
+
+
+class TestCanvasModelTransaction:
+    """Tests for transaction functionality."""
+
+    def test_transaction_batches_updates(self, canvas_model, qtbot):
+        """Test that transactions batch multiple update commands into one undo."""
+        # Add items first (outside transaction)
+        canvas_model.addItem(make_rectangle(x=0, y=0, name="A"))
+        canvas_model.addItem(make_rectangle(x=10, y=10, name="B"))
+        assert canvas_model.count() == 2
+
+        # Now do a transaction that updates both items
+        canvas_model.beginTransaction()
+
+        # Update first item
+        item_data_a = canvas_model.getItemData(0)
+        item_data_a["geometry"]["x"] = 100
+        canvas_model.updateItem(0, item_data_a)
+
+        # Update second item
+        item_data_b = canvas_model.getItemData(1)
+        item_data_b["geometry"]["x"] = 200
+        canvas_model.updateItem(1, item_data_b)
+
+        canvas_model.endTransaction()
+
+        # Verify updates were applied
+        items = canvas_model.getItems()
+        assert items[0].geometry.x == 100
+        assert items[1].geometry.x == 200
+
+        # Single undo should revert both updates
+        canvas_model.undo()
+        items = canvas_model.getItems()
+        assert items[0].geometry.x == 0
+        assert items[1].geometry.x == 10
+
+
+class TestCanvasModelGetLayerItems:
+    """Tests for getLayerItems method."""
+
+    def test_get_layer_items(self, canvas_model):
+        """Test getting items that belong to a specific layer."""
+        canvas_model.addItem(make_layer(layer_id="layer-1", name="Layer1"))
+        canvas_model.addItem(make_rectangle(parent_id="layer-1", name="A"))
+        canvas_model.addItem(make_rectangle(parent_id="layer-1", name="B"))
+        canvas_model.addItem(make_rectangle(name="C"))  # Not in layer
+
+        layer_items = canvas_model.getLayerItems("layer-1")
+        assert len(layer_items) == 2
+        names = [i.name for i in layer_items]
+        assert "A" in names
+        assert "B" in names
+
+
+class TestCanvasModelLayerBounds:
+    """Tests for getLayerBounds method."""
+
+    def test_get_layer_bounds(self, canvas_model):
+        """Test getting bounding box of all items in a layer."""
+        canvas_model.addItem(make_layer(layer_id="layer-1", name="Layer1"))
+        canvas_model.addItem(
+            make_rectangle(x=0, y=0, width=50, height=50, parent_id="layer-1")
+        )
+        canvas_model.addItem(
+            make_rectangle(x=100, y=100, width=50, height=50, parent_id="layer-1")
+        )
+
+        bounds = canvas_model.getLayerBounds("layer-1")
+        assert bounds["x"] == 0
+        assert bounds["y"] == 0
+        assert bounds["width"] == 150
+        assert bounds["height"] == 150
+
+
+class TestCanvasModelBoundingBoxEdgeCases:
+    """Edge case tests for bounding box methods."""
+
+    def test_get_bounding_box_invalid_index(self, canvas_model):
+        """Test getBoundingBox with invalid index returns None."""
+        result = canvas_model.getBoundingBox(999)
+        assert result is None
+
+    def test_get_bounding_box_text_auto_height(self, canvas_model):
+        """Test getBoundingBox for text with auto height."""
+        canvas_model.addItem(make_text(x=10, y=20, text="Test", height=0, font_size=20))
+        bbox = canvas_model.getBoundingBox(0)
+        assert bbox["x"] == 10
+        assert bbox["y"] == 20
+        # Height should be estimated from font size (20 * 1.2 = 24)
+        assert bbox["height"] == 24.0
+
+    def test_get_bounding_box_group_union(self, canvas_model):
+        """Test getBoundingBox for group returns union of children."""
+        canvas_model.addItem(make_rectangle(x=0, y=0, width=50, height=50, name="A"))
+        canvas_model.addItem(
+            make_rectangle(x=100, y=100, width=50, height=50, name="B")
+        )
+
+        group_idx = canvas_model.groupItems([0, 1])
+        bbox = canvas_model.getBoundingBox(group_idx)
+
+        assert bbox["x"] == 0
+        assert bbox["y"] == 0
+        assert bbox["width"] == 150
+        assert bbox["height"] == 150
