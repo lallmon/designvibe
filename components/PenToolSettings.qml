@@ -53,7 +53,7 @@ RowLayout {
     Lucent.LabeledNumericField {
         labelText: qsTr("Stroke Width:")
         value: root.strokeWidth
-        minimum: 0.1
+        minimum: 0
         maximum: 100.0
         decimals: 1
         suffix: qsTr("pt")
@@ -72,6 +72,7 @@ RowLayout {
         color: root.strokeColor
         colorOpacity: root.strokeOpacity
         dialogTitle: qsTr("Choose Stroke Color")
+        onColorPreview: previewColor => root.updateProperty("strokeColor", previewColor.toString())
         onColorPicked: newColor => root.updateProperty("strokeColor", newColor.toString())
     }
 
@@ -109,6 +110,7 @@ RowLayout {
         color: root.fillColor
         colorOpacity: root.fillOpacity
         dialogTitle: qsTr("Choose Fill Color")
+        onColorPreview: previewColor => root.updateProperty("fillColor", previewColor.toString())
         onColorPicked: newColor => root.updateProperty("fillColor", newColor.toString())
     }
 

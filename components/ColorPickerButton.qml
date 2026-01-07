@@ -12,6 +12,7 @@ Button {
     property string dialogTitle: qsTr("Choose Color")
 
     signal colorPicked(color newColor)
+    signal colorPreview(color previewColor)
 
     readonly property SystemPalette themePalette: Lucent.Themed.palette
 
@@ -67,9 +68,22 @@ Button {
         id: colorDialog
         title: root.dialogTitle
         selectedColor: root.color
+        modality: Qt.NonModal
+
+        // Live preview while picking
+        onSelectedColorChanged: {
+            if (visible) {
+                root.colorPreview(selectedColor);
+            }
+        }
 
         onAccepted: {
             root.colorPicked(selectedColor);
+        }
+
+        onRejected: {
+            // Restore original color on cancel
+            root.colorPreview(root.color);
         }
     }
 }

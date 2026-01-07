@@ -11,11 +11,11 @@ RowLayout {
     property var selectedItem: null
 
     // Internal defaults for creation mode
-    property real _defaultStrokeWidth: 1
+    property real _defaultStrokeWidth: 0
     property color _defaultStrokeColor: Lucent.Themed.palette.text
     property real _defaultStrokeOpacity: 1.0
     property color _defaultFillColor: Lucent.Themed.palette.text
-    property real _defaultFillOpacity: 0.0
+    property real _defaultFillOpacity: 1.0
 
     // Exposed properties: read from selectedItem in edit mode, defaults in creation mode
     readonly property real strokeWidth: editMode && selectedItem ? selectedItem.strokeWidth : _defaultStrokeWidth
@@ -53,7 +53,7 @@ RowLayout {
     Lucent.LabeledNumericField {
         labelText: qsTr("Stroke Width:")
         value: root.strokeWidth
-        minimum: 0.1
+        minimum: 0
         maximum: 100.0
         decimals: 1
         suffix: qsTr("pt")
@@ -72,6 +72,7 @@ RowLayout {
         color: root.strokeColor
         colorOpacity: root.strokeOpacity
         dialogTitle: qsTr("Choose Stroke Color")
+        onColorPreview: previewColor => root.updateProperty("strokeColor", previewColor.toString())
         onColorPicked: newColor => root.updateProperty("strokeColor", newColor.toString())
     }
 
@@ -109,6 +110,7 @@ RowLayout {
         color: root.fillColor
         colorOpacity: root.fillOpacity
         dialogTitle: qsTr("Choose Fill Color")
+        onColorPreview: previewColor => root.updateProperty("fillColor", previewColor.toString())
         onColorPicked: newColor => root.updateProperty("fillColor", newColor.toString())
     }
 

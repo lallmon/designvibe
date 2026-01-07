@@ -184,6 +184,7 @@ RowLayout {
         color: root.textColor
         colorOpacity: root.textOpacity
         dialogTitle: qsTr("Choose Text Color")
+        onColorPreview: previewColor => root.updateProperty("textColor", previewColor.toString())
         onColorPicked: newColor => root.updateProperty("textColor", newColor.toString())
     }
 
