@@ -102,8 +102,12 @@ Item {
         canvasModel.setItemTransform(idx, newTransform);
     }
 
+    implicitHeight: contentLayout.implicitHeight
+
     ColumnLayout {
-        anchors.fill: parent
+        id: contentLayout
+        anchors.left: parent.left
+        anchors.right: parent.right
 
         Label {
             text: qsTr("Transform")
@@ -186,8 +190,17 @@ Item {
                 Layout.fillWidth: true
                 onValueModified: root.updateBounds("height", value)
             }
+        }
 
-            // Row 3: Rotation with text input and slider
+        // Rotation row - separate layout so slider can fill available space
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            Layout.bottomMargin: 8
+            spacing: 8
+            enabled: root.controlsEnabled
+            opacity: root.controlsEnabled ? 1.0 : 0.5
+
             Label {
                 text: qsTr("R:")
                 font.pixelSize: root.labelSize
@@ -197,7 +210,7 @@ Item {
                 id: rotationField
                 text: root.currentTransform ? Math.round(root.currentTransform.rotate).toString() : "0"
                 horizontalAlignment: TextInput.AlignHCenter
-                Layout.preferredWidth: 45
+                Layout.preferredWidth: 50
                 validator: IntValidator {
                     bottom: -360
                     top: 360
@@ -215,7 +228,6 @@ Item {
                 to: 180
                 value: root.currentTransform ? root.currentTransform.rotate : 0
                 Layout.fillWidth: true
-                Layout.columnSpan: 2
 
                 onMoved: root.updateTransform("rotate", value)
 
@@ -231,10 +243,6 @@ Item {
                     border.width: 1
                 }
             }
-        }
-
-        Item {
-            Layout.fillHeight: true
         }
     }
 }

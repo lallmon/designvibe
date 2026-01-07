@@ -23,7 +23,6 @@ Pane {
                 id: transformPanel
                 anchors.left: parent.left
                 anchors.right: parent.right
-                implicitHeight: 100
             }
         }
 
