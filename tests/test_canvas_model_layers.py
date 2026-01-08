@@ -1,7 +1,12 @@
 """CanvasModel layer and parent/child behaviours."""
 
 from lucent.canvas_items import RectangleItem, LayerItem
-from test_helpers import make_rectangle, make_ellipse, make_layer
+from test_helpers import (
+    make_rectangle,
+    make_ellipse,
+    make_layer,
+    make_layer_with_children,
+)
 
 
 class TestCanvasModelLayers:
@@ -19,8 +24,11 @@ class TestCanvasModelLayers:
         assert items[0].name == "Background"
 
     def test_items_with_parent_layer(self, canvas_model):
-        canvas_model.addItem(make_layer(name="Layer1", layer_id="layer-1"))
-        canvas_model.addItem(make_rectangle(name="Rect1", parent_id="layer-1"))
+        layer_and_child = make_layer_with_children(
+            [make_rectangle(name="Rect1")], name="Layer1", layer_id="layer-1"
+        )
+        for item in layer_and_child:
+            canvas_model.addItem(item)
 
         items = canvas_model.getItems()
         assert items[1].parent_id == "layer-1"
@@ -48,9 +56,13 @@ class TestCanvasModelGetLayerItems:
     """Tests for getLayerItems method."""
 
     def test_get_layer_items(self, canvas_model):
-        canvas_model.addItem(make_layer(layer_id="layer-1", name="Layer1"))
-        canvas_model.addItem(make_rectangle(parent_id="layer-1", name="A"))
-        canvas_model.addItem(make_rectangle(parent_id="layer-1", name="B"))
+        layer_with_children = make_layer_with_children(
+            [make_rectangle(name="A"), make_rectangle(name="B")],
+            name="Layer1",
+            layer_id="layer-1",
+        )
+        for item in layer_with_children:
+            canvas_model.addItem(item)
         canvas_model.addItem(make_rectangle(name="C"))
 
         layer_items = canvas_model.getLayerItems("layer-1")

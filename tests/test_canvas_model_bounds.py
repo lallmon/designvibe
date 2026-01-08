@@ -1,29 +1,32 @@
 """CanvasModel geometry and bounding-box related behaviour."""
 
+import pytest
+
 from test_helpers import make_rectangle, make_ellipse, make_path, make_layer, make_text
 
 
-class TestCanvasModelBoundingBox:
-    """Tests for bounding box calculations."""
-
-    def test_rectangle_bounding_box(self, canvas_model):
-        canvas_model.addItem(make_rectangle(x=10, y=20, width=100, height=50))
-        bbox = canvas_model.getBoundingBox(0)
-        assert bbox == {"x": 10.0, "y": 20.0, "width": 100.0, "height": 50.0}
-
-    def test_ellipse_bounding_box(self, canvas_model):
-        canvas_model.addItem(
-            make_ellipse(center_x=100, center_y=100, radius_x=50, radius_y=30)
-        )
-        bbox = canvas_model.getBoundingBox(0)
-        assert bbox == {"x": 50.0, "y": 70.0, "width": 100.0, "height": 60.0}
-
-    def test_path_bounding_box(self, canvas_model):
-        canvas_model.addItem(
-            make_path(points=[{"x": -2, "y": 3}, {"x": 4, "y": 5}, {"x": 1, "y": -1}])
-        )
-        bbox = canvas_model.getBoundingBox(0)
-        assert bbox == {"x": -2.0, "y": -1.0, "width": 6.0, "height": 6.0}
+@pytest.mark.parametrize(
+    "item_data, expected",
+    [
+        (
+            make_rectangle(x=10, y=20, width=100, height=50),
+            {"x": 10.0, "y": 20.0, "width": 100.0, "height": 50.0},
+        ),
+        (
+            make_ellipse(center_x=100, center_y=100, radius_x=50, radius_y=30),
+            {"x": 50.0, "y": 70.0, "width": 100.0, "height": 60.0},
+        ),
+        (
+            make_path(points=[{"x": -2, "y": 3}, {"x": 4, "y": 5}, {"x": 1, "y": -1}]),
+            {"x": -2.0, "y": -1.0, "width": 6.0, "height": 6.0},
+        ),
+    ],
+)
+def test_bounding_box_shapes(canvas_model, item_data, expected):
+    """Bounding boxes for basic shapes."""
+    canvas_model.addItem(item_data)
+    bbox = canvas_model.getBoundingBox(0)
+    assert bbox == expected
 
 
 class TestCanvasModelSetBoundingBox:

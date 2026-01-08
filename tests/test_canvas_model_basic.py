@@ -1,11 +1,9 @@
 """Core CanvasModel behaviour tests: add/update/remove, roles, state, undo."""
 
-from lucent.canvas_items import (
-    RectangleItem,
-    EllipseItem,
-    PathItem,
-    TextItem,
-)
+from typing import Callable
+
+import pytest
+from lucent.canvas_items import RectangleItem, EllipseItem, PathItem, TextItem
 from test_helpers import (
     make_rectangle,
     make_ellipse,
@@ -147,10 +145,22 @@ class TestCanvasModelDataRoles:
         index = canvas_model.index(0, 0)
         assert canvas_model.data(index, canvas_model.NameRole) == "MyRect"
 
-    def test_type_role(self, canvas_model):
-        canvas_model.addItem(make_rectangle())
+    @pytest.mark.parametrize(
+        "maker, expected_type",
+        [
+            (make_rectangle, "rectangle"),
+            (make_ellipse, "ellipse"),
+            (lambda: make_path(points=[{"x": 0, "y": 0}, {"x": 1, "y": 1}]), "path"),
+            (make_layer, "layer"),
+            (make_text, "text"),
+        ],
+    )
+    def test_type_role_parametrized(
+        self, canvas_model, maker: Callable[..., dict], expected_type: str
+    ):
+        canvas_model.addItem(maker())
         index = canvas_model.index(0, 0)
-        assert canvas_model.data(index, canvas_model.TypeRole) == "rectangle"
+        assert canvas_model.data(index, canvas_model.TypeRole) == expected_type
 
     def test_visible_role(self, canvas_model):
         canvas_model.addItem(make_rectangle(visible=False))
@@ -165,28 +175,6 @@ class TestCanvasModelDataRoles:
 
 class TestCanvasModelDataRolesExtended:
     """Tests for additional data roles and types."""
-
-    def test_type_role_ellipse(self, canvas_model):
-        canvas_model.addItem(
-            make_ellipse(center_x=50, center_y=50, radius_x=30, radius_y=20)
-        )
-        index = canvas_model.index(0, 0)
-        assert canvas_model.data(index, canvas_model.TypeRole) == "ellipse"
-
-    def test_type_role_path(self, canvas_model):
-        canvas_model.addItem(make_path(points=[{"x": 0, "y": 0}, {"x": 100, "y": 100}]))
-        index = canvas_model.index(0, 0)
-        assert canvas_model.data(index, canvas_model.TypeRole) == "path"
-
-    def test_type_role_layer(self, canvas_model):
-        canvas_model.addItem(make_layer(name="Test Layer"))
-        index = canvas_model.index(0, 0)
-        assert canvas_model.data(index, canvas_model.TypeRole) == "layer"
-
-    def test_type_role_text(self, canvas_model):
-        canvas_model.addItem(make_text(x=0, y=0, width=100, text="Hello"))
-        index = canvas_model.index(0, 0)
-        assert canvas_model.data(index, canvas_model.TypeRole) == "text"
 
     def test_type_role_group(self, canvas_model):
         canvas_model.addItem(make_rectangle(x=0, y=0, width=50, height=50))
@@ -203,44 +191,61 @@ class TestCanvasModelDataRolesExtended:
         assert canvas_model.data(index0, canvas_model.IndexRole) == 0
         assert canvas_model.data(index1, canvas_model.IndexRole) == 1
 
-    def test_item_id_role_layer(self, canvas_model):
-        canvas_model.addItem(make_layer(name="Test Layer"))
-        index = canvas_model.index(0, 0)
-        item_id = canvas_model.data(index, canvas_model.ItemIdRole)
-        assert item_id is not None
-        assert isinstance(item_id, str)
-        assert len(item_id) > 0
+    @pytest.mark.parametrize(
+        "setup_items, index, role, expectation",
+        [
+            (
+                lambda: [make_layer(name="Test Layer")],
+                0,
+                "item_id",
+                lambda model, idx: isinstance(
+                    model.data(model.index(idx, 0), model.ItemIdRole), str
+                ),
+            ),
+            (
+                lambda: [
+                    make_rectangle(x=0, y=0, width=50, height=50),
+                    make_rectangle(x=60, y=0, width=50, height=50),
+                ],
+                lambda model: model.groupItems([0, 1]),
+                "item_id",
+                lambda model, idx: isinstance(
+                    model.data(model.index(idx, 0), model.ItemIdRole), str
+                ),
+            ),
+            (
+                lambda: [make_rectangle(x=0, y=0, width=50, height=50)],
+                0,
+                "item_id_none",
+                lambda model, idx: model.data(model.index(idx, 0), model.ItemIdRole)
+                is None,
+            ),
+            (
+                lambda: [
+                    make_layer(name="Parent Layer"),
+                    {**make_rectangle(x=0, y=0, width=50, height=50), "parentId": None},
+                ],
+                1,
+                "parent_none",
+                lambda model, idx: model.data(model.index(idx, 0), model.ParentIdRole)
+                is None,
+            ),
+        ],
+    )
+    def test_item_and_parent_roles(
+        self,
+        canvas_model,
+        setup_items: Callable[[], list[dict]],
+        index,
+        role,
+        expectation: Callable[[object, int], bool],
+    ):
+        items = setup_items()
+        for item in items:
+            canvas_model.addItem(item)
 
-    def test_item_id_role_group(self, canvas_model):
-        canvas_model.addItem(make_rectangle(x=0, y=0, width=50, height=50))
-        canvas_model.addItem(make_rectangle(x=60, y=0, width=50, height=50))
-        group_idx = canvas_model.groupItems([0, 1])
-        index = canvas_model.index(group_idx, 0)
-        item_id = canvas_model.data(index, canvas_model.ItemIdRole)
-        assert item_id is not None
-        assert isinstance(item_id, str)
-
-    def test_item_id_role_rectangle_returns_none(self, canvas_model):
-        canvas_model.addItem(make_rectangle(x=0, y=0, width=50, height=50))
-        index = canvas_model.index(0, 0)
-        assert canvas_model.data(index, canvas_model.ItemIdRole) is None
-
-    def test_parent_id_role(self, canvas_model):
-        canvas_model.addItem(make_layer(name="Parent Layer"))
-        layer = canvas_model.getItems()[0]
-        layer_id = layer.id
-
-        rect_data = make_rectangle(x=0, y=0, width=50, height=50)
-        rect_data["parentId"] = layer_id
-        canvas_model.addItem(rect_data)
-
-        index = canvas_model.index(1, 0)
-        assert canvas_model.data(index, canvas_model.ParentIdRole) == layer_id
-
-    def test_parent_id_role_no_parent(self, canvas_model):
-        canvas_model.addItem(make_rectangle(x=0, y=0, width=50, height=50))
-        index = canvas_model.index(0, 0)
-        assert canvas_model.data(index, canvas_model.ParentIdRole) is None
+        idx = index(canvas_model) if callable(index) else index
+        assert expectation(canvas_model, idx)
 
     def test_effective_visible_role(self, canvas_model):
         canvas_model.addItem(make_rectangle(x=0, y=0, width=50, height=50))

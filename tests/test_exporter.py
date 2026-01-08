@@ -4,12 +4,7 @@ from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage
 import xml.etree.ElementTree as ET
 
-from lucent.canvas_items import (
-    RectangleItem,
-    EllipseItem,
-    PathItem,
-    LayerItem,
-)
+from lucent.canvas_items import RectangleItem, EllipseItem, PathItem, LayerItem
 from lucent.geometry import RectGeometry, EllipseGeometry, PolylineGeometry
 from lucent.appearances import Fill, Stroke
 from lucent.exporter import ExportOptions, export_png, export_svg, compute_bounds
