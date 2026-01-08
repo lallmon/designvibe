@@ -35,8 +35,8 @@ Item {
     readonly property bool isContainer: itemType === "layer" || itemType === "group"
 
     // Computed colors and icons based on state
-    // When dragging, show as unselected so drop hints are visible
-    readonly property bool showAsSelected: isSelected && !isBeingDragged
+    // Hide all selection highlights during any drag so drop hints are clearly visible
+    readonly property bool showAsSelected: isSelected && panel.draggedIndex < 0
     readonly property color itemTextColor: showAsSelected ? themePalette.highlightedText : themePalette.text
     readonly property string typeIcon: {
         switch (itemType) {
