@@ -42,99 +42,49 @@ Item {
             }
 
             RowLayout {
+                spacing: 2
 
-                Rectangle {
-                    id: addLayerButton
-                    Layout.preferredWidth: 24
-                    Layout.preferredHeight: 24
-                    radius: Lucent.Styles.rad.sm
-                    color: addLayerHover.hovered ? themePalette.midlight : "transparent"
+                Lucent.IconButton {
+                    iconName: "stack-plus"
+                    tooltipText: qsTr("Add Layer")
+                    onClicked: canvasModel.addLayer()
+                }
 
-                    Lucent.PhIcon {
-                        anchors.centerIn: parent
-                        name: "stack-plus"
-                        size: 18
-                        color: themePalette.text
-                    }
-
-                    HoverHandler {
-                        id: addLayerHover
-                        cursorShape: Qt.PointingHandCursor
-                    }
-
-                    TapHandler {
-                        onTapped: canvasModel.addLayer()
+                Lucent.IconButton {
+                    iconName: "folder-simple-plus"
+                    tooltipText: qsTr("Add Group")
+                    onClicked: {
+                        canvasModel.addItem({
+                            "type": "group"
+                        });
+                        const idx = canvasModel.count() - 1;
+                        Lucent.SelectionManager.setSelection([idx]);
                     }
                 }
 
-                Rectangle {
-                    id: addGroupButton
-                    Layout.preferredWidth: 24
-                    Layout.preferredHeight: 24
-                    radius: Lucent.Styles.rad.sm
-                    color: addGroupHover.hovered ? themePalette.midlight : "transparent"
-
-                    Lucent.PhIcon {
-                        anchors.centerIn: parent
-                        name: "folder-simple-plus"
-                        size: 18
-                        color: themePalette.text
-                    }
-
-                    HoverHandler {
-                        id: addGroupHover
-                        cursorShape: Qt.PointingHandCursor
-                    }
-
-                    TapHandler {
-                        onTapped: {
-                            canvasModel.addItem({
-                                "type": "group"
-                            });
-                            const idx = canvasModel.count() - 1;
-                            Lucent.SelectionManager.setSelection([idx]);
-                        }
-                    }
-                }
-
-                Rectangle {
-                    id: addGroupFromSelectionButton
-                    Layout.preferredWidth: 24
-                    Layout.preferredHeight: 24
-                    radius: Lucent.Styles.rad.sm
-                    color: addGroupFromSelectionHover.hovered ? themePalette.midlight : "transparent"
-
-                    Lucent.PhIcon {
-                        anchors.centerIn: parent
-                        name: "folders"
-                        size: 18
-                        color: themePalette.text
-                    }
-
-                    HoverHandler {
-                        id: addGroupFromSelectionHover
-                        cursorShape: Qt.PointingHandCursor
-                    }
-
-                    TapHandler {
-                        onTapped: {
-                            var indices = Lucent.SelectionManager.currentSelectionIndices();
-                            if (indices.length === 0)
-                                return;
-                            var finalGroupIndex = canvasModel.groupItems(indices);
-                            if (finalGroupIndex >= 0) {
-                                Lucent.SelectionManager.setSelection([finalGroupIndex]);
-                            }
+                Lucent.IconButton {
+                    iconName: "folders"
+                    tooltipText: qsTr("Group Selection")
+                    onClicked: {
+                        var indices = Lucent.SelectionManager.currentSelectionIndices();
+                        if (indices.length === 0)
+                            return;
+                        var finalGroupIndex = canvasModel.groupItems(indices);
+                        if (finalGroupIndex >= 0) {
+                            Lucent.SelectionManager.setSelection([finalGroupIndex]);
                         }
                     }
                 }
             }
         }
 
-        Rectangle {
+        ToolSeparator {
             Layout.fillWidth: true
-            height: 1
-            color: themePalette.mid
+            orientation: Qt.Horizontal
+            contentItem: Rectangle {
+                implicitHeight: 1
+                color: themePalette.mid
+            }
         }
 
         Item {

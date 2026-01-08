@@ -24,6 +24,10 @@ Pane {
         ToolSeparator {
             Layout.fillWidth: true
             orientation: Qt.Horizontal
+            contentItem: Rectangle {
+                implicitHeight: 1
+                color: Lucent.Themed.palette.mid
+            }
         }
 
         Pane {
