@@ -6,10 +6,6 @@ import ".." as Lucent
 Pane {
     id: root
     padding: 0
-    readonly property SystemPalette themePalette: Lucent.Themed.palette
-
-    signal exportLayerRequested(string layerId, string layerName)
-    signal focusCanvasRequested
 
     ColumnLayout {
         anchors.fill: parent
@@ -22,14 +18,12 @@ Pane {
                 id: transformPanel
                 anchors.left: parent.left
                 anchors.right: parent.right
-                onFocusCanvasRequested: root.focusCanvasRequested()
             }
         }
 
-        Rectangle {
+        ToolSeparator {
             Layout.fillWidth: true
-            height: 1
-            color: themePalette.mid
+            orientation: Qt.Horizontal
         }
 
         Pane {
@@ -38,8 +32,8 @@ Pane {
             Layout.minimumHeight: 150
 
             LayerPanel {
+                id: layerPanel
                 anchors.fill: parent
-                onExportLayerRequested: (layerId, layerName) => root.exportLayerRequested(layerId, layerName)
             }
         }
     }

@@ -7,8 +7,6 @@ Item {
     id: root
     readonly property SystemPalette themePalette: Lucent.Themed.palette
 
-    signal exportLayerRequested(string layerId, string layerName)
-
     // Map between visual order (top-to-bottom) and model order (append order).
     // Top of the list should correspond to the highest Z on canvas, so visual
     // index 0 maps to model index (count - 1).
@@ -545,7 +543,7 @@ Item {
                                                 Action {
                                                     text: qsTr("Export Layer...")
                                                     enabled: delegateRoot.itemType === "layer"
-                                                    onTriggered: root.exportLayerRequested(delegateRoot.itemId, delegateRoot.name || "Layer")
+                                                    onTriggered: appController.openExportDialog(delegateRoot.itemId, delegateRoot.name || "Layer")
                                                 }
 
                                                 MenuSeparator {}

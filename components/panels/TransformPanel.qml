@@ -8,9 +8,6 @@ Item {
     id: root
     readonly property SystemPalette themePalette: Lucent.Themed.palette
 
-    // Signal to request focus return to canvas after editing
-    signal focusCanvasRequested
-
     readonly property var selectedItem: Lucent.SelectionManager.selectedItem
 
     // Check if the selected item supports bounding box editing
@@ -370,7 +367,7 @@ Item {
                     Layout.fillWidth: true
                     onValueModified: {
                         root.updatePosition("x", value);
-                        root.focusCanvasRequested();
+                        appController.focusCanvas();
                     }
                 }
 
@@ -392,7 +389,7 @@ Item {
                     Layout.fillWidth: true
                     onValueModified: {
                         root.updateBounds("width", value);
-                        root.focusCanvasRequested();
+                        appController.focusCanvas();
                     }
                 }
             }
@@ -417,7 +414,7 @@ Item {
                     Layout.fillWidth: true
                     onValueModified: {
                         root.updatePosition("y", value);
-                        root.focusCanvasRequested();
+                        appController.focusCanvas();
                     }
                 }
 
@@ -439,7 +436,7 @@ Item {
                     Layout.fillWidth: true
                     onValueModified: {
                         root.updateBounds("height", value);
-                        root.focusCanvasRequested();
+                        appController.focusCanvas();
                     }
                 }
             }
@@ -484,7 +481,7 @@ Item {
                     } else {
                         root.updateTransform("scaleX", newScaleX);
                     }
-                    root.focusCanvasRequested();
+                    appController.focusCanvas();
                 }
             }
 
@@ -519,7 +516,7 @@ Item {
                     } else {
                         root.updateTransform("scaleY", newScaleY);
                     }
-                    root.focusCanvasRequested();
+                    appController.focusCanvas();
                 }
             }
 
@@ -600,7 +597,7 @@ Item {
                     var val = parseInt(text) || 0;
                     val = Math.max(-360, Math.min(360, val));
                     root.updateTransform("rotate", val);
-                    root.focusCanvasRequested();
+                    appController.focusCanvas();
 
                     isCommitting = false;
                 }
