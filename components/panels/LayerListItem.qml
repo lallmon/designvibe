@@ -192,46 +192,37 @@ Item {
 
                                     // Determine the action based on drag context
                                     let didMove = false;
-                                    if (panel.dropTargetContainerId !== "" && panel.draggedItemType !== "layer") {
-                                        // Check if dropping onto the SAME parent (sibling reorder, not reparent)
-                                        if (panel.dropTargetContainerId === panel.draggedItemParentId) {
-                                            // Same parent - just reorder within the container
-                                            if (targetModelIndex !== panel.draggedIndex) {
-                                                canvasModel.moveItem(panel.draggedIndex, targetModelIndex);
-                                                didMove = true;
-                                            }
-                                        } else {
-                                            // Different container - reparent to that container
-                                            // Use default position (-1) to place at top of container's children
+                                    const draggedParent = panel.draggedItemParentId || "";
+                                    const isLayer = panel.draggedItemType === "layer";
+
+                                    if (isLayer) {
+                                        // Layers can only be reordered at top level, not reparented
+                                        if (targetModelIndex !== panel.draggedIndex) {
+                                            canvasModel.moveItem(panel.draggedIndex, targetModelIndex);
+                                            didMove = true;
+                                        }
+                                    } else if (panel.dropTargetContainerId !== "") {
+                                        // Dropping onto container center - reparent with default position
+                                        if (panel.dropTargetContainerId !== draggedParent) {
                                             canvasModel.reparentItem(panel.draggedIndex, panel.dropTargetContainerId, -1);
                                             didMove = true;
+                                        } else if (targetModelIndex !== panel.draggedIndex) {
+                                            // Same parent - just reorder
+                                            canvasModel.moveItem(panel.draggedIndex, targetModelIndex);
+                                            didMove = true;
                                         }
-                                    } else if (panel.dropTargetParentId && panel.draggedItemType !== "layer") {
-                                        // Dropping onto a gap between children of a layer
-                                        const isSameParent = panel.draggedItemParentId === panel.dropTargetParentId;
-                                        if (isSameParent) {
+                                    } else {
+                                        // Dropping in edge zone (between items or on top-level)
+                                        const targetParent = panel.dropTargetParentId || "";
+                                        if (draggedParent === targetParent) {
+                                            // Same parent (or both top-level) - reorder
                                             if (targetModelIndex !== panel.draggedIndex) {
                                                 canvasModel.moveItem(panel.draggedIndex, targetModelIndex);
                                                 didMove = true;
                                             }
                                         } else {
-                                            canvasModel.reparentItem(panel.draggedIndex, panel.dropTargetParentId, targetModelIndex);
-                                            didMove = true;
-                                        }
-                                    } else if (panel.draggedItemParentId && panel.dropTargetParentId === panel.draggedItemParentId) {
-                                        // Dropping onto a sibling (same parent) - just reorder, keep parent
-                                        if (targetModelIndex !== panel.draggedIndex) {
-                                            canvasModel.moveItem(panel.draggedIndex, targetModelIndex);
-                                            didMove = true;
-                                        }
-                                    } else if (panel.draggedItemParentId && !panel.dropTargetParentId && panel.dropTargetContainerId === "") {
-                                        // Dropping a child onto a top-level item - unparent
-                                        canvasModel.reparentItem(panel.draggedIndex, "", targetModelIndex);
-                                        didMove = true;
-                                    } else {
-                                        // Normal z-order reordering for top-level items
-                                        if (targetModelIndex !== panel.draggedIndex) {
-                                            canvasModel.moveItem(panel.draggedIndex, targetModelIndex);
+                                            // Different parent - reparent to target's parent
+                                            canvasModel.reparentItem(panel.draggedIndex, targetParent, targetModelIndex);
                                             didMove = true;
                                         }
                                     }
