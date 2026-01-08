@@ -7,6 +7,7 @@ Viewport 1.0 Viewport.qml
 HitTestHelper 1.0 HitTestHelper.qml
 StatusBar 1.0 panels/StatusBar.qml
 LayerPanel 1.0 panels/LayerPanel.qml
+LayerListItem 1.0 panels/LayerListItem.qml
 RightPanel 1.0 panels/RightPanel.qml
 TransformPanel 1.0 panels/TransformPanel.qml
 SelectionOverlay 1.0 panels/SelectionOverlay.qml
