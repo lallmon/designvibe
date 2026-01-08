@@ -140,16 +140,27 @@ Item {
 
     function updateBounds(property, value) {
         var idx = Lucent.SelectionManager.selectedItemIndex;
-        if (idx < 0 || !canvasModel || !currentBounds)
+        if (idx < 0 || !canvasModel || !geometryBounds)
             return;
 
+        var t = currentTransform || {};
+        var scaleX = t.scaleX || 1;
+        var scaleY = t.scaleY || 1;
+
+        // User enters displayed size (geometry × scale), so divide by scale to get geometry
         var newBounds = {
-            x: currentBounds.x,
-            y: currentBounds.y,
-            width: currentBounds.width,
-            height: currentBounds.height
+            x: geometryBounds.x,
+            y: geometryBounds.y,
+            width: geometryBounds.width,
+            height: geometryBounds.height
         };
-        newBounds[property] = value;
+
+        if (property === "width") {
+            newBounds.width = value / scaleX;
+        } else if (property === "height") {
+            newBounds.height = value / scaleY;
+        }
+
         canvasModel.setBoundingBox(idx, newBounds);
     }
 
@@ -365,7 +376,12 @@ Item {
                 SpinBox {
                     from: 0
                     to: 100000
-                    value: root.currentBounds ? Math.round(root.currentBounds.width) : 0
+                    value: {
+                        if (!root.geometryBounds)
+                            return 0;
+                        var scaleX = root.currentTransform ? (root.currentTransform.scaleX || 1) : 1;
+                        return Math.round(root.geometryBounds.width * scaleX);
+                    }
                     editable: true
                     Layout.fillWidth: true
                     onValueModified: root.updateBounds("width", value)
@@ -401,7 +417,12 @@ Item {
                 SpinBox {
                     from: 0
                     to: 100000
-                    value: root.currentBounds ? Math.round(root.currentBounds.height) : 0
+                    value: {
+                        if (!root.geometryBounds)
+                            return 0;
+                        var scaleY = root.currentTransform ? (root.currentTransform.scaleY || 1) : 1;
+                        return Math.round(root.geometryBounds.height * scaleY);
+                    }
                     editable: true
                     Layout.fillWidth: true
                     onValueModified: root.updateBounds("height", value)
