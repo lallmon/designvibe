@@ -114,6 +114,18 @@ Item {
             visible: delegateRoot.displayIndex > 0 || isInsertTarget
         }
 
+        Rectangle {
+            // Bottom indicator for dropping after the last item in the list
+            property bool isLastItem: delegateRoot.displayIndex === repeater.count - 1
+            property bool isBottomDropTarget: isLastItem && panel.dropInsertIndex === repeater.count
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: isBottomDropTarget ? 3 : 0
+            color: themePalette.highlight
+            visible: isBottomDropTarget
+        }
+
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: delegateRoot.hasParent ? 20 : 4
@@ -171,7 +183,10 @@ Item {
                                     // Adjust target for removal-insertion semantics when moving down in display
                                     // (from higher model index to lower). The removal doesn't shift items
                                     // below, so we need to insert one position higher.
-                                    if (panel.draggedIndex > targetModelIndex) {
+                                    // Exception: when dropping at the very bottom (dropInsertIndex === rowCount),
+                                    // no adjustment needed since we're at the edge.
+                                    const isBottomEdgeDrop = panel.dropInsertIndex === rowCount;
+                                    if (panel.draggedIndex > targetModelIndex && !isBottomEdgeDrop) {
                                         targetModelIndex = Math.min(targetModelIndex + 1, rowCount - 1);
                                     }
 
@@ -282,7 +297,8 @@ Item {
                             // Insert indicator shows on the item below the insertion gap
                             if (fractionalPart >= 0.5) {
                                 // Dropping below target row, indicator on next item
-                                panel.dropInsertIndex = Math.min(targetDisplayIndex + 1, rowCount - 1);
+                                // Allow rowCount as valid value for "after last item"
+                                panel.dropInsertIndex = Math.min(targetDisplayIndex + 1, rowCount);
                             } else {
                                 // Dropping above target row, indicator on target item
                                 panel.dropInsertIndex = targetDisplayIndex;

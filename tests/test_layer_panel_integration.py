@@ -118,6 +118,29 @@ class TestLayerPanelModelBehaviors:
         assert model.getItemData(2)["name"] == "B"
         assert model.getItemData(3)["name"] == "C"
 
+    def test_move_item_to_bottom_edge(self, model):
+        """Moving item to very bottom of list (model index 0).
+
+        This tests the edge case fix: dropping at the bottom of the display
+        should move the item to model index 0 without the off-by-one adjustment.
+        """
+        # Model order: [A@0, B@1, C@2, D@3]
+        # Display order (reversed): [D, C, B, A] from top to bottom
+        model.addItem({"type": "rectangle", "name": "A"})
+        model.addItem({"type": "rectangle", "name": "B"})
+        model.addItem({"type": "rectangle", "name": "C"})
+        model.addItem({"type": "rectangle", "name": "D"})
+
+        # Move D from index 3 to index 0 (dragging D to very bottom of display)
+        model.moveItem(3, 0)
+
+        # Expected model: [D@0, A@1, B@2, C@3]
+        # Display: [C, B, A, D] - D is now at the bottom
+        assert model.getItemData(0)["name"] == "D"
+        assert model.getItemData(1)["name"] == "A"
+        assert model.getItemData(2)["name"] == "B"
+        assert model.getItemData(3)["name"] == "C"
+
     def test_group_items_creates_group(self, model):
         """LayerPanel group button calls canvasModel.groupItems(indices)."""
         model.addItem({"type": "rectangle"})
