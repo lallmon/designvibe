@@ -40,35 +40,12 @@ ToolBar {
     // Determine which settings to display: selected item type takes priority over active tool
     readonly property string displayType: hasEditableSelection ? currentSelectionType : activeTool
 
-    // Expose tool settings for external access (e.g., when creating shapes)
+    // Expose tool settings components directly for reactive binding
     readonly property var toolSettings: ({
-            "rectangle": {
-                strokeWidth: rectangleSettings.strokeWidth,
-                strokeColor: rectangleSettings.strokeColor,
-                strokeOpacity: rectangleSettings.strokeOpacity,
-                fillColor: rectangleSettings.fillColor,
-                fillOpacity: rectangleSettings.fillOpacity
-            },
-            "ellipse": {
-                strokeWidth: ellipseSettings.strokeWidth,
-                strokeColor: ellipseSettings.strokeColor,
-                strokeOpacity: ellipseSettings.strokeOpacity,
-                fillColor: ellipseSettings.fillColor,
-                fillOpacity: ellipseSettings.fillOpacity
-            },
-            "pen": {
-                strokeWidth: penSettings.strokeWidth,
-                strokeColor: penSettings.strokeColor,
-                strokeOpacity: penSettings.strokeOpacity,
-                fillColor: penSettings.fillColor,
-                fillOpacity: penSettings.fillOpacity
-            },
-            "text": {
-                fontFamily: textSettings.fontFamily,
-                fontSize: textSettings.fontSize,
-                textColor: textSettings.textColor,
-                textOpacity: textSettings.textOpacity
-            }
+            "rectangle": rectangleSettings,
+            "ellipse": ellipseSettings,
+            "pen": penSettings,
+            "text": textSettings
         })
 
     RowLayout {

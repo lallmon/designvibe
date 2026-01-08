@@ -66,6 +66,13 @@ RowLayout {
             }
         }
 
+        // Real-time preview while scrolling through dropdown
+        onHighlightedIndexChanged: {
+            if (popup.visible && highlightedIndex >= 0 && model[highlightedIndex]) {
+                root._defaultFontFamily = model[highlightedIndex];
+            }
+        }
+
         Component.onCompleted: {
             if (fontProvider && (!root._defaultFontFamily || root._defaultFontFamily === "Sans Serif")) {
                 root._defaultFontFamily = fontProvider.defaultFont();
@@ -83,7 +90,6 @@ RowLayout {
             text: fontFamilyCombo.displayText
             color: palette.text
             font.pixelSize: 11
-            font.family: fontFamilyCombo.displayText
             verticalAlignment: Text.AlignVCenter
             leftPadding: 6
             elide: Text.ElideRight
@@ -118,6 +124,13 @@ RowLayout {
         onActivated: index => {
             if (index >= 0) {
                 root.updateProperty("fontSize", model[index]);
+            }
+        }
+
+        // Real-time preview while scrolling through dropdown
+        onHighlightedIndexChanged: {
+            if (popup.visible && highlightedIndex >= 0) {
+                root._defaultFontSize = model[highlightedIndex];
             }
         }
 
