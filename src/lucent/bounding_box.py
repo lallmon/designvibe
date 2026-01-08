@@ -181,25 +181,15 @@ def get_item_bounds(
     Returns:
         Bounding box dictionary, or None if not applicable.
     """
-    # Check item type by looking for characteristic attributes
-    if hasattr(item, "geometry"):
-        geometry = item.geometry
-        # Rectangle: has x, y, width, height
-        if hasattr(geometry, "x") and hasattr(geometry, "width"):
-            return get_rectangle_bounds(geometry)
-        # Ellipse: has center_x, center_y, radius_x, radius_y
-        if hasattr(geometry, "center_x") and hasattr(geometry, "radius_x"):
-            return get_ellipse_bounds(geometry)
-        # Path: has points
-        if hasattr(geometry, "points"):
-            return get_path_bounds(geometry.points)
-
-    # Text: has x, y, width, height, font_size directly
-    if hasattr(item, "font_size") and hasattr(item, "x"):
-        return get_text_bounds(item.x, item.y, item.width, item.height, item.font_size)
-
     # Container (Layer/Group): use callback if provided
-    if hasattr(item, "id") and get_descendant_bounds:
+    # Check this first since containers have an 'id' attribute but no geometry
+    if hasattr(item, "id") and not hasattr(item, "geometry") and get_descendant_bounds:
         return get_descendant_bounds(item.id)
+
+    # Use item's get_bounds() method if available - this applies transforms
+    if hasattr(item, "get_bounds") and callable(item.get_bounds):
+        bounds = item.get_bounds()
+        if bounds is not None:
+            return rect_bounds(bounds.x(), bounds.y(), bounds.width(), bounds.height())
 
     return None

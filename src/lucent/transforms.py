@@ -23,12 +23,16 @@ class Transform:
         rotate: float = 0,
         scale_x: float = 1,
         scale_y: float = 1,
+        origin_x: float = 0,  # 0=left, 0.5=center, 1=right (relative to bounds)
+        origin_y: float = 0,  # 0=top, 0.5=center, 1=bottom (relative to bounds)
     ) -> None:
         self.translate_x = float(translate_x)
         self.translate_y = float(translate_y)
         self.rotate = float(rotate)  # degrees
         self.scale_x = float(scale_x)
         self.scale_y = float(scale_y)
+        self.origin_x = float(origin_x)
+        self.origin_y = float(origin_y)
 
     def is_identity(self) -> bool:
         """Check if this transform is the identity transform."""
@@ -51,6 +55,38 @@ class Transform:
         t.scale(self.scale_x, self.scale_y)
         return t
 
+    def to_qtransform_centered(self, center_x: float, center_y: float) -> QTransform:
+        """Convert to Qt transform with rotation/scale around a center point.
+
+        Order of operations:
+        1. Translate by translate_x/translate_y
+        2. Move origin to center
+        3. Apply rotation
+        4. Apply scale
+        5. Move origin back from center
+
+        Args:
+            center_x: X coordinate of the center point for rotation/scale.
+            center_y: Y coordinate of the center point for rotation/scale.
+
+        Returns:
+            QTransform matrix with transforms applied around center.
+        """
+        if self.is_identity():
+            return QTransform()
+
+        t = QTransform()
+        # Apply translation
+        t.translate(self.translate_x, self.translate_y)
+        # Move to center
+        t.translate(center_x, center_y)
+        # Apply rotation and scale around center
+        t.rotate(self.rotate)
+        t.scale(self.scale_x, self.scale_y)
+        # Move back from center
+        t.translate(-center_x, -center_y)
+        return t
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {
@@ -59,6 +95,8 @@ class Transform:
             "rotate": self.rotate,
             "scaleX": self.scale_x,
             "scaleY": self.scale_y,
+            "originX": self.origin_x,
+            "originY": self.origin_y,
         }
 
     @staticmethod
@@ -70,4 +108,6 @@ class Transform:
             rotate=float(data.get("rotate", 0)),
             scale_x=float(data.get("scaleX", 1)),
             scale_y=float(data.get("scaleY", 1)),
+            origin_x=float(data.get("originX", 0)),
+            origin_y=float(data.get("originY", 0)),
         )

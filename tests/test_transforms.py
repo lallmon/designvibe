@@ -121,6 +121,8 @@ class TestTransform:
             "rotate": 45,
             "scaleX": 2.0,
             "scaleY": 0.5,
+            "originX": 0.0,
+            "originY": 0.0,
         }
 
     def test_from_dict(self):
@@ -208,3 +210,141 @@ class TestTransform:
         result = qtransform.map(point)
         assert abs(result.x() + 1) < 0.001
         assert abs(result.y() + 1) < 0.001
+
+    def test_to_qtransform_centered_identity(self):
+        """Identity transform should not move center point."""
+        transform = Transform()
+        qtransform = transform.to_qtransform_centered(50, 50)
+        assert qtransform.isIdentity()
+
+    def test_to_qtransform_centered_rotation_keeps_center(self):
+        """90 degree rotation around center should keep center stationary."""
+        transform = Transform(rotate=90)
+        # Center of a 100x100 rectangle at origin is (50, 50)
+        qtransform = transform.to_qtransform_centered(50, 50)
+
+        # The center point should stay at (50, 50)
+        center = QPointF(50, 50)
+        result = qtransform.map(center)
+        assert abs(result.x() - 50) < 0.001
+        assert abs(result.y() - 50) < 0.001
+
+    def test_to_qtransform_centered_rotation_moves_corners(self):
+        """90 degree rotation should move corners appropriately."""
+        transform = Transform(rotate=90)
+        # Center at (50, 50)
+        qtransform = transform.to_qtransform_centered(50, 50)
+
+        # Top-left (0, 0) should rotate to bottom-left (0, 100) relative to center
+        top_left = QPointF(0, 0)
+        result = qtransform.map(top_left)
+        assert abs(result.x() - 100) < 0.001
+        assert abs(result.y() - 0) < 0.001
+
+    def test_to_qtransform_centered_scale_keeps_center(self):
+        """Scale around center should keep center stationary."""
+        transform = Transform(scale_x=2, scale_y=2)
+        qtransform = transform.to_qtransform_centered(50, 50)
+
+        # Center should stay at (50, 50)
+        center = QPointF(50, 50)
+        result = qtransform.map(center)
+        assert abs(result.x() - 50) < 0.001
+        assert abs(result.y() - 50) < 0.001
+
+    def test_to_qtransform_centered_scale_moves_edges(self):
+        """Scale 2x around center should double distance from center."""
+        transform = Transform(scale_x=2, scale_y=2)
+        qtransform = transform.to_qtransform_centered(50, 50)
+
+        # Point at origin is 50 units from center, should move to -50
+        origin = QPointF(0, 0)
+        result = qtransform.map(origin)
+        assert abs(result.x() + 50) < 0.001
+        assert abs(result.y() + 50) < 0.001
+
+    def test_to_qtransform_centered_with_translation(self):
+        """Translation should be applied after center-based rotation/scale."""
+        transform = Transform(translate_x=10, translate_y=20, rotate=0)
+        qtransform = transform.to_qtransform_centered(50, 50)
+
+        # Point at origin should be translated by (10, 20)
+        origin = QPointF(0, 0)
+        result = qtransform.map(origin)
+        assert abs(result.x() - 10) < 0.001
+        assert abs(result.y() - 20) < 0.001
+
+
+class TestTransformOrigin:
+    """Tests for transform origin point handling."""
+
+    def test_origin_defaults_to_zero(self):
+        """Default origin should be (0, 0) = top-left."""
+        transform = Transform()
+        assert transform.origin_x == 0
+        assert transform.origin_y == 0
+
+    def test_origin_in_constructor(self):
+        """Origin can be set in constructor."""
+        transform = Transform(origin_x=0.5, origin_y=0.5)
+        assert transform.origin_x == 0.5
+        assert transform.origin_y == 0.5
+
+    def test_origin_serialization(self):
+        """Origin is serialized to dict."""
+        transform = Transform(origin_x=0.5, origin_y=1.0)
+        data = transform.to_dict()
+        assert data["originX"] == 0.5
+        assert data["originY"] == 1.0
+
+    def test_origin_deserialization(self):
+        """Origin is deserialized from dict."""
+        data = {"originX": 0.25, "originY": 0.75}
+        transform = Transform.from_dict(data)
+        assert transform.origin_x == 0.25
+        assert transform.origin_y == 0.75
+
+    def test_origin_defaults_in_deserialization(self):
+        """Missing origin defaults to 0."""
+        data = {"rotate": 45}
+        transform = Transform.from_dict(data)
+        assert transform.origin_x == 0
+        assert transform.origin_y == 0
+
+    def test_rotation_around_topleft_origin(self):
+        """Rotation around top-left moves the shape."""
+        # Rect from (0,0) to (100, 50), rotate around top-left (0,0)
+        transform = Transform(rotate=90)
+        qtransform = transform.to_qtransform_centered(0, 0)
+
+        # Top-left stays at origin
+        top_left = QPointF(0, 0)
+        result = qtransform.map(top_left)
+        assert abs(result.x()) < 0.001
+        assert abs(result.y()) < 0.001
+
+        # Bottom-right (100, 50) rotates 90 degrees around origin
+        bottom_right = QPointF(100, 50)
+        result = qtransform.map(bottom_right)
+        assert abs(result.x() + 50) < 0.001  # y becomes -x
+        assert abs(result.y() - 100) < 0.001  # x becomes y
+
+    def test_rotation_around_bottomright_origin(self):
+        """Rotation around bottom-right corner."""
+        # For a rect (0,0,100,50), bottom-right is (100, 50)
+        transform = Transform(rotate=180)
+        qtransform = transform.to_qtransform_centered(100, 50)
+
+        # Bottom-right stays at (100, 50)
+        bottom_right = QPointF(100, 50)
+        result = qtransform.map(bottom_right)
+        assert abs(result.x() - 100) < 0.001
+        assert abs(result.y() - 50) < 0.001
+
+        # Top-left (0, 0) rotates 180 degrees around (100, 50)
+        # Distance from pivot: (-100, -50), rotated 180: (100, 50)
+        # Final position: (100 + 100, 50 + 50) = (200, 100)
+        top_left = QPointF(0, 0)
+        result = qtransform.map(top_left)
+        assert abs(result.x() - 200) < 0.001
+        assert abs(result.y() - 100) < 0.001

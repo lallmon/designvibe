@@ -11,51 +11,22 @@ Item {
     property bool active: false
     property var settings: null  // Tool settings object
 
-    // Two-point helper for click-drag box creation
-    TwoPointToolHelper {
-        id: helper
-    }
+    // Default text box size
+    readonly property real defaultBoxWidth: 200
+    readonly property real defaultBoxHeight: 80
 
-    // Current text box being drawn
-    property var currentBox: null
-
-    // State for text editing (after box is created)
+    // State for text editing
     property bool isEditing: false
     property real boxX: 0
     property real boxY: 0
-    property real boxWidth: 100
-    property real boxHeight: 0
+    property real boxWidth: defaultBoxWidth
+    property real boxHeight: defaultBoxHeight
 
     // Signal emitted when a text item is completed
     signal itemCompleted(var itemData)
 
     readonly property string placeholderText: "Type here..."
     readonly property real textPadding: 4
-
-    // Box preview rectangle (shown while drawing)
-    Rectangle {
-        id: boxPreview
-        visible: helper.isDrawing && currentBox !== null && currentBox.width > 1 && currentBox.height > 1
-
-        x: currentBox ? currentBox.x : 0
-        y: currentBox ? currentBox.y : 0
-        width: currentBox ? currentBox.width : 0
-        height: currentBox ? currentBox.height : 0
-
-        color: "transparent"
-        border.color: Lucent.Themed.palette.highlight
-        border.width: 2 / tool.zoomLevel
-
-        // Dashed border effect using inner rectangle
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1 / tool.zoomLevel
-            color: "transparent"
-            border.color: Lucent.Themed.palette.base
-            border.width: 1 / tool.zoomLevel
-            opacity: 0.5
-        }
-    }
 
     // Resize state
     property bool isResizing: false
@@ -79,9 +50,9 @@ Item {
         height: Math.max(tool.boxHeight, textEdit.contentHeight + tool.textPadding * 2)
 
         color: "transparent"
-        border.color: Lucent.Themed.palette.highlight
-        border.width: 2 / tool.zoomLevel
-        radius: 2 / tool.zoomLevel
+        border.color: Lucent.Themed.selector
+        border.width: 1 / tool.zoomLevel
+        radius: 0
 
         TextEdit {
             id: textEdit
@@ -148,7 +119,7 @@ Item {
             width: 10 / tool.zoomLevel
             height: 10 / tool.zoomLevel
             radius: 5 / tool.zoomLevel
-            color: Lucent.Themed.palette.highlight
+            color: Lucent.Themed.selector
             border.color: Lucent.Themed.palette.base
             border.width: 1 / tool.zoomLevel
 
@@ -232,45 +203,30 @@ Item {
                 return;
             }
 
-            // Click outside: commit or cancel, then start new box
+            // Click outside: commit or cancel, then create new box at click position
             if (textEdit.text.trim().length > 0 && textEdit.text !== tool.placeholderText) {
                 tool.commitText();
             } else {
                 tool.cancelText();
             }
-            helper.begin(canvasX, canvasY);
-            currentBox = {
-                x: canvasX,
-                y: canvasY,
-                width: 1,
-                height: 1
-            };
+            // Create new text box at click position
+            createTextBox(canvasX, canvasY);
             return;
         }
 
-        if (!helper.isDrawing) {
-            helper.begin(canvasX, canvasY);
-            currentBox = {
-                x: canvasX,
-                y: canvasY,
-                width: 1,
-                height: 1
-            };
-        } else if (currentBox && currentBox.width > 10 && currentBox.height > 10) {
-            tool.boxX = currentBox.x;
-            tool.boxY = currentBox.y;
-            tool.boxWidth = currentBox.width;
-            tool.boxHeight = currentBox.height;
-            tool.isEditing = true;
-            textEdit.text = tool.placeholderText;
-            textEdit.selectAll();
-            textEdit.forceActiveFocus();
-            currentBox = null;
-            helper.reset();
-        } else {
-            currentBox = null;
-            helper.reset();
-        }
+        // Not editing: create new text box at click position
+        createTextBox(canvasX, canvasY);
+    }
+
+    function createTextBox(canvasX, canvasY) {
+        tool.boxX = canvasX;
+        tool.boxY = canvasY;
+        tool.boxWidth = defaultBoxWidth;
+        tool.boxHeight = defaultBoxHeight;
+        tool.isEditing = true;
+        textEdit.text = tool.placeholderText;
+        textEdit.selectAll();
+        textEdit.forceActiveFocus();
     }
 
     function handleMouseMove(canvasX, canvasY, modifiers) {
@@ -292,30 +248,6 @@ Item {
             textEdit.select(start, end);
             return;
         }
-
-        if (!helper.isDrawing)
-            return;
-
-        var deltaX = canvasX - helper.startX;
-        var deltaY = canvasY - helper.startY;
-        var boxWidth = Math.abs(deltaX);
-        var boxHeight = Math.abs(deltaY);
-
-        // Shift constrains to square
-        if (modifiers & Qt.ShiftModifier) {
-            var size = Math.max(boxWidth, boxHeight);
-            boxWidth = size;
-            boxHeight = size;
-        }
-
-        var boxX = deltaX >= 0 ? helper.startX : helper.startX - boxWidth;
-        var boxY = deltaY >= 0 ? helper.startY : helper.startY - boxHeight;
-        currentBox = {
-            x: boxX,
-            y: boxY,
-            width: boxWidth,
-            height: boxHeight
-        };
     }
 
     function handleMouseRelease(canvasX, canvasY) {
@@ -363,8 +295,6 @@ Item {
     function cancelText() {
         tool.isEditing = false;
         textEdit.text = "";
-        currentBox = null;
-        helper.reset();
     }
 
     function reset() {
@@ -375,7 +305,5 @@ Item {
             else
                 tool.cancelText();
         }
-        currentBox = null;
-        helper.reset();
     }
 }
