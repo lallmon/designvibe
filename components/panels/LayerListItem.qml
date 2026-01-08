@@ -429,106 +429,32 @@ Item {
                 }
             }
 
-            Item {
-                id: visibilityButton
-                Layout.preferredWidth: 28
-                Layout.fillHeight: true
-
-                HoverHandler {
-                    id: visibilityHover
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton
-                    preventStealing: true
-                    onClicked: {
-                        canvasModel.toggleVisibility(delegateRoot.modelIndex);
-                    }
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: visibilityHover.hovered ? themePalette.midlight : "transparent"
-                    radius: Lucent.Styles.rad.sm
-
-                    Lucent.PhIcon {
-                        anchors.centerIn: parent
-                        name: delegateRoot.modelVisible ? "eye" : "eye-closed"
-                        size: 16
-                        color: delegateRoot.isSelected ? themePalette.highlightedText : themePalette.text
-                    }
-                }
+            Lucent.IconButton {
+                iconName: delegateRoot.modelVisible ? "eye" : "eye-closed"
+                iconBaseColor: delegateRoot.isSelected ? themePalette.highlightedText : themePalette.text
+                size: 28
+                iconSize: 16
+                onClicked: canvasModel.toggleVisibility(delegateRoot.modelIndex)
             }
 
-            Item {
-                id: lockButton
-                Layout.preferredWidth: 28
-                Layout.fillHeight: true
-
-                HoverHandler {
-                    id: lockHover
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton
-                    preventStealing: true
-                    onClicked: {
-                        canvasModel.toggleLocked(delegateRoot.modelIndex);
-                    }
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: lockHover.hovered ? themePalette.midlight : "transparent"
-                    radius: Lucent.Styles.rad.sm
-
-                    Lucent.PhIcon {
-                        anchors.centerIn: parent
-                        name: delegateRoot.modelLocked ? "lock" : "lock-open"
-                        size: 16
-                        color: delegateRoot.isSelected ? themePalette.highlightedText : themePalette.text
-                    }
-                }
+            Lucent.IconButton {
+                iconName: delegateRoot.modelLocked ? "lock" : "lock-open"
+                iconBaseColor: delegateRoot.isSelected ? themePalette.highlightedText : themePalette.text
+                size: 28
+                iconSize: 16
+                onClicked: canvasModel.toggleLocked(delegateRoot.modelIndex)
             }
 
-            Item {
-                id: deleteButton
-                Layout.preferredWidth: 28
-                Layout.fillHeight: true
-
-                HoverHandler {
-                    id: deleteHover
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton
-                    preventStealing: true
-                    onClicked: {
-                        // Ensure selection reflects the target being deleted
-                        Lucent.SelectionManager.selectedIndices = [delegateRoot.modelIndex];
-                        Lucent.SelectionManager.selectedItemIndex = delegateRoot.modelIndex;
-                        Lucent.SelectionManager.selectedItem = canvasModel.getItemData(delegateRoot.modelIndex);
-                        canvasModel.removeItem(delegateRoot.modelIndex);
-                    }
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: deleteHover.hovered ? themePalette.midlight : "transparent"
-                    radius: Lucent.Styles.rad.sm
-
-                    Lucent.PhIcon {
-                        anchors.centerIn: parent
-                        name: "trash"
-                        size: 16
-                        color: delegateRoot.isSelected ? themePalette.highlightedText : themePalette.text
-                    }
+            Lucent.IconButton {
+                iconName: "trash"
+                iconBaseColor: delegateRoot.isSelected ? themePalette.highlightedText : themePalette.text
+                size: 28
+                iconSize: 16
+                onClicked: {
+                    Lucent.SelectionManager.selectedIndices = [delegateRoot.modelIndex];
+                    Lucent.SelectionManager.selectedItemIndex = delegateRoot.modelIndex;
+                    Lucent.SelectionManager.selectedItem = canvasModel.getItemData(delegateRoot.modelIndex);
+                    canvasModel.removeItem(delegateRoot.modelIndex);
                 }
             }
         }

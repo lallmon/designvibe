@@ -10,6 +10,10 @@ Rectangle {
     property string tooltipText: ""
     property int size: 24
     property int iconSize: 18
+    // Base icon color when not hovered (e.g. based on selection state)
+    property color iconBaseColor: themePalette.text
+    // Final icon color: highlight on hover, otherwise use base
+    readonly property color iconColor: hovered ? themePalette.highlight : iconBaseColor
 
     signal clicked
 
@@ -25,7 +29,7 @@ Rectangle {
         anchors.centerIn: parent
         name: root.iconName
         size: root.iconSize
-        color: root.hovered ? themePalette.highlight : themePalette.text
+        color: root.iconColor
     }
 
     HoverHandler {
