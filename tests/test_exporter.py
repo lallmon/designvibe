@@ -164,7 +164,7 @@ class TestExportPng:
         items = [make_rect_item(x=0, y=0, width=100, height=100)]
         bounds = QRectF(0, 0, 100, 100)
         output_path = tmp_path / "test.png"
-        opts = ExportOptions(document_dpi=72, target_dpi=144)  # 2x scale
+        opts = ExportOptions(document_dpi=72, target_dpi=144)
 
         export_png(items, bounds, output_path, opts)
 
@@ -174,7 +174,7 @@ class TestExportPng:
 
     def test_export_empty_items_returns_false(self, tmp_path, qtbot):
         """export_png returns False for empty bounds."""
-        bounds = QRectF()  # Empty
+        bounds = QRectF()
         output_path = tmp_path / "test.png"
 
         result = export_png([], bounds, output_path, ExportOptions())
@@ -204,10 +204,8 @@ class TestExportSvg:
 
         export_svg(items, bounds, output_path, ExportOptions())
 
-        # Should parse without error
         tree = ET.parse(output_path)
         root = tree.getroot()
-        # SVG namespace check
         assert "svg" in root.tag
 
     def test_export_correct_viewbox(self, tmp_path, qtbot):
@@ -222,7 +220,6 @@ class TestExportSvg:
         root = tree.getroot()
         viewbox = root.get("viewBox")
         assert viewbox is not None
-        # viewBox should be "0 0 100 50" (translated to origin)
         parts = viewbox.split()
         assert len(parts) == 4
         assert float(parts[2]) == 100  # width
@@ -269,9 +266,9 @@ class TestExportSvg:
         assert path_elem is not None
         d = path_elem.get("d")
         assert d is not None
-        assert d.startswith("M")  # Starts with move command
-        assert "L" in d  # Has line commands
-        assert d.endswith("Z")  # Closed path
+        assert d.startswith("M")
+        assert "L" in d
+        assert d.endswith("Z")
 
     def test_export_text_to_svg(self, tmp_path, qtbot):
         """export_svg creates correct text element."""
@@ -310,7 +307,7 @@ class TestExportPngEdgeCases:
         items = [make_rect_item(x=0, y=0, width=100, height=100)]
         bounds = QRectF(0, 0, 100, 100)
         output_path = tmp_path / "test_bg.png"
-        opts = ExportOptions(background="#ff0000")  # Red background
+        opts = ExportOptions(background="#ff0000")
 
         result = export_png(items, bounds, output_path, opts)
 
@@ -321,7 +318,7 @@ class TestExportPngEdgeCases:
 
     def test_export_zero_width_returns_false(self, tmp_path, qtbot):
         """export_png returns False for zero-width bounds."""
-        bounds = QRectF(0, 0, 0, 100)  # Zero width
+        bounds = QRectF(0, 0, 0, 100)
         output_path = tmp_path / "test.png"
 
         result = export_png([], bounds, output_path, ExportOptions())
@@ -330,7 +327,7 @@ class TestExportPngEdgeCases:
 
     def test_export_zero_height_returns_false(self, tmp_path, qtbot):
         """export_png returns False for zero-height bounds."""
-        bounds = QRectF(0, 0, 100, 0)  # Zero height
+        bounds = QRectF(0, 0, 100, 0)
         output_path = tmp_path / "test.png"
 
         result = export_png([], bounds, output_path, ExportOptions())
@@ -355,7 +352,7 @@ class TestExportSvgEdgeCases:
         path_elem = root.find(".//{http://www.w3.org/2000/svg}path")
         assert path_elem is not None
         d = path_elem.get("d")
-        assert "Z" not in d  # Open path has no Z
+        assert "Z" not in d
 
     def test_export_skips_unsupported_items(self, tmp_path, qtbot):
         """export_svg skips layers and other unsupported items."""
@@ -363,7 +360,7 @@ class TestExportSvgEdgeCases:
 
         items = [
             make_rect_item(x=0, y=0, width=50, height=50),
-            LayerItem(name="Layer1"),  # Unsupported for SVG
+            LayerItem(name="Layer1"),
         ]
         bounds = QRectF(0, 0, 50, 50)
         output_path = tmp_path / "mixed.svg"
@@ -373,6 +370,5 @@ class TestExportSvgEdgeCases:
         assert result is True
         tree = ET.parse(output_path)
         root = tree.getroot()
-        # Should only have one rect, no layer element
         rects = root.findall(".//{http://www.w3.org/2000/svg}rect")
         assert len(rects) == 1

@@ -57,10 +57,8 @@ class TestCanvasRendererZOrder:
             }
         )
 
-        # Model order: [First (0), Second (1), Third (2)]
         render_order = canvas_renderer._get_render_order()
 
-        # Render order matches model order (painting later items on top)
         assert len(render_order) == 3
         assert render_order[0].name == "First"
         assert render_order[1].name == "Second"
@@ -91,10 +89,8 @@ class TestCanvasRendererZOrder:
             }
         )
 
-        # Model: [Layer1, Rect1, Layer2, Ellipse1]
         render_order = canvas_renderer._get_render_order()
 
-        # Should only contain shapes, not layers, in reversed order
         assert len(render_order) == 2
         assert render_order[0].name == "Rect1"
         assert render_order[1].name == "Ellipse1"
@@ -126,17 +122,14 @@ class TestCanvasRendererZOrder:
         )
         canvas_model.setParent(2, layer.id)
 
-        # Model: [Layer, Child1, Child2]
         render_order = canvas_renderer._get_render_order()
 
-        # Model order preserved
         assert len(render_order) == 2
         assert render_order[0].name == "Child1"
         assert render_order[1].name == "Child2"
 
     def test_render_order_after_layer_move(self, canvas_renderer, canvas_model):
         """After moving a layer, render order should reflect new model order."""
-        # Create two layers with children
         canvas_model.addLayer()
         layer1 = canvas_model.getItems()[0]
         canvas_model.addItem(
@@ -165,17 +158,12 @@ class TestCanvasRendererZOrder:
         )
         canvas_model.setParent(3, layer2.id)
 
-        # Model: [Layer1, L1Child, Layer2, L2Child]
-        # Initially: L1Child on top, L2Child behind
         render_order = canvas_renderer._get_render_order()
         assert render_order[0].name == "L1Child"
         assert render_order[1].name == "L2Child"
 
-        # Move Layer2 to top (index 2 -> 0)
         canvas_model.moveItem(2, 0)
 
-        # New model: [Layer2, L2Child, Layer1, L1Child]
-        # Now: L2Child on top, L1Child behind
         render_order = canvas_renderer._get_render_order()
         assert render_order[0].name == "L2Child"
         assert render_order[1].name == "L1Child"
@@ -193,7 +181,7 @@ class TestCanvasRendererZOrder:
         image = QImage(QSize(5, 5), QImage.Format_ARGB32)
         image.fill(0)
         painter = QPainter(image)
-        canvas_renderer.paint(painter)  # should not raise
+        canvas_renderer.paint(painter)
         painter.end()
 
     def test_paint_invokes_item_paint(self, canvas_renderer, canvas_model):

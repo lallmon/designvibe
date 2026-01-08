@@ -78,16 +78,16 @@ def test_validate_path_clamps_appearances():
             "closed": True,
         },
         "appearances": [
-            {"type": "fill", "color": "#abcdef", "opacity": 2.0},  # Over max
+            {"type": "fill", "color": "#abcdef", "opacity": 2.0},
             {"type": "stroke", "color": "#123456", "width": -1, "opacity": 5.0},
         ],
     }
     out = validate_path(data)
     fill = next(a for a in out["appearances"] if a["type"] == "fill")
     stroke = next(a for a in out["appearances"] if a["type"] == "stroke")
-    assert fill["opacity"] == 1.0  # Clamped
-    assert stroke["width"] == 0.0  # Clamped to min
-    assert stroke["opacity"] == 1.0  # Clamped
+    assert fill["opacity"] == 1.0
+    assert stroke["width"] == 0.0
+    assert stroke["opacity"] == 1.0
 
 
 def test_validate_path_requires_two_points():
@@ -202,9 +202,9 @@ def test_validate_text_clamps_and_defaults():
         "geometry": {"x": 10, "y": 20, "width": 100, "height": 0},
         "text": "Hello",
         "fontFamily": "Monospace",
-        "fontSize": 5,  # Below minimum
+        "fontSize": 5,
         "textColor": "#ff0000",
-        "textOpacity": 2.0,  # Above maximum
+        "textOpacity": 2.0,
         "name": "MyText",
         "parentId": "layer-1",
     }
@@ -213,9 +213,9 @@ def test_validate_text_clamps_and_defaults():
     assert out["geometry"]["y"] == 20
     assert out["text"] == "Hello"
     assert out["fontFamily"] == "Monospace"
-    assert out["fontSize"] == 8  # Clamped to minimum
+    assert out["fontSize"] == 8
     assert out["textColor"] == "#ff0000"
-    assert out["textOpacity"] == 1.0  # Clamped to maximum
+    assert out["textOpacity"] == 1.0
     assert out["name"] == "MyText"
     assert out["parentId"] == "layer-1"
 

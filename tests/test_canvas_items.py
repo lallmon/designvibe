@@ -356,7 +356,7 @@ class TestCanvasPainting:
         rect = RectangleItem(
             geometry=geometry, appearances=default_appearances(), visible=False
         )
-        rect.paint(painter, zoom_level=1.0)  # Should not crash
+        rect.paint(painter, zoom_level=1.0)
         painter.end()
 
 

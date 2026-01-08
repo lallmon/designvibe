@@ -51,7 +51,7 @@ class TestCanvasModelGetLayerItems:
         canvas_model.addItem(make_layer(layer_id="layer-1", name="Layer1"))
         canvas_model.addItem(make_rectangle(parent_id="layer-1", name="A"))
         canvas_model.addItem(make_rectangle(parent_id="layer-1", name="B"))
-        canvas_model.addItem(make_rectangle(name="C"))  # Not in layer
+        canvas_model.addItem(make_rectangle(name="C"))
 
         layer_items = canvas_model.getLayerItems("layer-1")
         assert len(layer_items) == 2
