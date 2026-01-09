@@ -271,7 +271,13 @@ Item {
     function refreshSelectionGeometryBounds() {
         var idx = Lucent.SelectionManager.selectedItemIndex;
         if (idx >= 0 && canvasModel) {
-            _selectionGeometryBounds = canvasModel.getGeometryBounds(idx);
+            // getGeometryBounds returns null for containers (layers/groups)
+            // Fall back to getBoundingBox which computes union of children
+            var bounds = canvasModel.getGeometryBounds(idx);
+            if (!bounds) {
+                bounds = canvasModel.getBoundingBox(idx);
+            }
+            _selectionGeometryBounds = bounds;
         } else {
             _selectionGeometryBounds = null;
         }
