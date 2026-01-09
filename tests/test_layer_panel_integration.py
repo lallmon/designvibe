@@ -243,6 +243,45 @@ class TestLayerPanelModelBehaviors:
         model.removeItem(1)
         assert model.count() == 1
 
+    def test_container_bounds_fallback_for_selection_overlay(self, model):
+        """Layers/groups need getBoundingBox for selection overlay.
+
+        getGeometryBounds returns None for containers (no geometry attribute),
+        but getBoundingBox computes union of children's bounds. The selection
+        overlay in Canvas.qml relies on this fallback behavior.
+        """
+        model.addLayer()
+        layer_data = model.getItemData(0)
+        layer_id = layer_data["id"]
+
+        # Add a child rectangle
+        model.addItem(
+            {
+                "type": "rectangle",
+                "name": "Child",
+                "geometry": {"x": 100, "y": 100, "width": 50, "height": 50},
+            }
+        )
+        model.reparentItem(1, layer_id)
+
+        # Find the layer's new index after reparent
+        layer_idx = None
+        for i in range(model.count()):
+            if model.getItemData(i)["type"] == "layer":
+                layer_idx = i
+                break
+
+        # getGeometryBounds returns None for layers (no geometry attribute)
+        assert model.getGeometryBounds(layer_idx) is None
+
+        # getBoundingBox returns union of children's bounds
+        bounds = model.getBoundingBox(layer_idx)
+        assert bounds is not None
+        assert bounds["x"] == 100
+        assert bounds["y"] == 100
+        assert bounds["width"] == 50
+        assert bounds["height"] == 50
+
     def test_model_roles_match_qml_expectations(self, model):
         """Verify model exposes roles that LayerPanel.qml binds to."""
         model.addLayer()
