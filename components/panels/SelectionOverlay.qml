@@ -2,17 +2,16 @@ import QtQuick
 import QtQuick.Shapes
 import ".." as Lucent
 
-// Renders a bounding box for the currently selected item in canvas coordinates.
-// The overlay transforms with the shape (translate, rotate, scale around origin).
-// Uses Shape/ShapePath for better thin line rendering at all zoom levels.
 Shape {
     id: selectionOverlay
 
-    property var geometryBounds  // Object with x, y, width, height (untransformed)
-    property var itemTransform   // Transform object with rotate, translateX, scaleX, etc.
+    property var geometryBounds
+    property var itemTransform
     property real zoomLevel: 1.0
     property real selectionPadding: 0
     property color accentColor: Lucent.Themed.selector
+
+    signal resizeRequested(var newBounds)
 
     readonly property real _geomX: geometryBounds ? geometryBounds.x : 0
     readonly property real _geomY: geometryBounds ? geometryBounds.y : 0
@@ -48,7 +47,20 @@ Shape {
         }
     ]
 
-    // ShapePath provides better thin line rendering than Rectangle border
+    readonly property real handleSize: 8 / zoomLevel
+
+    property bool isResizing: false
+    property real resizeCursorX: 0
+    property real resizeCursorY: 0
+
+    Lucent.ToolTipCanvas {
+        visible: selectionOverlay.isResizing
+        zoomLevel: selectionOverlay.zoomLevel
+        cursorX: selectionOverlay.resizeCursorX
+        cursorY: selectionOverlay.resizeCursorY
+        text: Math.round(selectionOverlay._geomWidth) + " × " + Math.round(selectionOverlay._geomHeight)
+    }
+
     ShapePath {
         strokeColor: selectionOverlay.accentColor
         strokeWidth: selectionOverlay.zoomLevel > 0 ? 1 / selectionOverlay.zoomLevel : 0
@@ -56,7 +68,6 @@ Shape {
         joinStyle: ShapePath.MiterJoin
         capStyle: ShapePath.FlatCap
 
-        // Draw closed rectangle path
         startX: 0
         startY: 0
         PathLine {
@@ -74,6 +85,121 @@ Shape {
         PathLine {
             x: 0
             y: 0
+        }
+    }
+
+    Repeater {
+        model: [
+            {
+                x: 0,
+                y: 0,
+                type: "tl"
+            },
+            {
+                x: 0.5,
+                y: 0,
+                type: "t"
+            },
+            {
+                x: 1,
+                y: 0,
+                type: "tr"
+            },
+            {
+                x: 1,
+                y: 0.5,
+                type: "r"
+            },
+            {
+                x: 1,
+                y: 1,
+                type: "br"
+            },
+            {
+                x: 0.5,
+                y: 1,
+                type: "b"
+            },
+            {
+                x: 0,
+                y: 1,
+                type: "bl"
+            },
+            {
+                x: 0,
+                y: 0.5,
+                type: "l"
+            }
+        ]
+
+        Rectangle {
+            id: handle
+            required property var modelData
+            required property int index
+
+            x: selectionOverlay.width * modelData.x - selectionOverlay.handleSize / 2
+            y: selectionOverlay.height * modelData.y - selectionOverlay.handleSize / 2
+            width: selectionOverlay.handleSize
+            height: selectionOverlay.handleSize
+            radius: selectionOverlay.handleSize / 2
+            color: selectionOverlay.accentColor
+
+            property var startBounds: null
+
+            DragHandler {
+                id: dragHandler
+                target: null
+
+                onActiveChanged: {
+                    selectionOverlay.isResizing = active;
+                    if (active) {
+                        handle.startBounds = {
+                            x: selectionOverlay._geomX,
+                            y: selectionOverlay._geomY,
+                            width: selectionOverlay._geomWidth,
+                            height: selectionOverlay._geomHeight
+                        };
+                    }
+                }
+
+                onTranslationChanged: {
+                    if (!active || !handle.startBounds)
+                        return;
+
+                    // Use raw translation for geometry changes (no scale compensation needed - DragHandler already accounts for transforms)
+                    var dx = translation.x;
+                    var dy = translation.y;
+                    var b = handle.startBounds;
+                    var t = handle.modelData.type;
+                    var newBounds = {
+                        x: b.x,
+                        y: b.y,
+                        width: b.width,
+                        height: b.height
+                    };
+
+                    // Horizontal resize
+                    if (t === "l" || t === "tl" || t === "bl") {
+                        newBounds.x = b.x + dx;
+                        newBounds.width = Math.max(1, b.width - dx);
+                    } else if (t === "r" || t === "tr" || t === "br") {
+                        newBounds.width = Math.max(1, b.width + dx);
+                    }
+
+                    // Vertical resize
+                    if (t === "t" || t === "tl" || t === "tr") {
+                        newBounds.y = b.y + dy;
+                        newBounds.height = Math.max(1, b.height - dy);
+                    } else if (t === "b" || t === "bl" || t === "br") {
+                        newBounds.height = Math.max(1, b.height + dy);
+                    }
+
+                    // Tooltip follows the handle's new position
+                    selectionOverlay.resizeCursorX = handle.x + handle.width / 2 + dx;
+                    selectionOverlay.resizeCursorY = handle.y + handle.height / 2 + dy;
+                    selectionOverlay.resizeRequested(newBounds);
+                }
+            }
         }
     }
 }

@@ -61,12 +61,18 @@ Item {
             }
         }
 
-        // Selection indicator overlay
         SelectionOverlay {
             id: selectionOverlay
             geometryBounds: root._selectionGeometryBounds
             itemTransform: root._selectionTransform
             zoomLevel: root.zoomLevel
+
+            onResizeRequested: function (newBounds) {
+                var idx = Lucent.SelectionManager.selectedItemIndex;
+                if (idx >= 0 && canvasModel) {
+                    canvasModel.setBoundingBox(idx, newBounds);
+                }
+            }
         }
 
         // Select tool for object selection (panning handled by Viewport)
