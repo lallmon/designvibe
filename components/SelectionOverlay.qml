@@ -17,6 +17,7 @@ Shape {
 
     signal resizeRequested(var newBounds)
     signal rotateRequested(real angle)
+    signal scaleResizeRequested(real scaleX, real scaleY, real anchorX, real anchorY)
 
     property bool shiftPressed: false
     property bool isRotating: false
@@ -34,26 +35,24 @@ Shape {
     readonly property real _originX: itemTransform ? (itemTransform.originX || 0) : 0
     readonly property real _originY: itemTransform ? (itemTransform.originY || 0) : 0
 
+    // Displayed size (geometry × scale) - what the user sees
+    readonly property real _displayedWidth: _geomWidth * _scaleX
+    readonly property real _displayedHeight: _geomHeight * _scaleY
+
     visible: geometryBounds !== null && geometryBounds !== undefined
 
-    x: _geomX - selectionPadding + _translateX
-    y: _geomY - selectionPadding + _translateY
-    width: _geomWidth + selectionPadding * 2
-    height: _geomHeight + selectionPadding * 2
+    // Position accounts for scale's effect on origin offset
+    x: _geomX + _translateX + (_geomWidth * _originX) - (_displayedWidth * _originX) - selectionPadding
+    y: _geomY + _translateY + (_geomHeight * _originY) - (_displayedHeight * _originY) - selectionPadding
+    width: _displayedWidth + selectionPadding * 2
+    height: _displayedHeight + selectionPadding * 2
 
-    transform: [
-        Scale {
-            origin.x: selectionOverlay.width * selectionOverlay._originX
-            origin.y: selectionOverlay.height * selectionOverlay._originY
-            xScale: selectionOverlay._scaleX
-            yScale: selectionOverlay._scaleY
-        },
-        Rotation {
-            origin.x: selectionOverlay.width * selectionOverlay._originX
-            origin.y: selectionOverlay.height * selectionOverlay._originY
-            angle: selectionOverlay._rotation
-        }
-    ]
+    // Only rotation - no scale (size already accounts for scale)
+    transform: Rotation {
+        origin.x: selectionOverlay.width * selectionOverlay._originX
+        origin.y: selectionOverlay.height * selectionOverlay._originY
+        angle: selectionOverlay._rotation
+    }
 
     readonly property real handleSize: 8 / zoomLevel
     readonly property real rotationArmLength: 30 / zoomLevel
@@ -111,6 +110,18 @@ Shape {
         color: selectionOverlay.accentColor
 
         property real startAngle: 0
+        property real initialCursorAngle: 0
+
+        // Helper to calculate angle from center to cursor
+        function calculateCursorAngle() {
+            // Use transformed center (geometry center + translation)
+            var centerX = selectionOverlay._geomX + selectionOverlay._geomWidth / 2 + selectionOverlay._translateX;
+            var centerY = selectionOverlay._geomY + selectionOverlay._geomHeight / 2 + selectionOverlay._translateY;
+
+            var dx = selectionOverlay.cursorX - centerX;
+            var dy = selectionOverlay.cursorY - centerY;
+            return Math.atan2(dx, -dy) * 180 / Math.PI;
+        }
 
         DragHandler {
             id: rotationDragHandler
@@ -119,7 +130,9 @@ Shape {
             onActiveChanged: {
                 selectionOverlay.isRotating = active;
                 if (active) {
+                    // Store starting rotation and cursor angle for delta calculation
                     rotationGrip.startAngle = selectionOverlay._rotation;
+                    rotationGrip.initialCursorAngle = rotationGrip.calculateCursorAngle();
                 }
             }
 
@@ -127,21 +140,24 @@ Shape {
                 if (!active)
                     return;
 
-                // Shape center in canvas coordinates
-                var centerX = selectionOverlay._geomX + selectionOverlay._geomWidth / 2;
-                var centerY = selectionOverlay._geomY + selectionOverlay._geomHeight / 2;
+                // Ignore micro-movements (prevents jump on initial press)
+                var moveDist = Math.sqrt(translation.x * translation.x + translation.y * translation.y);
+                if (moveDist < 2)
+                    return;
 
-                // Angle from center to cursor (atan2 with -dy because up is negative Y)
-                var dx = selectionOverlay.cursorX - centerX;
-                var dy = selectionOverlay.cursorY - centerY;
-                var rawAngle = Math.atan2(dx, -dy) * 180 / Math.PI;
+                // Calculate current cursor angle and compute delta from initial
+                var currentCursorAngle = rotationGrip.calculateCursorAngle();
+                var deltaAngle = currentCursorAngle - rotationGrip.initialCursorAngle;
+
+                // New rotation is starting angle plus the delta
+                var newAngle = rotationGrip.startAngle + deltaAngle;
 
                 // Snap to 15 degrees if Shift held
                 if (selectionOverlay.shiftPressed) {
-                    rawAngle = Math.round(rawAngle / 15) * 15;
+                    newAngle = Math.round(newAngle / 15) * 15;
                 }
 
-                selectionOverlay.rotateRequested(rawAngle);
+                selectionOverlay.rotateRequested(newAngle);
             }
         }
     }
@@ -203,8 +219,27 @@ Shape {
             color: selectionOverlay.accentColor
 
             property var startBounds: null
+            property var startTransform: null
             property real startCursorX: 0
             property real startCursorY: 0
+
+            // Anchor point is the opposite corner/edge (stays fixed during resize)
+            readonly property real anchorX: {
+                var t = modelData.type;
+                if (t.indexOf("l") >= 0)
+                    return 1.0;  // left edge → anchor right
+                if (t.indexOf("r") >= 0)
+                    return 0.0;  // right edge → anchor left
+                return 0.5;  // center (edge handles)
+            }
+            readonly property real anchorY: {
+                var t = modelData.type;
+                if (t.indexOf("t") >= 0)
+                    return 1.0;  // top edge → anchor bottom
+                if (t.indexOf("b") >= 0)
+                    return 0.0;  // bottom edge → anchor top
+                return 0.5;  // center (edge handles)
+            }
 
             DragHandler {
                 id: dragHandler
@@ -219,44 +254,73 @@ Shape {
                             width: selectionOverlay._geomWidth,
                             height: selectionOverlay._geomHeight
                         };
+                        handle.startTransform = {
+                            scaleX: selectionOverlay._scaleX,
+                            scaleY: selectionOverlay._scaleY,
+                            rotate: selectionOverlay._rotation
+                        };
                         handle.startCursorX = selectionOverlay.cursorX;
                         handle.startCursorY = selectionOverlay.cursorY;
                     }
                 }
 
                 onTranslationChanged: {
-                    if (!active || !handle.startBounds)
+                    if (!active || !handle.startBounds || !handle.startTransform)
                         return;
 
-                    // Use cursor delta in canvas coordinates for 1:1 movement
+                    // Get cursor delta in canvas coordinates
                     var dx = selectionOverlay.cursorX - handle.startCursorX;
                     var dy = selectionOverlay.cursorY - handle.startCursorY;
-                    var b = handle.startBounds;
+
+                    // Transform delta to local (unrotated) space
+                    var angleRad = -handle.startTransform.rotate * Math.PI / 180;
+                    var localDx = dx * Math.cos(angleRad) - dy * Math.sin(angleRad);
+                    var localDy = dx * Math.sin(angleRad) + dy * Math.cos(angleRad);
+
                     var t = handle.modelData.type;
-                    var newBounds = {
-                        x: b.x,
-                        y: b.y,
-                        width: b.width,
-                        height: b.height
-                    };
+                    var b = handle.startBounds;
+                    var st = handle.startTransform;
 
-                    // Horizontal resize
-                    if (t === "l" || t === "tl" || t === "bl") {
-                        newBounds.x = b.x + dx;
-                        newBounds.width = Math.max(1, b.width - dx);
-                    } else if (t === "r" || t === "tr" || t === "br") {
-                        newBounds.width = Math.max(1, b.width + dx);
+                    // Calculate displayed size (geometry × scale)
+                    var displayedWidth = b.width * st.scaleX;
+                    var displayedHeight = b.height * st.scaleY;
+
+                    var newScaleX = st.scaleX;
+                    var newScaleY = st.scaleY;
+
+                    // Horizontal scaling
+                    if (t.indexOf("l") >= 0) {
+                        // Left edge: negative delta grows
+                        var newDisplayedWidth = Math.max(1, displayedWidth - localDx);
+                        newScaleX = b.width > 0 ? newDisplayedWidth / b.width : st.scaleX;
+                    } else if (t.indexOf("r") >= 0) {
+                        // Right edge: positive delta grows
+                        var newDisplayedWidth = Math.max(1, displayedWidth + localDx);
+                        newScaleX = b.width > 0 ? newDisplayedWidth / b.width : st.scaleX;
                     }
 
-                    // Vertical resize
-                    if (t === "t" || t === "tl" || t === "tr") {
-                        newBounds.y = b.y + dy;
-                        newBounds.height = Math.max(1, b.height - dy);
-                    } else if (t === "b" || t === "bl" || t === "br") {
-                        newBounds.height = Math.max(1, b.height + dy);
+                    // Vertical scaling
+                    if (t.indexOf("t") >= 0) {
+                        // Top edge: negative delta grows
+                        var newDisplayedHeight = Math.max(1, displayedHeight - localDy);
+                        newScaleY = b.height > 0 ? newDisplayedHeight / b.height : st.scaleY;
+                    } else if (t.indexOf("b") >= 0) {
+                        // Bottom edge: positive delta grows
+                        var newDisplayedHeight = Math.max(1, displayedHeight + localDy);
+                        newScaleY = b.height > 0 ? newDisplayedHeight / b.height : st.scaleY;
                     }
 
-                    selectionOverlay.resizeRequested(newBounds);
+                    // Proportional scaling with Shift for corner handles
+                    if (selectionOverlay.shiftPressed && (t === "tl" || t === "tr" || t === "bl" || t === "br")) {
+                        // Use the larger scale change for proportional scaling
+                        var scaleRatioX = newScaleX / st.scaleX;
+                        var scaleRatioY = newScaleY / st.scaleY;
+                        var avgRatio = (Math.abs(scaleRatioX - 1) > Math.abs(scaleRatioY - 1)) ? scaleRatioX : scaleRatioY;
+                        newScaleX = st.scaleX * avgRatio;
+                        newScaleY = st.scaleY * avgRatio;
+                    }
+
+                    selectionOverlay.scaleResizeRequested(newScaleX, newScaleY, handle.anchorX, handle.anchorY);
                 }
             }
         }

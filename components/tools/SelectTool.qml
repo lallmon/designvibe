@@ -11,6 +11,17 @@ Item {
     property var viewportToCanvasCallback: null
     property var getBoundsCallback: null  // For checking if click is inside selected group
 
+    // When true, overlay handles are being used - don't interfere with dragging
+    property bool overlayActive: false
+
+    // Reset drag state when overlay becomes active to prevent drag after overlay release
+    onOverlayActiveChanged: {
+        if (overlayActive) {
+            clickedOnSelectedObject = false;
+            isDraggingObject = false;
+        }
+    }
+
     property bool isPanning: false
     property bool isSelecting: false
     property bool isDraggingObject: false
@@ -151,7 +162,8 @@ Item {
             return true;
         }
 
-        if (isSelecting && clickedOnSelectedObject && Lucent.SelectionManager.selectedItemIndex >= 0) {
+        // Don't drag object if overlay handles (resize/rotate) are being used
+        if (isSelecting && clickedOnSelectedObject && !overlayActive && Lucent.SelectionManager.selectedItemIndex >= 0) {
             var dx = Math.abs(screenX - selectPressX);
             var dy = Math.abs(screenY - selectPressY);
 

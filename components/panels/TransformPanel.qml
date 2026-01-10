@@ -635,5 +635,49 @@ Item {
                 }
             }
         }
+
+        // Flatten Transform button row
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 8
+            Layout.bottomMargin: 8
+            Layout.leftMargin: Lucent.Styles.pad.sm
+            Layout.rightMargin: Lucent.Styles.pad.sm
+            spacing: 8
+
+            Item {
+                Layout.fillWidth: true
+            }  // Left spacer
+
+            Button {
+                id: flattenButton
+                text: qsTr("Flatten Transform")
+                enabled: root.controlsEnabled && root.currentTransform && !isIdentityTransform()
+
+                function isIdentityTransform() {
+                    if (!root.currentTransform)
+                        return true;
+                    var t = root.currentTransform;
+                    return (t.rotate === 0 || t.rotate === undefined) && (t.scaleX === 1 || t.scaleX === undefined) && (t.scaleY === 1 || t.scaleY === undefined) && (t.translateX === 0 || t.translateX === undefined) && (t.translateY === 0 || t.translateY === undefined);
+                }
+
+                onClicked: {
+                    var idx = Lucent.SelectionManager.selectedItemIndex;
+                    if (idx >= 0 && canvasModel) {
+                        canvasModel.bakeTransform(idx);
+                        appController.focusCanvas();
+                    }
+                }
+
+                Lucent.ToolTipStyled {
+                    visible: flattenButton.hovered
+                    text: qsTr("Apply transform to geometry and reset to identity")
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }  // Right spacer
+        }
     }
 }

@@ -84,6 +84,11 @@ Item {
             onIsRotatingChanged: {
                 if (isRotating) {
                     canvasModel.beginTransaction();
+                    // Move origin to center BEFORE rotation starts to prevent visual jump
+                    var idx = Lucent.SelectionManager.selectedItemIndex;
+                    if (idx >= 0) {
+                        canvasModel.ensureOriginCentered(idx);
+                    }
                 } else {
                     canvasModel.endTransaction();
                 }
@@ -99,7 +104,15 @@ Item {
             onRotateRequested: function (angle) {
                 var idx = Lucent.SelectionManager.selectedItemIndex;
                 if (idx >= 0 && canvasModel) {
+                    // Origin is already at center (set in onIsRotatingChanged)
                     canvasModel.updateTransformProperty(idx, "rotate", angle);
+                }
+            }
+
+            onScaleResizeRequested: function (scaleX, scaleY, anchorX, anchorY) {
+                var idx = Lucent.SelectionManager.selectedItemIndex;
+                if (idx >= 0 && canvasModel) {
+                    canvasModel.applyScaleResize(idx, scaleX, scaleY, anchorX, anchorY);
                 }
             }
         }
@@ -114,7 +127,15 @@ Item {
                     var angle = root._selectionTransform ? Math.round(root._selectionTransform.rotate || 0) : 0;
                     return angle + "°";
                 }
-                return root._selectionGeometryBounds ? Math.round(root._selectionGeometryBounds.width) + " × " + Math.round(root._selectionGeometryBounds.height) : "";
+                // Show displayed size (geometry × scale) during resize
+                if (root._selectionGeometryBounds) {
+                    var scaleX = root._selectionTransform ? (root._selectionTransform.scaleX || 1) : 1;
+                    var scaleY = root._selectionTransform ? (root._selectionTransform.scaleY || 1) : 1;
+                    var displayedWidth = Math.round(root._selectionGeometryBounds.width * scaleX);
+                    var displayedHeight = Math.round(root._selectionGeometryBounds.height * scaleY);
+                    return displayedWidth + " × " + displayedHeight;
+                }
+                return "";
             }
         }
 
@@ -127,6 +148,8 @@ Item {
             getBoundsCallback: function (idx) {
                 return canvasModel.getBoundingBox(idx);
             }
+            // Don't drag object when overlay resize/rotate handles are being used
+            overlayActive: selectionOverlay.isResizing || selectionOverlay.isRotating
 
             onPanDelta: (dx, dy) => {
                 root.panRequested(dx, dy);
