@@ -75,6 +75,14 @@ Item {
             }
         }
 
+        Lucent.ToolTipCanvas {
+            visible: selectionOverlay.isResizing && root._selectionGeometryBounds
+            zoomLevel: root.zoomLevel
+            cursorX: root.cursorX
+            cursorY: root.cursorY
+            text: root._selectionGeometryBounds ? Math.round(root._selectionGeometryBounds.width) + " × " + Math.round(root._selectionGeometryBounds.height) : ""
+        }
+
         // Select tool for object selection (panning handled by Viewport)
         SelectTool {
             id: selectTool

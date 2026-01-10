@@ -48,18 +48,7 @@ Shape {
     ]
 
     readonly property real handleSize: 8 / zoomLevel
-
     property bool isResizing: false
-    property real resizeCursorX: 0
-    property real resizeCursorY: 0
-
-    Lucent.ToolTipCanvas {
-        visible: selectionOverlay.isResizing
-        zoomLevel: selectionOverlay.zoomLevel
-        cursorX: selectionOverlay.resizeCursorX
-        cursorY: selectionOverlay.resizeCursorY
-        text: Math.round(selectionOverlay._geomWidth) + " × " + Math.round(selectionOverlay._geomHeight)
-    }
 
     ShapePath {
         strokeColor: selectionOverlay.accentColor
@@ -194,9 +183,6 @@ Shape {
                         newBounds.height = Math.max(1, b.height + dy);
                     }
 
-                    // Tooltip follows the handle's new position
-                    selectionOverlay.resizeCursorX = handle.x + handle.width / 2 + dx;
-                    selectionOverlay.resizeCursorY = handle.y + handle.height / 2 + dy;
                     selectionOverlay.resizeRequested(newBounds);
                 }
             }
