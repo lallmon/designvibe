@@ -88,8 +88,8 @@ Item {
     readonly property int labelSize: 10
     readonly property color labelColor: themePalette.text
 
-    // Proportional scaling toggle
-    property bool proportionalScale: true
+    // Proportional scaling toggle (off by default for free resize)
+    property bool proportionalScale: false
 
     // Computed canvas position: geometry origin point + translation (using untransformed geometry)
     readonly property real displayedX: {
@@ -141,30 +141,50 @@ Item {
         canvasModel.setItemTransform(idx, newTransform);
     }
 
-    function updateBounds(property, value) {
+    function updateDisplayedSize(property, value) {
+        // Changes scale to achieve the desired displayed size (geometry × scale = value)
         var idx = Lucent.SelectionManager.selectedItemIndex;
         if (idx < 0 || !canvasModel || !geometryBounds)
             return;
 
         var t = currentTransform || {};
-        var scaleX = t.scaleX || 1;
-        var scaleY = t.scaleY || 1;
+        var currentScaleX = t.scaleX || 1;
+        var currentScaleY = t.scaleY || 1;
 
-        // User enters displayed size (geometry × scale), so divide by scale to get geometry
-        var newBounds = {
-            x: geometryBounds.x,
-            y: geometryBounds.y,
-            width: geometryBounds.width,
-            height: geometryBounds.height
-        };
+        // Prevent division by zero
+        if (geometryBounds.width <= 0 || geometryBounds.height <= 0)
+            return;
+
+        // Clamp to minimum displayed size
+        var minDisplayed = 1;
+        value = Math.max(minDisplayed, value);
 
         if (property === "width") {
-            newBounds.width = value / scaleX;
+            var newScaleX = value / geometryBounds.width;
+            if (proportionalScale) {
+                // Apply same scale ratio to both axes
+                var ratio = newScaleX / currentScaleX;
+                var newScaleY = currentScaleY * ratio;
+                canvasModel.beginTransaction();
+                updateTransform("scaleX", newScaleX);
+                updateTransform("scaleY", newScaleY);
+                canvasModel.endTransaction();
+            } else {
+                updateTransform("scaleX", newScaleX);
+            }
         } else if (property === "height") {
-            newBounds.height = value / scaleY;
+            var newScaleY = value / geometryBounds.height;
+            if (proportionalScale) {
+                var ratio = newScaleY / currentScaleY;
+                var newScaleX = currentScaleX * ratio;
+                canvasModel.beginTransaction();
+                updateTransform("scaleX", newScaleX);
+                updateTransform("scaleY", newScaleY);
+                canvasModel.endTransaction();
+            } else {
+                updateTransform("scaleY", newScaleY);
+            }
         }
-
-        canvasModel.setBoundingBox(idx, newBounds);
     }
 
     function updateTransform(property, value) {
@@ -256,10 +276,11 @@ Item {
             }
         }
 
-        // Transform properties: Origin, X/W, Y/H
+        // Transform properties: Origin, X/Y, W/H
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 4
+            Layout.bottomMargin: 8
             Layout.leftMargin: Lucent.Styles.pad.sm
             Layout.rightMargin: Lucent.Styles.pad.sm
             spacing: 8
@@ -343,7 +364,16 @@ Item {
                 }
             }
 
-            // Column 2: X and W
+            // Vertical divider between origin and position
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.fillHeight: true
+                Layout.topMargin: 4
+                Layout.bottomMargin: 4
+                color: root.themePalette.mid
+            }
+
+            // Column 2: Position (X, Y)
             GridLayout {
                 columns: 2
                 rowSpacing: 4
@@ -368,6 +398,40 @@ Item {
                 }
 
                 Label {
+                    text: qsTr("Y:")
+                    font.pixelSize: root.labelSize
+                    color: root.labelColor
+                }
+                SpinBox {
+                    from: -100000
+                    to: 100000
+                    value: Math.round(root.displayedY)
+                    editable: true
+                    Layout.fillWidth: true
+                    onValueModified: {
+                        root.updatePosition("y", value);
+                        appController.focusCanvas();
+                    }
+                }
+            }
+
+            // Vertical divider between position and size
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.fillHeight: true
+                Layout.topMargin: 4
+                Layout.bottomMargin: 4
+                color: root.themePalette.mid
+            }
+
+            // Column 3: Size (W, H)
+            GridLayout {
+                columns: 2
+                rowSpacing: 4
+                columnSpacing: 4
+                Layout.fillWidth: true
+
+                Label {
                     text: qsTr("W:")
                     font.pixelSize: root.labelSize
                     color: root.labelColor
@@ -384,32 +448,7 @@ Item {
                     editable: true
                     Layout.fillWidth: true
                     onValueModified: {
-                        root.updateBounds("width", value);
-                        appController.focusCanvas();
-                    }
-                }
-            }
-
-            // Column 3: Y and H
-            GridLayout {
-                columns: 2
-                rowSpacing: 4
-                columnSpacing: 4
-                Layout.fillWidth: true
-
-                Label {
-                    text: qsTr("Y:")
-                    font.pixelSize: root.labelSize
-                    color: root.labelColor
-                }
-                SpinBox {
-                    from: -100000
-                    to: 100000
-                    value: Math.round(root.displayedY)
-                    editable: true
-                    Layout.fillWidth: true
-                    onValueModified: {
-                        root.updatePosition("y", value);
+                        root.updateDisplayedSize("width", value);
                         appController.focusCanvas();
                     }
                 }
@@ -431,119 +470,59 @@ Item {
                     editable: true
                     Layout.fillWidth: true
                     onValueModified: {
-                        root.updateBounds("height", value);
+                        root.updateDisplayedSize("height", value);
                         appController.focusCanvas();
                     }
                 }
             }
-        }
 
-        // Scale row
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: 4
-            Layout.leftMargin: Lucent.Styles.pad.sm
-            Layout.rightMargin: Lucent.Styles.pad.sm
-            spacing: 8
-            enabled: root.controlsEnabled
-            opacity: root.controlsEnabled ? 1.0 : 0.5
+            // Proportional size toggle with visual connectors
+            ColumnLayout {
+                spacing: 0
+                Layout.alignment: Qt.AlignVCenter
 
-            Label {
-                text: qsTr("Scale X:")
-                font.pixelSize: root.labelSize
-                color: root.labelColor
-            }
-            SpinBox {
-                id: scaleXSpinBox
-                from: 1
-                to: 1000
-                value: root.currentTransform ? Math.round((root.currentTransform.scaleX || 1) * 100) : 100
-                editable: true
-                Layout.fillWidth: true
-
-                property int decimals: 0
-                textFromValue: function (value, locale) {
-                    return value + "%";
-                }
-                valueFromText: function (text, locale) {
-                    return parseInt(text.replace("%", "")) || 100;
+                // Top connector line (links to W field)
+                Rectangle {
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 8
+                    Layout.alignment: Qt.AlignHCenter
+                    color: proportionalToggle.checked ? root.themePalette.highlight : root.themePalette.mid
                 }
 
-                onValueModified: {
-                    var newScaleX = value / 100.0;
-                    if (root.proportionalScale) {
-                        canvasModel.beginTransaction();
-                        root.updateTransform("scaleX", newScaleX);
-                        root.updateTransform("scaleY", newScaleX);
-                        canvasModel.endTransaction();
-                    } else {
-                        root.updateTransform("scaleX", newScaleX);
+                Button {
+                    id: proportionalToggle
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
+                    checkable: true
+                    checked: root.proportionalScale
+                    onCheckedChanged: root.proportionalScale = checked
+
+                    background: Rectangle {
+                        color: proportionalToggle.checked ? root.themePalette.highlight : root.themePalette.button
+                        border.color: root.themePalette.mid
+                        border.width: 1
+                        radius: 2
                     }
-                    appController.focusCanvas();
-                }
-            }
 
-            Label {
-                text: qsTr("Y:")
-                font.pixelSize: root.labelSize
-                color: root.labelColor
-            }
-            SpinBox {
-                id: scaleYSpinBox
-                from: 1
-                to: 1000
-                value: root.currentTransform ? Math.round((root.currentTransform.scaleY || 1) * 100) : 100
-                editable: true
-                Layout.fillWidth: true
-
-                property int decimals: 0
-                textFromValue: function (value, locale) {
-                    return value + "%";
-                }
-                valueFromText: function (text, locale) {
-                    return parseInt(text.replace("%", "")) || 100;
-                }
-
-                onValueModified: {
-                    var newScaleY = value / 100.0;
-                    if (root.proportionalScale) {
-                        canvasModel.beginTransaction();
-                        root.updateTransform("scaleX", newScaleY);
-                        root.updateTransform("scaleY", newScaleY);
-                        canvasModel.endTransaction();
-                    } else {
-                        root.updateTransform("scaleY", newScaleY);
+                    contentItem: Lucent.PhIcon {
+                        name: proportionalToggle.checked ? "lock" : "lock-open"
+                        size: 14
+                        color: proportionalToggle.checked ? root.themePalette.highlightedText : root.themePalette.buttonText
+                        anchors.centerIn: parent
                     }
-                    appController.focusCanvas();
-                }
-            }
 
-            // Proportional scale toggle
-            Button {
-                id: proportionalToggle
-                Layout.preferredWidth: 24
-                Layout.preferredHeight: 24
-                checkable: true
-                checked: root.proportionalScale
-                onCheckedChanged: root.proportionalScale = checked
-
-                background: Rectangle {
-                    color: proportionalToggle.checked ? root.themePalette.highlight : root.themePalette.button
-                    border.color: root.themePalette.mid
-                    border.width: 1
-                    radius: 2
+                    Lucent.ToolTipStyled {
+                        visible: proportionalToggle.hovered
+                        text: proportionalToggle.checked ? qsTr("Constrain proportions") : qsTr("Free resize")
+                    }
                 }
 
-                contentItem: Lucent.PhIcon {
-                    name: proportionalToggle.checked ? "lock" : "lock-open"
-                    size: 14
-                    color: proportionalToggle.checked ? root.themePalette.highlightedText : root.themePalette.buttonText
-                    anchors.centerIn: parent
-                }
-
-                Lucent.ToolTipStyled {
-                    visible: proportionalToggle.hovered
-                    text: proportionalToggle.checked ? qsTr("Proportional scaling on") : qsTr("Proportional scaling off")
+                // Bottom connector line (links to H field)
+                Rectangle {
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 8
+                    Layout.alignment: Qt.AlignHCenter
+                    color: proportionalToggle.checked ? root.themePalette.highlight : root.themePalette.mid
                 }
             }
         }
