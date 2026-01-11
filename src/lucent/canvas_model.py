@@ -764,9 +764,26 @@ class CanvasModel(QAbstractListModel):
             return None
         return item.transform.to_dict()
 
+    @staticmethod
+    def _normalizeRotation(degrees: float) -> float:
+        """Normalize rotation to 0-360° range.
+
+        Args:
+            degrees: Rotation in degrees (any value).
+
+        Returns:
+            Rotation normalized to 0 <= value < 360.
+        """
+        normalized = degrees % 360
+        if normalized < 0:
+            normalized += 360
+        return normalized
+
     @Slot(int, dict)
     def setItemTransform(self, index: int, transform: Dict[str, Any]) -> None:
         """Set transform properties for an item.
+
+        Rotation values are normalized to 0-360° range.
 
         Args:
             index: Index of the item.
@@ -777,6 +794,11 @@ class CanvasModel(QAbstractListModel):
         item = self._items[index]
         if not hasattr(item, "transform"):
             return
+
+        # Normalize rotation to 0-360° range
+        if "rotate" in transform:
+            transform = dict(transform)  # Copy to avoid mutating input
+            transform["rotate"] = self._normalizeRotation(transform["rotate"])
 
         # Get current item data and update transform
         current_data = self._itemToDict(item)
@@ -804,6 +826,260 @@ class CanvasModel(QAbstractListModel):
             "originY": current.get("originY", 0),
         }
         new_transform[prop] = value
+        self.setItemTransform(index, new_transform)
+
+    @Slot(int, result="QVariant")  # type: ignore[arg-type]
+    def getDisplayedPosition(self, index: int) -> Optional[Dict[str, float]]:
+        """Get displayed X, Y position based on geometry, origin, and translation.
+
+        The displayed position is where the origin point appears after transforms.
+        Formula: displayedX = geometry.x + geometry.width * originX + translateX
+
+        Args:
+            index: Index of the item.
+
+        Returns:
+            Dictionary with x, y or None if not applicable.
+        """
+        if not (0 <= index < len(self._items)):
+            return None
+
+        item = self._items[index]
+        if not hasattr(item, "transform"):
+            return None
+
+        bounds = compute_geometry_bounds(item)
+        if not bounds:
+            return None
+
+        current = self.getItemTransform(index) or {}
+        origin_x = current.get("originX", 0)
+        origin_y = current.get("originY", 0)
+        translate_x = current.get("translateX", 0)
+        translate_y = current.get("translateY", 0)
+
+        return {
+            "x": bounds["x"] + bounds["width"] * origin_x + translate_x,
+            "y": bounds["y"] + bounds["height"] * origin_y + translate_y,
+        }
+
+    @Slot(int, result="QVariant")  # type: ignore[arg-type]
+    def getDisplayedSize(self, index: int) -> Optional[Dict[str, float]]:
+        """Get displayed width and height based on geometry × scale.
+
+        Args:
+            index: Index of the item.
+
+        Returns:
+            Dictionary with width, height or None if not applicable.
+        """
+        if not (0 <= index < len(self._items)):
+            return None
+
+        item = self._items[index]
+        if not hasattr(item, "transform"):
+            return None
+
+        bounds = compute_geometry_bounds(item)
+        if not bounds:
+            return None
+
+        current = self.getItemTransform(index) or {}
+        scale_x = current.get("scaleX", 1)
+        scale_y = current.get("scaleY", 1)
+
+        return {
+            "width": bounds["width"] * scale_x,
+            "height": bounds["height"] * scale_y,
+        }
+
+    @Slot(int, result=bool)
+    def hasNonIdentityTransform(self, index: int) -> bool:
+        """Check if an item has a non-identity transform.
+
+        Returns True if rotation, scale, or translation differs from identity.
+
+        Args:
+            index: Index of the item.
+
+        Returns:
+            True if transform differs from identity, False otherwise.
+        """
+        if not (0 <= index < len(self._items)):
+            return False
+
+        item = self._items[index]
+        if not hasattr(item, "transform"):
+            return False
+
+        current = self.getItemTransform(index) or {}
+
+        return (
+            current.get("rotate", 0) != 0
+            or current.get("scaleX", 1) != 1
+            or current.get("scaleY", 1) != 1
+            or current.get("translateX", 0) != 0
+            or current.get("translateY", 0) != 0
+        )
+
+    @Slot(int, str, float)
+    def setItemPosition(self, index: int, axis: str, value: float) -> None:
+        """Set X or Y position, adjusting translation to place origin at target.
+
+        Args:
+            index: Index of the item.
+            axis: "x" or "y".
+            value: New position value in canvas coordinates.
+        """
+        if not (0 <= index < len(self._items)):
+            return
+
+        item = self._items[index]
+        if not hasattr(item, "transform"):
+            return
+
+        bounds = compute_geometry_bounds(item)
+        if not bounds:
+            return
+
+        current = self.getItemTransform(index) or {}
+        new_transform = {
+            "translateX": current.get("translateX", 0),
+            "translateY": current.get("translateY", 0),
+            "rotate": current.get("rotate", 0),
+            "scaleX": current.get("scaleX", 1),
+            "scaleY": current.get("scaleY", 1),
+            "originX": current.get("originX", 0),
+            "originY": current.get("originY", 0),
+        }
+
+        # translateX = value - geometry.x - geometry.width * originX
+        if axis == "x":
+            new_transform["translateX"] = (
+                value - bounds["x"] - bounds["width"] * new_transform["originX"]
+            )
+        else:
+            new_transform["translateY"] = (
+                value - bounds["y"] - bounds["height"] * new_transform["originY"]
+            )
+
+        self.setItemTransform(index, new_transform)
+
+    @Slot(int, str, float, bool)
+    def setDisplayedSize(
+        self, index: int, dimension: str, value: float, proportional: bool
+    ) -> None:
+        """Set displayed width or height by adjusting scale.
+
+        Args:
+            index: Index of the item.
+            dimension: "width" or "height".
+            value: Target displayed size in pixels.
+            proportional: If True, scale both axes proportionally.
+        """
+        if not (0 <= index < len(self._items)):
+            return
+
+        item = self._items[index]
+        if not hasattr(item, "transform"):
+            return
+
+        bounds = compute_geometry_bounds(item)
+        if not bounds:
+            return
+
+        # Prevent division by zero
+        if bounds["width"] <= 0 or bounds["height"] <= 0:
+            return
+
+        # Minimum displayed size is 1px
+        value = max(1.0, value)
+
+        current = self.getItemTransform(index) or {}
+        current_scale_x = current.get("scaleX", 1)
+        current_scale_y = current.get("scaleY", 1)
+
+        if dimension == "width":
+            new_scale_x = value / bounds["width"]
+            if proportional:
+                ratio = new_scale_x / current_scale_x
+                new_scale_y = current_scale_y * ratio
+                self.beginTransaction()
+                self.updateTransformProperty(index, "scaleX", new_scale_x)
+                self.updateTransformProperty(index, "scaleY", new_scale_y)
+                self.endTransaction()
+            else:
+                self.updateTransformProperty(index, "scaleX", new_scale_x)
+        else:
+            new_scale_y = value / bounds["height"]
+            if proportional:
+                ratio = new_scale_y / current_scale_y
+                new_scale_x = current_scale_x * ratio
+                self.beginTransaction()
+                self.updateTransformProperty(index, "scaleX", new_scale_x)
+                self.updateTransformProperty(index, "scaleY", new_scale_y)
+                self.endTransaction()
+            else:
+                self.updateTransformProperty(index, "scaleY", new_scale_y)
+
+    @Slot(int, float, float)
+    def setItemOrigin(self, index: int, new_ox: float, new_oy: float) -> None:
+        """Change origin point while maintaining visual position.
+
+        Adjusts translation to compensate for the origin change so the item
+        appears in the same position on canvas.
+
+        Args:
+            index: Index of the item.
+            new_ox: New origin X (0=left, 0.5=center, 1=right).
+            new_oy: New origin Y (0=top, 0.5=center, 1=bottom).
+        """
+        import math
+
+        if not (0 <= index < len(self._items)):
+            return
+
+        item = self._items[index]
+        if not hasattr(item, "transform"):
+            return
+
+        bounds = compute_geometry_bounds(item)
+        if not bounds:
+            return
+
+        current = self.getItemTransform(index) or {}
+        old_ox = current.get("originX", 0)
+        old_oy = current.get("originY", 0)
+        rotation = current.get("rotate", 0)
+        scale_x = current.get("scaleX", 1)
+        scale_y = current.get("scaleY", 1)
+        old_tx = current.get("translateX", 0)
+        old_ty = current.get("translateY", 0)
+
+        # Adjust translation to keep shape visually in place when origin changes
+        # Formula: adjustment = delta - R(S(delta))
+        dx = (old_ox - new_ox) * bounds["width"]
+        dy = (old_oy - new_oy) * bounds["height"]
+
+        scaled_dx = dx * scale_x
+        scaled_dy = dy * scale_y
+
+        radians = rotation * math.pi / 180
+        cos_r = math.cos(radians)
+        sin_r = math.sin(radians)
+        rotated_scaled_dx = scaled_dx * cos_r - scaled_dy * sin_r
+        rotated_scaled_dy = scaled_dx * sin_r + scaled_dy * cos_r
+
+        new_transform = {
+            "translateX": old_tx + dx - rotated_scaled_dx,
+            "translateY": old_ty + dy - rotated_scaled_dy,
+            "rotate": rotation,
+            "scaleX": scale_x,
+            "scaleY": scale_y,
+            "originX": new_ox,
+            "originY": new_oy,
+        }
+
         self.setItemTransform(index, new_transform)
 
     @Slot(int, float, float, float, float)

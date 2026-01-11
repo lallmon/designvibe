@@ -12,60 +12,28 @@ Item {
     readonly property SystemPalette themePalette: Lucent.Themed.palette
 
     readonly property var selectedItem: Lucent.SelectionManager.selectedItem
+    readonly property int selectedIndex: Lucent.SelectionManager.selectedItemIndex
+    readonly property bool hasValidSelection: selectedIndex >= 0 && canvasModel
 
-    // Check if the selected item supports bounding box editing
-    readonly property bool hasEditableBounds: {
-        if (!selectedItem)
-            return false;
-        var t = selectedItem.type;
-        return t === "rectangle" || t === "ellipse" || t === "path" || t === "text";
-    }
+    readonly property bool hasEditableBounds: selectedItem && ["rectangle", "ellipse", "path", "text"].includes(selectedItem.type)
 
-    // Check if selected item is effectively locked
-    readonly property bool isLocked: (Lucent.SelectionManager.selectedItemIndex >= 0) && canvasModel && canvasModel.isEffectivelyLocked(Lucent.SelectionManager.selectedItemIndex)
+    readonly property bool isLocked: hasValidSelection && canvasModel.isEffectivelyLocked(selectedIndex)
 
-    // Current bounding box from the model (transformed) - updated reactively via signal
-    property var currentBounds: null
-
-    // Current geometry bounds (untransformed) - for position calculations
-    property var geometryBounds: null
-
-    // Current transform - updated reactively via signal
     property var currentTransform: null
 
-    function refreshBounds() {
-        var idx = Lucent.SelectionManager.selectedItemIndex;
-        if (idx >= 0 && canvasModel) {
-            currentBounds = canvasModel.getBoundingBox(idx);
-            geometryBounds = canvasModel.getGeometryBounds(idx);
-        } else {
-            currentBounds = null;
-            geometryBounds = null;
-        }
-    }
-
     function refreshTransform() {
-        var idx = Lucent.SelectionManager.selectedItemIndex;
-        if (idx >= 0 && canvasModel) {
-            currentTransform = canvasModel.getItemTransform(idx);
-        } else {
-            currentTransform = null;
-        }
+        currentTransform = hasValidSelection ? canvasModel.getItemTransform(selectedIndex) : null;
     }
 
     Connections {
         target: canvasModel
         function onItemTransformChanged(index) {
-            if (index === Lucent.SelectionManager.selectedItemIndex) {
+            if (index === root.selectedIndex)
                 root.refreshTransform();
-                root.refreshBounds();
-            }
         }
         function onItemModified(index) {
-            if (index === Lucent.SelectionManager.selectedItemIndex) {
+            if (index === root.selectedIndex)
                 root.refreshTransform();
-                root.refreshBounds();
-            }
         }
     }
 
@@ -73,158 +41,31 @@ Item {
         target: Lucent.SelectionManager
         function onSelectedItemIndexChanged() {
             root.refreshTransform();
-            root.refreshBounds();
         }
     }
 
-    Component.onCompleted: {
-        refreshTransform();
-        refreshBounds();
-    }
+    Component.onCompleted: refreshTransform()
 
-    // Controls are enabled only when an editable item is selected and not locked
     readonly property bool controlsEnabled: hasEditableBounds && !isLocked
 
     readonly property int labelSize: 10
     readonly property color labelColor: themePalette.text
 
-    // Proportional scaling toggle
-    property bool proportionalScale: true
+    property bool proportionalScale: false
 
-    // Computed canvas position: geometry origin point + translation (using untransformed geometry)
-    readonly property real displayedX: {
-        if (!geometryBounds)
-            return 0;
-        var t = currentTransform;
-        var originX = t ? (t.originX || 0) : 0;
-        var translateX = t ? (t.translateX || 0) : 0;
-        return geometryBounds.x + geometryBounds.width * originX + translateX;
-    }
+    // Displayed position and size from model
+    readonly property var displayedPosition: hasValidSelection ? canvasModel.getDisplayedPosition(selectedIndex) : null
+    readonly property real displayedX: displayedPosition ? displayedPosition.x : 0
+    readonly property real displayedY: displayedPosition ? displayedPosition.y : 0
 
-    readonly property real displayedY: {
-        if (!geometryBounds)
-            return 0;
-        var t = currentTransform;
-        var originY = t ? (t.originY || 0) : 0;
-        var translateY = t ? (t.translateY || 0) : 0;
-        return geometryBounds.y + geometryBounds.height * originY + translateY;
-    }
+    readonly property var displayedSize: hasValidSelection ? canvasModel.getDisplayedSize(selectedIndex) : null
+    readonly property real displayedWidth: displayedSize ? displayedSize.width : 0
+    readonly property real displayedHeight: displayedSize ? displayedSize.height : 0
 
-    // Update translation to achieve a desired canvas position for the origin point
-    function updatePosition(axis, newValue) {
-        var idx = Lucent.SelectionManager.selectedItemIndex;
-        if (idx < 0 || !canvasModel || !geometryBounds)
-            return;
-
-        var t = currentTransform || {};
-        var originX = t.originX || 0;
-        var originY = t.originY || 0;
-
-        var newTransform = {
-            translateX: t.translateX || 0,
-            translateY: t.translateY || 0,
-            rotate: t.rotate || 0,
-            scaleX: t.scaleX || 1,
-            scaleY: t.scaleY || 1,
-            originX: originX,
-            originY: originY
-        };
-
-        if (axis === "x") {
-            // newValue = geometry.x + geometry.width * originX + translateX
-            // So: translateX = newValue - geometry.x - geometry.width * originX
-            newTransform.translateX = newValue - geometryBounds.x - geometryBounds.width * originX;
-        } else if (axis === "y") {
-            newTransform.translateY = newValue - geometryBounds.y - geometryBounds.height * originY;
-        }
-
-        canvasModel.setItemTransform(idx, newTransform);
-    }
-
-    function updateBounds(property, value) {
-        var idx = Lucent.SelectionManager.selectedItemIndex;
-        if (idx < 0 || !canvasModel || !geometryBounds)
-            return;
-
-        var t = currentTransform || {};
-        var scaleX = t.scaleX || 1;
-        var scaleY = t.scaleY || 1;
-
-        // User enters displayed size (geometry × scale), so divide by scale to get geometry
-        var newBounds = {
-            x: geometryBounds.x,
-            y: geometryBounds.y,
-            width: geometryBounds.width,
-            height: geometryBounds.height
-        };
-
-        if (property === "width") {
-            newBounds.width = value / scaleX;
-        } else if (property === "height") {
-            newBounds.height = value / scaleY;
-        }
-
-        canvasModel.setBoundingBox(idx, newBounds);
-    }
-
-    function updateTransform(property, value) {
-        var idx = Lucent.SelectionManager.selectedItemIndex;
-        if (idx >= 0 && canvasModel) {
-            canvasModel.updateTransformProperty(idx, property, value);
-        }
-    }
-
-    function setOrigin(newOx, newOy) {
-        var idx = Lucent.SelectionManager.selectedItemIndex;
-        if (idx < 0 || !canvasModel)
-            return;
-
-        var bounds = canvasModel.getGeometryBounds(idx);
-        if (!bounds)
-            return;
-
-        var oldOx = currentTransform ? (currentTransform.originX || 0) : 0;
-        var oldOy = currentTransform ? (currentTransform.originY || 0) : 0;
-        var rotation = currentTransform ? (currentTransform.rotate || 0) : 0;
-        var scaleX = currentTransform ? (currentTransform.scaleX || 1) : 1;
-        var scaleY = currentTransform ? (currentTransform.scaleY || 1) : 1;
-        var oldTx = currentTransform ? (currentTransform.translateX || 0) : 0;
-        var oldTy = currentTransform ? (currentTransform.translateY || 0) : 0;
-
-        // Adjust translation to keep shape visually in place when origin changes
-        // Formula: adjustment = delta - R(S(delta))
-        // Where delta is unscaled displacement, R is rotation, S is scale
-        var dx = (oldOx - newOx) * bounds.width;
-        var dy = (oldOy - newOy) * bounds.height;
-
-        // Scale the displacement
-        var scaledDx = dx * scaleX;
-        var scaledDy = dy * scaleY;
-
-        // Rotate the scaled displacement
-        var radians = rotation * Math.PI / 180;
-        var cos = Math.cos(radians);
-        var sin = Math.sin(radians);
-        var rotatedScaledDx = scaledDx * cos - scaledDy * sin;
-        var rotatedScaledDy = scaledDx * sin + scaledDy * cos;
-
-        // Adjustment = unscaled delta - rotated scaled delta
-        var adjustX = dx - rotatedScaledDx;
-        var adjustY = dy - rotatedScaledDy;
-
-        var newTransform = {
-            translateX: oldTx + adjustX,
-            translateY: oldTy + adjustY,
-            rotate: rotation,
-            scaleX: scaleX,
-            scaleY: currentTransform ? (currentTransform.scaleY || 1) : 1,
-            originX: newOx,
-            originY: newOy
-        };
-
-        canvasModel.setItemTransform(idx, newTransform);
-        refreshTransform();
-    }
+    // Transform state for rotation display and origin buttons
+    readonly property real currentRotation: currentTransform ? (currentTransform.rotate ?? 0) : 0
+    readonly property real currentOriginX: currentTransform ? (currentTransform.originX ?? 0) : 0
+    readonly property real currentOriginY: currentTransform ? (currentTransform.originY ?? 0) : 0
 
     implicitHeight: contentLayout.implicitHeight
 
@@ -256,17 +97,16 @@ Item {
             }
         }
 
-        // Transform properties: Origin, X/W, Y/H
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 4
+            Layout.bottomMargin: 8
             Layout.leftMargin: Lucent.Styles.pad.sm
             Layout.rightMargin: Lucent.Styles.pad.sm
             spacing: 8
             enabled: root.controlsEnabled
             opacity: root.controlsEnabled ? 1.0 : 0.5
 
-            // Column 1: Origin grid
             ButtonGroup {
                 id: originGroup
                 exclusive: true
@@ -277,44 +117,17 @@ Item {
                 spacing: 2
 
                 Repeater {
-                    model: [
-                        {
-                            ox: 0,
-                            oy: 0
-                        },
-                        {
-                            ox: 0.5,
-                            oy: 0
-                        },
-                        {
-                            ox: 1,
-                            oy: 0
-                        },
-                        {
-                            ox: 0,
-                            oy: 0.5
-                        },
-                        {
-                            ox: 0.5,
-                            oy: 0.5
-                        },
-                        {
-                            ox: 1,
-                            oy: 0.5
-                        },
-                        {
-                            ox: 0,
-                            oy: 1
-                        },
-                        {
-                            ox: 0.5,
-                            oy: 1
-                        },
-                        {
-                            ox: 1,
-                            oy: 1
-                        }
-                    ]
+                    // Generate 3x3 origin grid: (0, 0.5, 1) × (0, 0.5, 1)
+                    model: {
+                        var points = [];
+                        for (var row = 0; row <= 1; row += 0.5)
+                            for (var col = 0; col <= 1; col += 0.5)
+                                points.push({
+                                    ox: col,
+                                    oy: row
+                                });
+                        return points;
+                    }
 
                     delegate: Button {
                         required property var modelData
@@ -323,15 +136,10 @@ Item {
                         width: 16
                         height: 16
                         checkable: true
-                        checked: {
-                            var t = root.currentTransform;
-                            var curX = t ? (t.originX !== undefined ? t.originX : 0) : 0;
-                            var curY = t ? (t.originY !== undefined ? t.originY : 0) : 0;
-                            return curX === modelData.ox && curY === modelData.oy;
-                        }
+                        checked: root.currentOriginX === modelData.ox && root.currentOriginY === modelData.oy
                         ButtonGroup.group: originGroup
 
-                        onClicked: root.setOrigin(modelData.ox, modelData.oy)
+                        onClicked: canvasModel.setItemOrigin(root.selectedIndex, modelData.ox, modelData.oy)
 
                         background: Rectangle {
                             color: parent.checked ? root.themePalette.highlight : root.themePalette.button
@@ -343,212 +151,124 @@ Item {
                 }
             }
 
-            // Column 2: X and W
-            GridLayout {
-                columns: 2
-                rowSpacing: 4
-                columnSpacing: 4
+            Lucent.VerticalDivider {}
+
+            ColumnLayout {
+                spacing: 4
                 Layout.fillWidth: true
 
-                Label {
-                    text: qsTr("X:")
-                    font.pixelSize: root.labelSize
-                    color: root.labelColor
-                }
-                SpinBox {
+                Lucent.SpinBoxLabeled {
+                    label: qsTr("X:")
+                    labelSize: root.labelSize
+                    labelColor: root.labelColor
                     from: -100000
                     to: 100000
                     value: Math.round(root.displayedX)
-                    editable: true
                     Layout.fillWidth: true
-                    onValueModified: {
-                        root.updatePosition("x", value);
+                    onValueModified: newValue => {
+                        canvasModel.setItemPosition(root.selectedIndex, "x", newValue);
                         appController.focusCanvas();
                     }
                 }
 
-                Label {
-                    text: qsTr("W:")
-                    font.pixelSize: root.labelSize
-                    color: root.labelColor
-                }
-                SpinBox {
-                    from: 0
-                    to: 100000
-                    value: {
-                        if (!root.geometryBounds)
-                            return 0;
-                        var scaleX = root.currentTransform ? (root.currentTransform.scaleX || 1) : 1;
-                        return Math.round(root.geometryBounds.width * scaleX);
-                    }
-                    editable: true
-                    Layout.fillWidth: true
-                    onValueModified: {
-                        root.updateBounds("width", value);
-                        appController.focusCanvas();
-                    }
-                }
-            }
-
-            // Column 3: Y and H
-            GridLayout {
-                columns: 2
-                rowSpacing: 4
-                columnSpacing: 4
-                Layout.fillWidth: true
-
-                Label {
-                    text: qsTr("Y:")
-                    font.pixelSize: root.labelSize
-                    color: root.labelColor
-                }
-                SpinBox {
+                Lucent.SpinBoxLabeled {
+                    label: qsTr("Y:")
+                    labelSize: root.labelSize
+                    labelColor: root.labelColor
                     from: -100000
                     to: 100000
                     value: Math.round(root.displayedY)
-                    editable: true
                     Layout.fillWidth: true
-                    onValueModified: {
-                        root.updatePosition("y", value);
+                    onValueModified: newValue => {
+                        canvasModel.setItemPosition(root.selectedIndex, "y", newValue);
                         appController.focusCanvas();
                     }
                 }
+            }
 
-                Label {
-                    text: qsTr("H:")
-                    font.pixelSize: root.labelSize
-                    color: root.labelColor
-                }
-                SpinBox {
+            Lucent.VerticalDivider {}
+
+            ColumnLayout {
+                spacing: 4
+                Layout.fillWidth: true
+
+                Lucent.SpinBoxLabeled {
+                    label: qsTr("W:")
+                    labelSize: root.labelSize
+                    labelColor: root.labelColor
                     from: 0
                     to: 100000
-                    value: {
-                        if (!root.geometryBounds)
-                            return 0;
-                        var scaleY = root.currentTransform ? (root.currentTransform.scaleY || 1) : 1;
-                        return Math.round(root.geometryBounds.height * scaleY);
-                    }
-                    editable: true
+                    value: Math.round(root.displayedWidth)
                     Layout.fillWidth: true
-                    onValueModified: {
-                        root.updateBounds("height", value);
+                    onValueModified: newValue => {
+                        canvasModel.setDisplayedSize(root.selectedIndex, "width", newValue, root.proportionalScale);
+                        appController.focusCanvas();
+                    }
+                }
+
+                Lucent.SpinBoxLabeled {
+                    label: qsTr("H:")
+                    labelSize: root.labelSize
+                    labelColor: root.labelColor
+                    from: 0
+                    to: 100000
+                    value: Math.round(root.displayedHeight)
+                    Layout.fillWidth: true
+                    onValueModified: newValue => {
+                        canvasModel.setDisplayedSize(root.selectedIndex, "height", newValue, root.proportionalScale);
                         appController.focusCanvas();
                     }
                 }
             }
-        }
 
-        // Scale row
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: 4
-            Layout.leftMargin: Lucent.Styles.pad.sm
-            Layout.rightMargin: Lucent.Styles.pad.sm
-            spacing: 8
-            enabled: root.controlsEnabled
-            opacity: root.controlsEnabled ? 1.0 : 0.5
+            ColumnLayout {
+                spacing: 0
+                Layout.alignment: Qt.AlignVCenter
 
-            Label {
-                text: qsTr("Scale X:")
-                font.pixelSize: root.labelSize
-                color: root.labelColor
-            }
-            SpinBox {
-                id: scaleXSpinBox
-                from: 1
-                to: 1000
-                value: root.currentTransform ? Math.round((root.currentTransform.scaleX || 1) * 100) : 100
-                editable: true
-                Layout.fillWidth: true
-
-                property int decimals: 0
-                textFromValue: function (value, locale) {
-                    return value + "%";
-                }
-                valueFromText: function (text, locale) {
-                    return parseInt(text.replace("%", "")) || 100;
+                Rectangle {
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 8
+                    Layout.alignment: Qt.AlignHCenter
+                    color: proportionalToggle.checked ? root.themePalette.highlight : root.themePalette.mid
                 }
 
-                onValueModified: {
-                    var newScaleX = value / 100.0;
-                    if (root.proportionalScale) {
-                        canvasModel.beginTransaction();
-                        root.updateTransform("scaleX", newScaleX);
-                        root.updateTransform("scaleY", newScaleX);
-                        canvasModel.endTransaction();
-                    } else {
-                        root.updateTransform("scaleX", newScaleX);
+                Button {
+                    id: proportionalToggle
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
+                    checkable: true
+                    checked: root.proportionalScale
+                    onCheckedChanged: root.proportionalScale = checked
+
+                    background: Rectangle {
+                        color: proportionalToggle.checked ? root.themePalette.highlight : root.themePalette.button
+                        border.color: root.themePalette.mid
+                        border.width: 1
+                        radius: 2
                     }
-                    appController.focusCanvas();
-                }
-            }
 
-            Label {
-                text: qsTr("Y:")
-                font.pixelSize: root.labelSize
-                color: root.labelColor
-            }
-            SpinBox {
-                id: scaleYSpinBox
-                from: 1
-                to: 1000
-                value: root.currentTransform ? Math.round((root.currentTransform.scaleY || 1) * 100) : 100
-                editable: true
-                Layout.fillWidth: true
-
-                property int decimals: 0
-                textFromValue: function (value, locale) {
-                    return value + "%";
-                }
-                valueFromText: function (text, locale) {
-                    return parseInt(text.replace("%", "")) || 100;
-                }
-
-                onValueModified: {
-                    var newScaleY = value / 100.0;
-                    if (root.proportionalScale) {
-                        canvasModel.beginTransaction();
-                        root.updateTransform("scaleX", newScaleY);
-                        root.updateTransform("scaleY", newScaleY);
-                        canvasModel.endTransaction();
-                    } else {
-                        root.updateTransform("scaleY", newScaleY);
+                    contentItem: Lucent.PhIcon {
+                        name: proportionalToggle.checked ? "lock" : "lock-open"
+                        size: 14
+                        color: proportionalToggle.checked ? root.themePalette.highlightedText : root.themePalette.buttonText
+                        anchors.centerIn: parent
                     }
-                    appController.focusCanvas();
-                }
-            }
 
-            // Proportional scale toggle
-            Button {
-                id: proportionalToggle
-                Layout.preferredWidth: 24
-                Layout.preferredHeight: 24
-                checkable: true
-                checked: root.proportionalScale
-                onCheckedChanged: root.proportionalScale = checked
-
-                background: Rectangle {
-                    color: proportionalToggle.checked ? root.themePalette.highlight : root.themePalette.button
-                    border.color: root.themePalette.mid
-                    border.width: 1
-                    radius: 2
+                    Lucent.ToolTipStyled {
+                        visible: proportionalToggle.hovered
+                        text: proportionalToggle.checked ? qsTr("Constrain proportions") : qsTr("Free resize")
+                    }
                 }
 
-                contentItem: Lucent.PhIcon {
-                    name: proportionalToggle.checked ? "lock" : "lock-open"
-                    size: 14
-                    color: proportionalToggle.checked ? root.themePalette.highlightedText : root.themePalette.buttonText
-                    anchors.centerIn: parent
-                }
-
-                Lucent.ToolTipStyled {
-                    visible: proportionalToggle.hovered
-                    text: proportionalToggle.checked ? qsTr("Proportional scaling on") : qsTr("Proportional scaling off")
+                Rectangle {
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 8
+                    Layout.alignment: Qt.AlignHCenter
+                    color: proportionalToggle.checked ? root.themePalette.highlight : root.themePalette.mid
                 }
             }
         }
 
-        // Rotation row
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 4
@@ -569,25 +289,19 @@ Item {
                 horizontalAlignment: TextInput.AlignHCenter
                 Layout.preferredWidth: 50
                 validator: IntValidator {
-                    bottom: -360
-                    top: 360
+                    bottom: -9999
+                    top: 9999
                 }
 
-                // Compute the expected text value from current transform
-                readonly property string expectedText: root.currentTransform ? Math.round(root.currentTransform.rotate).toString() : "0"
-
-                // Flag to prevent double-firing of editingFinished
+                readonly property string expectedText: Math.round(root.currentRotation).toString()
                 property bool isCommitting: false
 
-                // Initialize text
                 Component.onCompleted: text = expectedText
 
-                // Update text when expectedText changes (handles undo/redo)
-                // Skip if we're in the middle of committing to prevent double onEditingFinished
+                // Sync with undo/redo; skip during commit to prevent double-fire
                 onExpectedTextChanged: {
-                    if (!isCommitting) {
+                    if (!isCommitting)
                         text = expectedText;
-                    }
                 }
 
                 onEditingFinished: {
@@ -595,9 +309,9 @@ Item {
                         return;
                     isCommitting = true;
 
+                    // Model normalizes to 0-360° automatically
                     var val = parseInt(text) || 0;
-                    val = Math.max(-360, Math.min(360, val));
-                    root.updateTransform("rotate", val);
+                    canvasModel.updateTransformProperty(root.selectedIndex, "rotate", val);
                     appController.focusCanvas();
 
                     isCommitting = false;
@@ -610,22 +324,20 @@ Item {
             }
             Slider {
                 id: rotationSlider
-                from: -180
-                to: 180
-                value: root.currentTransform ? root.currentTransform.rotate : 0
+                from: 0
+                to: 360
+                value: root.currentRotation
                 Layout.fillWidth: true
 
                 onPressedChanged: {
-                    if (pressed) {
+                    if (pressed)
                         canvasModel.beginTransaction();
-                    } else {
+                    else
                         canvasModel.endTransaction();
-                    }
                 }
 
-                onMoved: root.updateTransform("rotate", value)
+                onMoved: canvasModel.updateTransformProperty(root.selectedIndex, "rotate", value)
 
-                // Circular handle to match other sliders
                 handle: Rectangle {
                     x: rotationSlider.leftPadding + rotationSlider.visualPosition * (rotationSlider.availableWidth - width)
                     y: rotationSlider.topPadding + rotationSlider.availableHeight / 2 - height / 2
@@ -638,46 +350,17 @@ Item {
                 }
             }
 
-            // Flatten Transform button
-            Button {
-                id: flattenButton
-                Layout.preferredWidth: 24
-                Layout.preferredHeight: 24
-                enabled: root.controlsEnabled && root.currentTransform && !isIdentityTransform()
-
-                function isIdentityTransform() {
-                    if (!root.currentTransform)
-                        return true;
-                    var t = root.currentTransform;
-                    return (t.rotate === 0 || t.rotate === undefined) && (t.scaleX === 1 || t.scaleX === undefined) && (t.scaleY === 1 || t.scaleY === undefined) && (t.translateX === 0 || t.translateX === undefined) && (t.translateY === 0 || t.translateY === undefined);
-                }
-
+            Lucent.IconButton {
+                iconName: "stack-simple-fill"
+                iconWeight: "fill"
+                iconSize: 14
+                tooltipText: qsTr("Flatten Transform")
+                enabled: root.controlsEnabled && canvasModel.hasNonIdentityTransform(root.selectedIndex)
                 onClicked: {
-                    var idx = Lucent.SelectionManager.selectedItemIndex;
-                    if (idx >= 0 && canvasModel) {
-                        canvasModel.bakeTransform(idx);
+                    if (root.hasValidSelection) {
+                        canvasModel.bakeTransform(root.selectedIndex);
                         appController.focusCanvas();
                     }
-                }
-
-                background: Rectangle {
-                    color: flattenButton.enabled ? (flattenButton.hovered ? root.themePalette.highlight : root.themePalette.button) : root.themePalette.window
-                    border.color: root.themePalette.mid
-                    border.width: 1
-                    radius: 2
-                }
-
-                contentItem: Lucent.PhIcon {
-                    name: "stack-simple-fill"
-                    weight: "fill"
-                    size: 14
-                    color: flattenButton.enabled ? (flattenButton.hovered ? root.themePalette.highlightedText : root.themePalette.buttonText) : root.themePalette.mid
-                    anchors.centerIn: parent
-                }
-
-                Lucent.ToolTipStyled {
-                    visible: flattenButton.hovered
-                    text: qsTr("Flatten Transform")
                 }
             }
         }
