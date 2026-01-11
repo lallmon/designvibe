@@ -24,6 +24,19 @@ Item {
 
     function refreshTransform() {
         currentTransform = hasValidSelection ? canvasModel.getItemTransform(selectedIndex) : null;
+        if (hasValidSelection) {
+            var pos = canvasModel.getDisplayedPosition(selectedIndex);
+            displayedX = pos ? pos.x : 0;
+            displayedY = pos ? pos.y : 0;
+            var size = canvasModel.getDisplayedSize(selectedIndex);
+            displayedWidth = size ? size.width : 0;
+            displayedHeight = size ? size.height : 0;
+        } else {
+            displayedX = 0;
+            displayedY = 0;
+            displayedWidth = 0;
+            displayedHeight = 0;
+        }
     }
 
     Connections {
@@ -35,6 +48,12 @@ Item {
         function onItemModified(index) {
             if (index === root.selectedIndex)
                 root.refreshTransform();
+        }
+        function onUndoStackChanged() {
+            root.refreshTransform();
+        }
+        function onRedoStackChanged() {
+            root.refreshTransform();
         }
     }
 
@@ -54,14 +73,11 @@ Item {
 
     property bool proportionalScale: false
 
-    // Displayed position and size from model
-    readonly property var displayedPosition: hasValidSelection ? canvasModel.getDisplayedPosition(selectedIndex) : null
-    readonly property real displayedX: displayedPosition ? displayedPosition.x : 0
-    readonly property real displayedY: displayedPosition ? displayedPosition.y : 0
-
-    readonly property var displayedSize: hasValidSelection ? canvasModel.getDisplayedSize(selectedIndex) : null
-    readonly property real displayedWidth: displayedSize ? displayedSize.width : 0
-    readonly property real displayedHeight: displayedSize ? displayedSize.height : 0
+    // Displayed position and size from model (updated in refreshTransform)
+    property real displayedX: 0
+    property real displayedY: 0
+    property real displayedWidth: 0
+    property real displayedHeight: 0
 
     // Include displayUnit/previewDPI to ensure bindings update when units change.
     readonly property real unitX: {
@@ -240,6 +256,7 @@ Item {
                     onValueModified: newValue => {
                         var target = root.hasUnitSettings ? unitSettings.displayToCanvas(newValue) : newValue;
                         canvasModel.setDisplayedSize(root.selectedIndex, "width", target, root.proportionalScale);
+                        root.refreshTransform();
                         appController.focusCanvas();
                     }
                 }
@@ -255,6 +272,7 @@ Item {
                     onValueModified: newValue => {
                         var target = root.hasUnitSettings ? unitSettings.displayToCanvas(newValue) : newValue;
                         canvasModel.setDisplayedSize(root.selectedIndex, "height", target, root.proportionalScale);
+                        root.refreshTransform();
                         appController.focusCanvas();
                     }
                 }
@@ -307,7 +325,7 @@ Item {
 
                     Lucent.ToolTipStyled {
                         visible: proportionalToggle.hovered
-                        text: proportionalToggle.checked ? qsTr("Constrain proportions") : qsTr("Free resize")
+                        text: proportionalToggle.checked ? qsTr("Free resize") : qsTr("Constrain proportions")
                     }
                 }
 
