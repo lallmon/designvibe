@@ -21,6 +21,7 @@ Item {
 
     property var currentTransform: null
     readonly property bool hasUnitSettings: typeof unitSettings !== "undefined" && unitSettings !== null
+    property bool hasFlattenableTransform: false
 
     function refreshTransform() {
         currentTransform = hasValidSelection ? canvasModel.getItemTransform(selectedIndex) : null;
@@ -37,6 +38,7 @@ Item {
             displayedWidth = 0;
             displayedHeight = 0;
         }
+        hasFlattenableTransform = root.controlsEnabled && root.hasValidSelection && canvasModel && canvasModel.hasNonIdentityTransform(root.selectedIndex);
     }
 
     Connections {
@@ -424,9 +426,9 @@ Item {
                 iconWeight: "fill"
                 iconSize: 14
                 tooltipText: qsTr("Flatten Transform")
-                enabled: root.controlsEnabled && canvasModel && canvasModel.hasNonIdentityTransform(root.selectedIndex)
+                enabled: hasFlattenableTransform
                 onClicked: {
-                    if (root.hasValidSelection) {
+                    if (hasFlattenableTransform && canvasModel) {
                         canvasModel.bakeTransform(root.selectedIndex);
                         appController.focusCanvas();
                     }
