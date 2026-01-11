@@ -55,3 +55,18 @@ def canvas_to_unit(value: float, unit: Unit, dpi: float) -> float:
 def unit_to_canvas(value: float, unit: Unit, dpi: float) -> float:
     """Convert a unit value to canvas units (logical px)."""
     return convert(value, unit, "px", dpi)
+
+
+# Preferred display precision per unit
+DISPLAY_PRECISION = {
+    "px": 1,
+    "mm": 2,
+    "in": 3,
+    "pt": 2,
+}
+
+
+def format_value(value: float, unit: Unit) -> str:
+    """Format a value for display based on unit-specific precision."""
+    places = DISPLAY_PRECISION.get(unit, 2)
+    return f"{value:.{places}f}"

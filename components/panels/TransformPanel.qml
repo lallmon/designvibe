@@ -39,6 +39,12 @@ Item {
             displayedHeight = 0;
         }
         hasFlattenableTransform = root.controlsEnabled && root.hasValidSelection && canvasModel && canvasModel.hasNonIdentityTransform(root.selectedIndex);
+        if (widthField && !widthField.activeFocus) {
+            widthField.text = (hasUnitSettings ? unitSettings.canvasToDisplay(displayedWidth) : displayedWidth).toFixed(unitPrecision);
+        }
+        if (heightField && !heightField.activeFocus) {
+            heightField.text = (hasUnitSettings ? unitSettings.canvasToDisplay(displayedHeight) : displayedHeight).toFixed(unitPrecision);
+        }
     }
 
     Connections {
@@ -66,6 +72,17 @@ Item {
         }
     }
 
+    Connections {
+        target: unitSettings
+        ignoreUnknownSignals: true
+        function onDisplayUnitChanged() {
+            root.refreshTransform();
+        }
+        function onPreviewDPIChanged() {
+            root.refreshTransform();
+        }
+    }
+
     Component.onCompleted: refreshTransform()
 
     readonly property bool controlsEnabled: hasEditableBounds && !isLocked
@@ -81,39 +98,26 @@ Item {
     property real displayedWidth: 0
     property real displayedHeight: 0
 
+    readonly property int unitPrecision: {
+        if (!hasUnitSettings)
+            return 1;
+        switch (unitSettings.displayUnit) {
+        case "in":
+            return 3;
+        case "mm":
+            return 2;
+        case "pt":
+            return 2;
+        default:
+            return 1;
+        }
+    }
+
     // Include displayUnit/previewDPI to ensure bindings update when units change.
-    readonly property real unitX: {
-        if (hasUnitSettings) {
-            var _unit = unitSettings.displayUnit;
-            var _dpi = unitSettings.previewDPI;
-            return unitSettings.canvasToDisplay(displayedX);
-        }
-        return displayedX;
-    }
-    readonly property real unitY: {
-        if (hasUnitSettings) {
-            var _unit = unitSettings.displayUnit;
-            var _dpi = unitSettings.previewDPI;
-            return unitSettings.canvasToDisplay(displayedY);
-        }
-        return displayedY;
-    }
-    readonly property real unitWidth: {
-        if (hasUnitSettings) {
-            var _unit = unitSettings.displayUnit;
-            var _dpi = unitSettings.previewDPI;
-            return unitSettings.canvasToDisplay(displayedWidth);
-        }
-        return displayedWidth;
-    }
-    readonly property real unitHeight: {
-        if (hasUnitSettings) {
-            var _unit = unitSettings.displayUnit;
-            var _dpi = unitSettings.previewDPI;
-            return unitSettings.canvasToDisplay(displayedHeight);
-        }
-        return displayedHeight;
-    }
+    readonly property real unitX: hasUnitSettings ? unitSettings.canvasToDisplay(displayedX) : displayedX
+    readonly property real unitY: hasUnitSettings ? unitSettings.canvasToDisplay(displayedY) : displayedY
+    readonly property real unitWidth: hasUnitSettings ? unitSettings.canvasToDisplay(displayedWidth) : displayedWidth
+    readonly property real unitHeight: hasUnitSettings ? unitSettings.canvasToDisplay(displayedHeight) : displayedHeight
 
     // Transform state for rotation display and origin buttons
     readonly property real currentRotation: currentTransform ? (currentTransform.rotate ?? 0) : 0
@@ -247,35 +251,55 @@ Item {
                 spacing: 2
                 Layout.fillWidth: true
 
-                Lucent.SpinBoxLabeled {
-                    label: qsTr("W:")
-                    labelSize: root.labelSize
-                    labelColor: root.labelColor
-                    from: 0
-                    to: 100000
-                    value: Math.round(root.unitWidth)
+                RowLayout {
+                    spacing: 4
                     Layout.fillWidth: true
-                    onValueModified: newValue => {
-                        var target = root.hasUnitSettings ? unitSettings.displayToCanvas(newValue) : newValue;
-                        canvasModel.setDisplayedSize(root.selectedIndex, "width", target, root.proportionalScale);
-                        root.refreshTransform();
-                        appController.focusCanvas();
+                    Label {
+                        text: qsTr("W:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    TextField {
+                        id: widthField
+                        Layout.fillWidth: true
+                        implicitHeight: 24
+                        inputMethodHints: Qt.ImhFormattedNumbersOnly
+                        text: (root.hasUnitSettings ? unitSettings.canvasToDisplay(root.displayedWidth) : root.displayedWidth).toFixed(root.unitPrecision)
+                        onEditingFinished: {
+                            var val = parseFloat(text);
+                            if (isFinite(val)) {
+                                var target = root.hasUnitSettings ? unitSettings.displayToCanvas(val) : val;
+                                canvasModel.setDisplayedSize(root.selectedIndex, "width", target, root.proportionalScale);
+                                appController.focusCanvas();
+                            }
+                            text = root.unitWidth.toFixed(root.unitPrecision);
+                        }
                     }
                 }
 
-                Lucent.SpinBoxLabeled {
-                    label: qsTr("H:")
-                    labelSize: root.labelSize
-                    labelColor: root.labelColor
-                    from: 0
-                    to: 100000
-                    value: Math.round(root.unitHeight)
+                RowLayout {
+                    spacing: 4
                     Layout.fillWidth: true
-                    onValueModified: newValue => {
-                        var target = root.hasUnitSettings ? unitSettings.displayToCanvas(newValue) : newValue;
-                        canvasModel.setDisplayedSize(root.selectedIndex, "height", target, root.proportionalScale);
-                        root.refreshTransform();
-                        appController.focusCanvas();
+                    Label {
+                        text: qsTr("H:")
+                        font.pixelSize: root.labelSize
+                        color: root.labelColor
+                    }
+                    TextField {
+                        id: heightField
+                        Layout.fillWidth: true
+                        implicitHeight: 24
+                        inputMethodHints: Qt.ImhFormattedNumbersOnly
+                        text: (root.hasUnitSettings ? unitSettings.canvasToDisplay(root.displayedHeight) : root.displayedHeight).toFixed(root.unitPrecision)
+                        onEditingFinished: {
+                            var val = parseFloat(text);
+                            if (isFinite(val)) {
+                                var target = root.hasUnitSettings ? unitSettings.displayToCanvas(val) : val;
+                                canvasModel.setDisplayedSize(root.selectedIndex, "height", target, root.proportionalScale);
+                                appController.focusCanvas();
+                            }
+                            text = root.unitHeight.toFixed(root.unitPrecision);
+                        }
                     }
                 }
             }

@@ -90,7 +90,16 @@ Item {
                 h = unitSettings.canvasToDisplay(h);
             }
             var unitLabel = tool.hasUnitSettings ? unitSettings.displayUnit : "px";
-            return Math.round(w) + " × " + Math.round(h) + " " + unitLabel;
+            var places = 1;
+            if (tool.hasUnitSettings) {
+                if (unitSettings.displayUnit === "in")
+                    places = 3;
+                else if (unitSettings.displayUnit === "mm")
+                    places = 2;
+                else if (unitSettings.displayUnit === "pt")
+                    places = 2;
+            }
+            return w.toFixed(places) + " × " + h.toFixed(places) + " " + unitLabel;
         }
     }
 
