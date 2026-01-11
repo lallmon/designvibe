@@ -19,24 +19,7 @@ Item {
 
     readonly property bool isLocked: hasValidSelection && canvasModel.isEffectivelyLocked(selectedIndex)
 
-    property var currentBounds: null
-    property var geometryBounds: null
     property var currentTransform: null
-
-    // Helper to access transform properties with defaults
-    function tf(prop, fallback) {
-        return currentTransform ? (currentTransform[prop] ?? fallback) : fallback;
-    }
-
-    function refreshBounds() {
-        if (hasValidSelection) {
-            currentBounds = canvasModel.getBoundingBox(selectedIndex);
-            geometryBounds = canvasModel.getGeometryBounds(selectedIndex);
-        } else {
-            currentBounds = null;
-            geometryBounds = null;
-        }
-    }
 
     function refreshTransform() {
         currentTransform = hasValidSelection ? canvasModel.getItemTransform(selectedIndex) : null;
@@ -45,16 +28,12 @@ Item {
     Connections {
         target: canvasModel
         function onItemTransformChanged(index) {
-            if (index === root.selectedIndex) {
+            if (index === root.selectedIndex)
                 root.refreshTransform();
-                root.refreshBounds();
-            }
         }
         function onItemModified(index) {
-            if (index === root.selectedIndex) {
+            if (index === root.selectedIndex)
                 root.refreshTransform();
-                root.refreshBounds();
-            }
         }
     }
 
@@ -62,14 +41,10 @@ Item {
         target: Lucent.SelectionManager
         function onSelectedItemIndexChanged() {
             root.refreshTransform();
-            root.refreshBounds();
         }
     }
 
-    Component.onCompleted: {
-        refreshTransform();
-        refreshBounds();
-    }
+    Component.onCompleted: refreshTransform()
 
     readonly property bool controlsEnabled: hasEditableBounds && !isLocked
 
@@ -78,122 +53,19 @@ Item {
 
     property bool proportionalScale: false
 
-    readonly property real displayedX: {
-        if (!geometryBounds)
-            return 0;
-        return geometryBounds.x + geometryBounds.width * tf("originX", 0) + tf("translateX", 0);
-    }
+    // Displayed position and size from model
+    readonly property var displayedPosition: hasValidSelection ? canvasModel.getDisplayedPosition(selectedIndex) : null
+    readonly property real displayedX: displayedPosition ? displayedPosition.x : 0
+    readonly property real displayedY: displayedPosition ? displayedPosition.y : 0
 
-    readonly property real displayedY: {
-        if (!geometryBounds)
-            return 0;
-        return geometryBounds.y + geometryBounds.height * tf("originY", 0) + tf("translateY", 0);
-    }
+    readonly property var displayedSize: hasValidSelection ? canvasModel.getDisplayedSize(selectedIndex) : null
+    readonly property real displayedWidth: displayedSize ? displayedSize.width : 0
+    readonly property real displayedHeight: displayedSize ? displayedSize.height : 0
 
-    function updatePosition(axis, newValue) {
-        if (!hasValidSelection || !geometryBounds)
-            return;
-
-        var newTransform = {
-            translateX: tf("translateX", 0),
-            translateY: tf("translateY", 0),
-            rotate: tf("rotate", 0),
-            scaleX: tf("scaleX", 1),
-            scaleY: tf("scaleY", 1),
-            originX: tf("originX", 0),
-            originY: tf("originY", 0)
-        };
-
-        // translateX = newValue - geometry.x - geometry.width * originX
-        if (axis === "x")
-            newTransform.translateX = newValue - geometryBounds.x - geometryBounds.width * newTransform.originX;
-        else
-            newTransform.translateY = newValue - geometryBounds.y - geometryBounds.height * newTransform.originY;
-
-        canvasModel.setItemTransform(selectedIndex, newTransform);
-    }
-
-    function updateDisplayedSize(property, value) {
-        if (!hasValidSelection || !geometryBounds)
-            return;
-        if (geometryBounds.width <= 0 || geometryBounds.height <= 0)
-            return;
-
-        var currentScaleX = tf("scaleX", 1);
-        var currentScaleY = tf("scaleY", 1);
-        value = Math.max(1, value);  // Minimum 1px displayed
-
-        if (property === "width") {
-            var newScaleX = value / geometryBounds.width;
-            if (proportionalScale) {
-                var ratio = newScaleX / currentScaleX;
-                canvasModel.beginTransaction();
-                updateTransform("scaleX", newScaleX);
-                updateTransform("scaleY", currentScaleY * ratio);
-                canvasModel.endTransaction();
-            } else {
-                updateTransform("scaleX", newScaleX);
-            }
-        } else {
-            var newScaleY = value / geometryBounds.height;
-            if (proportionalScale) {
-                var ratio = newScaleY / currentScaleY;
-                canvasModel.beginTransaction();
-                updateTransform("scaleX", currentScaleX * ratio);
-                updateTransform("scaleY", newScaleY);
-                canvasModel.endTransaction();
-            } else {
-                updateTransform("scaleY", newScaleY);
-            }
-        }
-    }
-
-    function updateTransform(property, value) {
-        if (hasValidSelection)
-            canvasModel.updateTransformProperty(selectedIndex, property, value);
-    }
-
-    function setOrigin(newOx, newOy) {
-        if (!hasValidSelection)
-            return;
-
-        var bounds = canvasModel.getGeometryBounds(selectedIndex);
-        if (!bounds)
-            return;
-
-        var oldOx = tf("originX", 0);
-        var oldOy = tf("originY", 0);
-        var rotation = tf("rotate", 0);
-        var scaleX = tf("scaleX", 1);
-        var scaleY = tf("scaleY", 1);
-        var oldTx = tf("translateX", 0);
-        var oldTy = tf("translateY", 0);
-
-        // Adjust translation to keep shape visually in place when origin changes
-        // Formula: adjustment = delta - R(S(delta))
-        var dx = (oldOx - newOx) * bounds.width;
-        var dy = (oldOy - newOy) * bounds.height;
-
-        var scaledDx = dx * scaleX;
-        var scaledDy = dy * scaleY;
-
-        var radians = rotation * Math.PI / 180;
-        var cos = Math.cos(radians);
-        var sin = Math.sin(radians);
-        var rotatedScaledDx = scaledDx * cos - scaledDy * sin;
-        var rotatedScaledDy = scaledDx * sin + scaledDy * cos;
-
-        canvasModel.setItemTransform(selectedIndex, {
-            translateX: oldTx + dx - rotatedScaledDx,
-            translateY: oldTy + dy - rotatedScaledDy,
-            rotate: rotation,
-            scaleX: scaleX,
-            scaleY: scaleY,
-            originX: newOx,
-            originY: newOy
-        });
-        refreshTransform();
-    }
+    // Transform state for rotation display and origin buttons
+    readonly property real currentRotation: currentTransform ? (currentTransform.rotate ?? 0) : 0
+    readonly property real currentOriginX: currentTransform ? (currentTransform.originX ?? 0) : 0
+    readonly property real currentOriginY: currentTransform ? (currentTransform.originY ?? 0) : 0
 
     implicitHeight: contentLayout.implicitHeight
 
@@ -264,15 +136,10 @@ Item {
                         width: 16
                         height: 16
                         checkable: true
-                        checked: {
-                            var t = root.currentTransform;
-                            var curX = t ? (t.originX !== undefined ? t.originX : 0) : 0;
-                            var curY = t ? (t.originY !== undefined ? t.originY : 0) : 0;
-                            return curX === modelData.ox && curY === modelData.oy;
-                        }
+                        checked: root.currentOriginX === modelData.ox && root.currentOriginY === modelData.oy
                         ButtonGroup.group: originGroup
 
-                        onClicked: root.setOrigin(modelData.ox, modelData.oy)
+                        onClicked: canvasModel.setItemOrigin(root.selectedIndex, modelData.ox, modelData.oy)
 
                         background: Rectangle {
                             color: parent.checked ? root.themePalette.highlight : root.themePalette.button
@@ -299,7 +166,7 @@ Item {
                     value: Math.round(root.displayedX)
                     Layout.fillWidth: true
                     onValueModified: newValue => {
-                        root.updatePosition("x", newValue);
+                        canvasModel.setItemPosition(root.selectedIndex, "x", newValue);
                         appController.focusCanvas();
                     }
                 }
@@ -313,7 +180,7 @@ Item {
                     value: Math.round(root.displayedY)
                     Layout.fillWidth: true
                     onValueModified: newValue => {
-                        root.updatePosition("y", newValue);
+                        canvasModel.setItemPosition(root.selectedIndex, "y", newValue);
                         appController.focusCanvas();
                     }
                 }
@@ -331,10 +198,10 @@ Item {
                     labelColor: root.labelColor
                     from: 0
                     to: 100000
-                    value: root.geometryBounds ? Math.round(root.geometryBounds.width * root.tf("scaleX", 1)) : 0
+                    value: Math.round(root.displayedWidth)
                     Layout.fillWidth: true
                     onValueModified: newValue => {
-                        root.updateDisplayedSize("width", newValue);
+                        canvasModel.setDisplayedSize(root.selectedIndex, "width", newValue, root.proportionalScale);
                         appController.focusCanvas();
                     }
                 }
@@ -345,10 +212,10 @@ Item {
                     labelColor: root.labelColor
                     from: 0
                     to: 100000
-                    value: root.geometryBounds ? Math.round(root.geometryBounds.height * root.tf("scaleY", 1)) : 0
+                    value: Math.round(root.displayedHeight)
                     Layout.fillWidth: true
                     onValueModified: newValue => {
-                        root.updateDisplayedSize("height", newValue);
+                        canvasModel.setDisplayedSize(root.selectedIndex, "height", newValue, root.proportionalScale);
                         appController.focusCanvas();
                     }
                 }
@@ -426,7 +293,7 @@ Item {
                     top: 360
                 }
 
-                readonly property string expectedText: Math.round(root.tf("rotate", 0)).toString()
+                readonly property string expectedText: Math.round(root.currentRotation).toString()
                 property bool isCommitting: false
 
                 Component.onCompleted: text = expectedText
@@ -445,7 +312,7 @@ Item {
 
                     var val = parseInt(text) || 0;
                     val = Math.max(-360, Math.min(360, val));
-                    root.updateTransform("rotate", val);
+                    canvasModel.updateTransformProperty(root.selectedIndex, "rotate", val);
                     appController.focusCanvas();
 
                     isCommitting = false;
@@ -460,7 +327,7 @@ Item {
                 id: rotationSlider
                 from: -180
                 to: 180
-                value: root.tf("rotate", 0)
+                value: root.currentRotation
                 Layout.fillWidth: true
 
                 onPressedChanged: {
@@ -471,7 +338,7 @@ Item {
                     }
                 }
 
-                onMoved: root.updateTransform("rotate", value)
+                onMoved: canvasModel.updateTransformProperty(root.selectedIndex, "rotate", value)
 
                 handle: Rectangle {
                     x: rotationSlider.leftPadding + rotationSlider.visualPosition * (rotationSlider.availableWidth - width)
@@ -490,11 +357,7 @@ Item {
                 iconWeight: "fill"
                 iconSize: 14
                 tooltipText: qsTr("Flatten Transform")
-                enabled: {
-                    if (!root.controlsEnabled || !root.currentTransform)
-                        return false;
-                    return root.tf("rotate", 0) !== 0 || root.tf("scaleX", 1) !== 1 || root.tf("scaleY", 1) !== 1 || root.tf("translateX", 0) !== 0 || root.tf("translateY", 0) !== 0;
-                }
+                enabled: root.controlsEnabled && canvasModel.hasNonIdentityTransform(root.selectedIndex)
                 onClicked: {
                     if (root.hasValidSelection) {
                         canvasModel.bakeTransform(root.selectedIndex);
