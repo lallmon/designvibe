@@ -32,30 +32,6 @@ Item {
 
     // Grid visibility (toggled from View menu)
     property bool gridVisible: true
-    // Rulers visibility (toggled from View menu)
-    property bool rulersVisible: true
-    // Expose cursor from child canvas (if present)
-    readonly property var _canvasComponent: contentContainer.children.length > 0 ? contentContainer.children[0] : null
-    readonly property real cursorX: _canvasComponent && typeof _canvasComponent.cursorX !== "undefined" ? _canvasComponent.cursorX : 0
-    readonly property real cursorY: _canvasComponent && typeof _canvasComponent.cursorY !== "undefined" ? _canvasComponent.cursorY : 0
-    readonly property real _cursorViewportX: (cursorX * zoomLevel) + (width * 0.5) + offsetX
-    readonly property real _cursorViewportY: (cursorY * zoomLevel) + (height * 0.5) + offsetY
-    // Ruler view state bundled to keep API small
-    readonly property var rulerState: ({
-            zoom: zoomLevel,
-            offsetX: offsetX,
-            offsetY: offsetY,
-            viewportWidth: width,
-            viewportHeight: height,
-            gridSpacing: gridSpacingCanvas,
-            majorMultiplier: gridConfig.majorMultiplier,
-            labelStyle: gridConfig.labelStyle,
-            targetMajorPx: gridConfig.targetMajorPx,
-            allowedMajorUnits: gridConfig.allowedMajorUnits,
-            unitSettings: typeof unitSettings !== "undefined" ? unitSettings : null,
-            cursorViewportX: _cursorViewportX,
-            cursorViewportY: _cursorViewportY
-        })
 
     function refreshGrid() {
         gridShader.baseGridSize = gridSpacingCanvas;
@@ -106,31 +82,6 @@ Item {
         function onGridSpacingCanvasChanged() {
             refreshGrid();
         }
-    }
-
-    // Rulers overlay (non-interactive)
-    Lucent.Ruler {
-        id: topRuler
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        height: 24
-        orientation: "horizontal"
-        viewState: rulerState
-        visible: rulersVisible
-        z: 1001
-    }
-
-    Lucent.Ruler {
-        id: leftRuler
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        width: 24
-        orientation: "vertical"
-        viewState: rulerState
-        visible: rulersVisible
-        z: 1001
     }
 
     // GPU grid overlay: crisp, infinite-feel, tied to current viewport

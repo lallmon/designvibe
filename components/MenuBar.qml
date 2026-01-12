@@ -151,17 +151,6 @@ MenuBar {
     Menu {
         title: qsTr("&View")
         Action {
-            text: qsTr("Show &Rulers")
-            checkable: true
-            checked: root.viewport ? root.viewport.rulersVisible : false
-            onTriggered: {
-                if (root.viewport) {
-                    root.viewport.rulersVisible = !root.viewport.rulersVisible;
-                }
-            }
-        }
-        MenuSeparator {}
-        Action {
             text: qsTr("Show &Grid")
             checkable: true
             checked: root.viewport ? root.viewport.gridVisible : false
