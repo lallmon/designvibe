@@ -30,10 +30,24 @@ from lucent.unit_settings import UnitSettings
 __version__ = "__VERSION__"
 
 
+def _set_default_rhi_backend() -> None:
+    # Respect user override
+    if os.environ.get("QSG_RHI_BACKEND"):
+        return
+    # Pick the most capable backend per platform; let Qt fall back if unavailable.
+    if sys.platform == "darwin":
+        os.environ["QSG_RHI_BACKEND"] = "metal"
+    elif sys.platform == "win32":
+        os.environ["QSG_RHI_BACKEND"] = "direct3d11"
+    else:
+        # Linux/BSD: prefer Vulkan; Qt will fall back to OpenGL if needed.
+        os.environ["QSG_RHI_BACKEND"] = "vulkan"
+
+
 if __name__ == "__main__":
     # Enable VSync and optimize rendering
     os.environ["QSG_RENDER_LOOP"] = "basic"  # Use basic render loop for better sync
-
+    _set_default_rhi_backend()
     # Enable desktop OpenGL for better performance
     QApplication.setAttribute(Qt.AA_UseDesktopOpenGL)  # type: ignore[attr-defined]
 
@@ -191,63 +205,71 @@ if __name__ == "__main__":
         window = engine.rootObjects()[0]
         ri = window.rendererInterface()  # type: ignore[attr-defined]
         api = ri.graphicsApi() if ri is not None else QQuickWindow.graphicsApi()
-        app_info.set_renderer_backend(_renderer_backend(api))
+        backend = _renderer_backend(api)
+        app_info.set_renderer_backend(backend)
 
-        # Try to collect GL vendor/renderer and classify hardware vs software
-        ctx_candidates = []
-        if ri is not None:
-            ctx_candidates.append(
-                ri.getResource(window, QSGRendererInterface.OpenGLContextResource)  # type: ignore[attr-defined]
-            )
-        ctx_candidates.append(QOpenGLContext.currentContext())
-        ctx_candidates.append(QOpenGLContext.globalShareContext())
+        resolved_type: Optional[str] = None
 
-        resolved_type = None
-        for ctx in ctx_candidates:
-            if not isinstance(ctx, QOpenGLContext):
-                continue
-            funcs = ctx.functions()
-            if not funcs:
-                continue
-            try:
-                vendor_bytes = cast(
-                    Optional[bytes], funcs.glGetString(0x1F00)
-                )  # GL_VENDOR
-                renderer_bytes = cast(
-                    Optional[bytes], funcs.glGetString(0x1F01)
-                )  # GL_RENDERER
-                vendor = (
-                    vendor_bytes.decode(errors="ignore") if vendor_bytes else "unknown"
+        # For non-OpenGL backends, GL vendor is meaningless;
+        # assume hardware unless software/null.
+        if backend in ("software", "unknown", "null"):
+            resolved_type = "software"
+            app_info.set_gl_vendor("n/a")
+        elif backend != "opengl":
+            resolved_type = "hardware"
+            app_info.set_gl_vendor(f"n/a ({backend})")
+        else:
+            # Try to collect GL vendor/renderer and classify hardware vs software
+            ctx_candidates = []
+            if ri is not None:
+                ctx_candidates.append(
+                    ri.getResource(window, QSGRendererInterface.OpenGLContextResource)  # type: ignore[attr-defined]
                 )
-                renderer_str = (
-                    renderer_bytes.decode(errors="ignore") if renderer_bytes else ""
-                )
-                app_info.set_gl_vendor(vendor or "unknown")
-                rend_lower = (renderer_str or vendor).lower()
-                if (
-                    "llvmpipe" in rend_lower
-                    or "softpipe" in rend_lower
-                    or "software" in rend_lower
-                ):
-                    resolved_type = "software"
-                else:
-                    resolved_type = "hardware"
-                break
-            except Exception:
-                continue
+            ctx_candidates.append(QOpenGLContext.currentContext())
+            ctx_candidates.append(QOpenGLContext.globalShareContext())
 
-        # If we couldn't resolve type from GL strings, default based on backend
-        if resolved_type is None:
-            backend = app_info.get_renderer_backend()
-            if backend in ("software", "unknown"):
-                resolved_type = "software"
-            elif backend == "opengl":
-                resolved_type = (
-                    "software"  # conservative default when GL vendor missing
-                )
-            else:
+            for ctx in ctx_candidates:
+                if not isinstance(ctx, QOpenGLContext):
+                    continue
+                funcs = ctx.functions()
+                if not funcs:
+                    continue
+                try:
+                    vendor_bytes = cast(
+                        Optional[bytes], funcs.glGetString(0x1F00)
+                    )  # GL_VENDOR
+                    renderer_bytes = cast(
+                        Optional[bytes], funcs.glGetString(0x1F01)
+                    )  # GL_RENDERER
+                    vendor = (
+                        vendor_bytes.decode(errors="ignore")
+                        if vendor_bytes
+                        else "unknown"
+                    )
+                    renderer_str = (
+                        renderer_bytes.decode(errors="ignore") if renderer_bytes else ""
+                    )
+                    app_info.set_gl_vendor(vendor or "unknown")
+                    rend_lower = (renderer_str or vendor).lower()
+                    if (
+                        "llvmpipe" in rend_lower
+                        or "softpipe" in rend_lower
+                        or "software" in rend_lower
+                    ):
+                        resolved_type = "software"
+                    else:
+                        resolved_type = "hardware"
+                    break
+                except Exception:
+                    continue
+
+            # If we couldn't resolve type from GL strings, default to hardware for GL
+            if resolved_type is None:
                 resolved_type = "hardware"
-        app_info.set_renderer_type(resolved_type)
+                if app_info.get_gl_vendor() == "unknown":
+                    app_info.set_gl_vendor("unknown (OpenGL)")
+
+        app_info.set_renderer_type(resolved_type or "unknown")
     except Exception:
         # Leave the initial value if introspection fails
         pass
