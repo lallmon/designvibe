@@ -27,8 +27,21 @@ Item {
     readonly property var _canvasComponent: contentContainer.children.length > 0 ? contentContainer.children[0] : null
     readonly property real cursorX: _canvasComponent && typeof _canvasComponent.cursorX !== "undefined" ? _canvasComponent.cursorX : 0
     readonly property real cursorY: _canvasComponent && typeof _canvasComponent.cursorY !== "undefined" ? _canvasComponent.cursorY : 0
-    readonly property real cursorViewportX: (cursorX * zoomLevel) + (width * 0.5) + offsetX
-    readonly property real cursorViewportY: (cursorY * zoomLevel) + (height * 0.5) + offsetY
+    readonly property real _cursorViewportX: (cursorX * zoomLevel) + (width * 0.5) + offsetX
+    readonly property real _cursorViewportY: (cursorY * zoomLevel) + (height * 0.5) + offsetY
+    // Ruler view state bundled to keep API small
+    readonly property var rulerState: ({
+            zoom: zoomLevel,
+            offsetX: offsetX,
+            offsetY: offsetY,
+            viewportWidth: width,
+            viewportHeight: height,
+            gridSpacing: gridSpacingCanvas,
+            majorMultiplier: gridShader.majorMultiplier,
+            unitSettings: typeof unitSettings !== "undefined" ? unitSettings : null,
+            cursorViewportX: _cursorViewportX,
+            cursorViewportY: _cursorViewportY
+        })
 
     // Zoom/pan state (camera controls)
     property real zoomLevel: 0.7  // Start at 70%
@@ -68,17 +81,7 @@ Item {
         anchors.top: parent.top
         height: 24
         orientation: "horizontal"
-        zoomLevel: root.zoomLevel
-        offsetX: root.offsetX
-        offsetY: root.offsetY
-        viewportWidth: root.width
-        viewportHeight: root.height
-        unitSettings: root.unitSettings
-        axisColor: Lucent.Themed.selector
-        baseGridSize: root.gridSpacingCanvas
-        majorMultiplier: gridShader.majorMultiplier
-        cursorViewportX: root.cursorViewportX
-        cursorViewportY: root.cursorViewportY
+        viewState: rulerState
         visible: rulersVisible
         z: 1001
     }
@@ -90,17 +93,7 @@ Item {
         anchors.bottom: parent.bottom
         width: 24
         orientation: "vertical"
-        zoomLevel: root.zoomLevel
-        offsetX: root.offsetX
-        offsetY: root.offsetY
-        viewportWidth: root.width
-        viewportHeight: root.height
-        unitSettings: root.unitSettings
-        axisColor: Lucent.Themed.selector
-        baseGridSize: root.gridSpacingCanvas
-        majorMultiplier: gridShader.majorMultiplier
-        cursorViewportX: root.cursorViewportX
-        cursorViewportY: root.cursorViewportY
+        viewState: rulerState
         visible: rulersVisible
         z: 1001
     }

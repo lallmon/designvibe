@@ -9,12 +9,7 @@ import "." as Lucent
 Item {
     id: root
     property string orientation: "horizontal"  // "horizontal" | "vertical"
-    property real zoomLevel: 1.0
-    property real offsetX: 0
-    property real offsetY: 0
-    property real viewportWidth: width
-    property real viewportHeight: height
-    property var unitSettings: null
+    property var viewState: null
     property color tickColor: Lucent.Themed.palette.text
     property color textColor: Lucent.Themed.palette.text
     property color axisColor: Lucent.Themed.selector
@@ -22,8 +17,8 @@ Item {
     property real devicePixelRatio: Screen.devicePixelRatio
     property real cursorViewportX: NaN
     property real cursorViewportY: NaN
-    property real baseGridSize: 32.0
-    property real majorMultiplier: 5.0
+    property real baseGridSize: viewState.gridSpacing
+    property real majorMultiplier: viewState.majorMultiplier
 
     // Internal
     property real _targetPx: 60  // desired spacing in px
@@ -35,34 +30,31 @@ Item {
     z: 1001
 
     // Recompute ticks whenever view changes
-    onZoomLevelChanged: requestRepaint()
-    onOffsetXChanged: requestRepaint()
-    onOffsetYChanged: requestRepaint()
-    onViewportWidthChanged: requestRepaint()
-    onViewportHeightChanged: requestRepaint()
-    onUnitSettingsChanged: requestRepaint()
-    onCursorViewportXChanged: requestRepaint()
-    onCursorViewportYChanged: requestRepaint()
+    onViewStateChanged: updateAll()
+    onWidthChanged: updateAll()
+    onHeightChanged: updateAll()
+    Component.onCompleted: updateAll()
 
-    function requestRepaint() {
+    function updateAll() {
+        _ticks = generateTicks();
         canvas.requestPaint();
     }
 
     function baseGridSizeVal() {
-        if (unitSettings && unitSettings.gridSpacingCanvas)
-            return unitSettings.gridSpacingCanvas;
+        if (viewState.unitSettings && viewState.unitSettings.gridSpacingCanvas)
+            return viewState.unitSettings.gridSpacingCanvas;
         return baseGridSize;
     }
 
     function canvasToDisplay(val) {
-        if (unitSettings && unitSettings.canvasToDisplay)
-            return unitSettings.canvasToDisplay(val);
+        if (viewState.unitSettings && viewState.unitSettings.canvasToDisplay)
+            return viewState.unitSettings.canvasToDisplay(val);
         return val;
     }
 
     function displayUnit() {
-        if (unitSettings && unitSettings.displayUnit)
-            return unitSettings.displayUnit;
+        if (viewState.unitSettings && viewState.unitSettings.displayUnit)
+            return viewState.unitSettings.displayUnit;
         return "px";
     }
 
@@ -88,28 +80,26 @@ Item {
     }
 
     function generateTicks() {
+        if (!viewState)
+            return [];
         var ticks = [];
-        var zoom = zoomLevel;
+        var zoom = viewState.zoom;
         if (!isFinite(zoom) || zoom <= 0)
             return ticks;
 
         // visible span in canvas coords
-        var centerX = viewportWidth * 0.5;
-        var centerY = viewportHeight * 0.5;
+        var centerX = viewState.viewportWidth * 0.5;
+        var centerY = viewState.viewportHeight * 0.5;
         var startCanvas, endCanvas, axisOffset, axisSize, offset;
 
         if (orientation === "horizontal") {
-            startCanvas = (-centerX - offsetX) / zoom;
-            endCanvas = (centerX - offsetX) / zoom;
-            axisOffset = -offsetX;
-            axisSize = viewportWidth;
-            offset = offsetX;
+            startCanvas = (-centerX - viewState.offsetX) / zoom;
+            endCanvas = (centerX - viewState.offsetX) / zoom;
+            offset = viewState.offsetX;
         } else {
-            startCanvas = (-centerY - offsetY) / zoom;
-            endCanvas = (centerY - offsetY) / zoom;
-            axisOffset = -offsetY;
-            axisSize = viewportHeight;
-            offset = offsetY;
+            startCanvas = (-centerY - viewState.offsetY) / zoom;
+            endCanvas = (centerY - viewState.offsetY) / zoom;
+            offset = viewState.offsetY;
         }
 
         var stepCanvas = computeStep();
@@ -120,8 +110,8 @@ Item {
         for (var v = first; v <= endCanvas; v += stepCanvas) {
             var posPx;
             if (orientation === "horizontal") {
-                posPx = (v * zoom) + centerX + offsetX;
-                if (posPx < 0 || posPx > viewportWidth)
+                posPx = (v * zoom) + centerX + viewState.offsetX;
+                if (posPx < 0 || posPx > viewState.viewportWidth)
                     continue;
                 ticks.push({
                     posPx: posPx,
@@ -129,8 +119,8 @@ Item {
                     isMajor: true
                 });
             } else {
-                posPx = (v * zoom) + centerY + offsetY;
-                if (posPx < 0 || posPx > viewportHeight)
+                posPx = (v * zoom) + centerY + viewState.offsetY;
+                if (posPx < 0 || posPx > viewState.viewportHeight)
                     continue;
                 ticks.push({
                     posPx: posPx,
@@ -157,7 +147,7 @@ Item {
             ctx.fillStyle = backgroundColor;
             ctx.fillRect(0, 0, width, height);
 
-            var ticks = generateTicks();
+            var ticks = _ticks;
             if (!ticks.length)
                 return;
 
@@ -173,19 +163,19 @@ Item {
             ctx.strokeStyle = tickColor;
             var axisLen = 8;
             if (orientation === "horizontal") {
-                var originX = width * 0.5 + offsetX;
+                var originX = viewState.viewportWidth * 0.5 + viewState.offsetX;
                 ctx.moveTo(originX + 0.5, height - axisLen);
                 ctx.lineTo(originX + 0.5, height);
             } else {
-                var originY = height * 0.5 + offsetY;
+                var originY = viewState.viewportHeight * 0.5 + viewState.offsetY;
                 ctx.moveTo(width - axisLen, originY + 0.5);
                 ctx.lineTo(width, originY + 0.5);
             }
             ctx.stroke();
 
             // Cursor marker (full length, light)
-            var cx = cursorViewportX;
-            var cy = cursorViewportY;
+            var cx = viewState.cursorViewportX;
+            var cy = viewState.cursorViewportY;
             ctx.strokeStyle = axisColor;
             if (orientation === "horizontal" && isFinite(cx)) {
                 ctx.beginPath();
@@ -220,7 +210,7 @@ Item {
 
     // Label layer (Text for crisper rendering)
     Repeater {
-        model: generateTicks()
+        model: _ticks
         delegate: Text {
             property var t: modelData
             text: t.label
