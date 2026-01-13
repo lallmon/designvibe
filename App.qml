@@ -311,7 +311,7 @@ ApplicationWindow {
                 RightPanel {
                     id: rightPanel
                     SplitView.preferredWidth: 280
-                    SplitView.minimumWidth: 128
+                    SplitView.minimumWidth: 160
                     SplitView.maximumWidth: 400
                     SplitView.fillHeight: true
                 }
@@ -322,10 +322,6 @@ ApplicationWindow {
     AboutDialog {
         id: aboutDialog
         anchors.centerIn: parent
-        appVersion: appInfo ? appInfo.appVersion : ""
-        rendererBackend: appInfo ? appInfo.rendererBackend : ""
-        rendererType: appInfo ? appInfo.rendererType : ""
-        glVendor: appInfo ? appInfo.glVendor : ""
     }
 
     ExportDialog {
