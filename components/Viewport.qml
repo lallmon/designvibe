@@ -98,7 +98,7 @@ Item {
         id: gridShader
         anchors.fill: parent
         visible: gridVisible && width > 0 && height > 0
-        z: 1000  // Render above content as an overlay
+        z: 5  // Above shapes, below overlays/tooltips
 
         // Order matters: must match shader uniform block
         property real baseGridSize: 32.0
@@ -110,8 +110,8 @@ Item {
         property real offsetX: root.offsetX
         property real offsetY: root.offsetY
         property var viewportSize: Qt.vector2d(width, height)
-        property color minorColor: Lucent.Themed.gridMinor
-        property color majorColor: Lucent.Themed.gridMajor
+        property color minorColor: Qt.rgba(Lucent.Themed.gridMinor.r, Lucent.Themed.gridMinor.g, Lucent.Themed.gridMinor.b, 0.25)
+        property color majorColor: Qt.rgba(Lucent.Themed.gridMajor.r, Lucent.Themed.gridMajor.g, Lucent.Themed.gridMajor.b, 0.85)
         // Precomputed spacing/visibility
         property real majorStepCanvas: {
             var z = root.zoomLevel;
@@ -130,14 +130,40 @@ Item {
                 return step * root.gridConfig.majorMultiplier;
             }
 
-            // Inches: target 2"
+            // Inches: pick nearest clean step to target pixels
             if (us && us.displayUnit === "in" && us.displayToCanvas) {
-                return us.displayToCanvas(2.0);
+                var targetPxIn = 80.0; // aim majors near ~80px
+                var candidatesIn = [0.25, 0.5, 1.0, 2.0, 4.0]; // inches
+                var bestIn = candidatesIn[0];
+                var bestDiffIn = 1e9;
+                for (var i = 0; i < candidatesIn.length; i++) {
+                    var stepIn = candidatesIn[i];
+                    var stepCanvas = us.displayToCanvas(stepIn);
+                    var diff = Math.abs(stepCanvas * z - targetPxIn);
+                    if (diff < bestDiffIn) {
+                        bestDiffIn = diff;
+                        bestIn = stepIn;
+                    }
+                }
+                return us.displayToCanvas(bestIn);
             }
 
-            // Millimeters: target 100 mm
+            // Millimeters: pick nearest clean step to target pixels
             if (us && us.displayUnit === "mm" && us.displayToCanvas) {
-                return us.displayToCanvas(100.0);
+                var targetPxMm = 100.0; // aim majors near ~100px
+                var candidatesMm = [10.0, 20.0, 25.0, 50.0, 100.0, 200.0]; // mm
+                var bestMm = candidatesMm[0];
+                var bestDiffMm = 1e9;
+                for (var j = 0; j < candidatesMm.length; j++) {
+                    var stepMm = candidatesMm[j];
+                    var stepCanvasMm = us.displayToCanvas(stepMm);
+                    var diffMm = Math.abs(stepCanvasMm * z - targetPxMm);
+                    if (diffMm < bestDiffMm) {
+                        bestDiffMm = diffMm;
+                        bestMm = stepMm;
+                    }
+                }
+                return us.displayToCanvas(bestMm);
             }
 
             // Other units: 1-2-5 ladder near targetMajorPx
@@ -193,8 +219,6 @@ Item {
             }
         }
     }
-
-    // Fallback grid removed (shader-only rendering)
 
     // The viewport surface that applies zoom and pan transforms
     Item {

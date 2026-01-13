@@ -16,8 +16,9 @@ QtObject {
 
     // Custom grid colors that switch with theme
     readonly property color gridBackground: isDark ? "#1e1e1e" : "#f2f2f2"
-    readonly property color gridMajor: isDark ? "#3c3c3c" : "#d2d2d2"
-    readonly property color gridMinor: isDark ? "#2d2d2d" : "#e6e6e6"
+    // Adjusted for better contrast: dark theme 20% lighter, light theme 20% darker
+    readonly property color gridMajor: isDark ? "#636363" : "#a8a8a8"
+    readonly property color gridMinor: isDark ? "#575757" : "#b8b8b8"
 
     // Selection overlay accent color
     readonly property color selector: "#409cff"
