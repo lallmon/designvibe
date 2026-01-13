@@ -27,13 +27,12 @@ class DummyCommand(Command):
 
 def test_execute_pushes_undo_and_clears_redo():
     changes = {"undo_changed": 0, "redo_changed": 0}
-    history = HistoryManager(
-        on_undo_stack_changed=lambda: changes.__setitem__(
-            "undo_changed", changes["undo_changed"] + 1
-        ),
-        on_redo_stack_changed=lambda: changes.__setitem__(
-            "redo_changed", changes["redo_changed"] + 1
-        ),
+    history = HistoryManager()
+    history.undoStackChanged.connect(
+        lambda: changes.__setitem__("undo_changed", changes["undo_changed"] + 1)
+    )
+    history.redoStackChanged.connect(
+        lambda: changes.__setitem__("redo_changed", changes["redo_changed"] + 1)
     )
     state = []
     cmd = DummyCommand(state, "a")
@@ -135,3 +134,82 @@ def test_transaction_clears_redo_when_executed():
     history.end_transaction()
 
     assert history.can_redo is False
+
+
+# --- QObject-specific tests ---
+
+
+def test_history_manager_is_qobject():
+    """HistoryManager should inherit from QObject for QML exposure."""
+    from PySide6.QtCore import QObject
+
+    history = HistoryManager()
+    assert isinstance(history, QObject)
+
+
+def test_can_undo_property_notifies():
+    """canUndo property should emit undoStackChanged signal."""
+    from PySide6.QtCore import SignalInstance
+
+    history = HistoryManager()
+    state = []
+
+    # Verify signal exists
+    assert hasattr(history, "undoStackChanged")
+    assert isinstance(history.undoStackChanged, SignalInstance)
+
+    # Track signal emissions
+    emissions = []
+    history.undoStackChanged.connect(lambda: emissions.append("undo"))
+
+    history.execute(DummyCommand(state, "a"))
+    assert len(emissions) == 1
+    assert history.canUndo is True
+
+
+def test_can_redo_property_notifies():
+    """canRedo property should emit redoStackChanged signal."""
+    from PySide6.QtCore import SignalInstance
+
+    history = HistoryManager()
+    state = []
+
+    # Verify signal exists
+    assert hasattr(history, "redoStackChanged")
+    assert isinstance(history.redoStackChanged, SignalInstance)
+
+    # Track signal emissions
+    emissions = []
+    history.redoStackChanged.connect(lambda: emissions.append("redo"))
+
+    history.execute(DummyCommand(state, "a"))
+    history.undo()
+    assert len(emissions) == 1
+    assert history.canRedo is True
+
+
+def test_undo_descriptions_property():
+    """undoDescriptions should return list of command descriptions."""
+    history = HistoryManager()
+    state = []
+
+    history.execute(DummyCommand(state, "first"))
+    history.execute(DummyCommand(state, "second"))
+
+    descriptions = history.undoDescriptions
+    assert descriptions == ["Dummy first", "Dummy second"]
+
+
+def test_redo_descriptions_property():
+    """redoDescriptions should return list of undone command descriptions."""
+    history = HistoryManager()
+    state = []
+
+    history.execute(DummyCommand(state, "first"))
+    history.execute(DummyCommand(state, "second"))
+    history.undo()
+    history.undo()
+
+    # Redo stack is LIFO, so most recently undone is last
+    descriptions = history.redoDescriptions
+    assert descriptions == ["Dummy second", "Dummy first"]

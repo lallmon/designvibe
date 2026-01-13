@@ -21,6 +21,7 @@ from PySide6.QtCore import QObject, Property, Signal
 from PySide6.QtQuick import QQuickWindow, QSGRendererInterface
 from lucent.canvas_renderer import CanvasRenderer
 from lucent.canvas_model import CanvasModel
+from lucent.history_manager import HistoryManager
 from lucent.document_manager import DocumentManager
 from lucent.font_provider import FontProvider
 from lucent.app_controller import AppController
@@ -112,8 +113,12 @@ if __name__ == "__main__":
 
     engine = QQmlApplicationEngine()
 
-    # Create and register canvas model as global singleton
-    canvas_model = CanvasModel()
+    # Create history manager and expose to QML
+    history_manager = HistoryManager()
+    engine.rootContext().setContextProperty("historyManager", history_manager)
+
+    # Create canvas model with injected history manager
+    canvas_model = CanvasModel(history_manager)
     engine.rootContext().setContextProperty("canvasModel", canvas_model)
 
     # Unit and DPI settings exposed to QML

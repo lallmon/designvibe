@@ -308,8 +308,8 @@ ApplicationWindow {
                     }
                 }
 
-                RightPanel {
-                    id: rightPanel
+                RightPane {
+                    id: rightPane
                     SplitView.preferredWidth: 280
                     SplitView.minimumWidth: 160
                     SplitView.maximumWidth: 400

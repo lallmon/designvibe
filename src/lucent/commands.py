@@ -170,7 +170,115 @@ class UpdateItemCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Update Properties"
+        item_name = self._new_props.get("name", "")
+        item_type = self._new_props.get("type", "item").capitalize()
+        action = self._describe_action()
+        # Include item name for context if available
+        if item_name:
+            return f"{action} '{item_name}'"
+        return f"{action} {item_type}"
+
+    def _describe_action(self) -> str:
+        """Analyze old vs new props to describe the action performed."""
+        old = self._old_props
+        new = self._new_props
+
+        # Check name change
+        if old.get("name") != new.get("name"):
+            return "Rename"
+
+        # Check visibility/lock toggles
+        if old.get("visible") != new.get("visible"):
+            visible = new.get("visible", True)
+            return "Show" if visible else "Hide"
+        if old.get("locked") != new.get("locked"):
+            locked = new.get("locked", False)
+            return "Lock" if locked else "Unlock"
+
+        # Check transform changes
+        old_transform = old.get("transform", {})
+        new_transform = new.get("transform", {})
+        if old_transform != new_transform:
+            if old_transform.get("rotate") != new_transform.get("rotate"):
+                return "Rotate"
+            if old_transform.get("scaleX") != new_transform.get(
+                "scaleX"
+            ) or old_transform.get("scaleY") != new_transform.get("scaleY"):
+                return "Scale"
+            if old_transform.get("originX") != new_transform.get(
+                "originX"
+            ) or old_transform.get("originY") != new_transform.get("originY"):
+                return "Move Origin"
+            if old_transform.get("translateX") != new_transform.get(
+                "translateX"
+            ) or old_transform.get("translateY") != new_transform.get("translateY"):
+                return "Transform"
+
+        # Check geometry changes
+        old_geom = old.get("geometry", {})
+        new_geom = new.get("geometry", {})
+        if old_geom != new_geom:
+            pos_keys = ("x", "y", "centerX", "centerY")
+            size_keys = ("width", "height", "radiusX", "radiusY")
+
+            pos_changed = any(old_geom.get(k) != new_geom.get(k) for k in pos_keys)
+            size_changed = any(old_geom.get(k) != new_geom.get(k) for k in size_keys)
+
+            if pos_changed and size_changed:
+                return "Resize"
+            if size_changed:
+                return "Resize"
+            if pos_changed:
+                return "Move"
+            if old_geom.get("points") != new_geom.get("points"):
+                return "Edit Path"
+
+        # Check appearance changes - be specific about what changed
+        old_apps = old.get("appearances", [])
+        new_apps = new.get("appearances", [])
+        if old_apps != new_apps:
+            return self._describe_appearance_change(old_apps, new_apps)
+
+        # Check text-specific changes
+        if old.get("text") != new.get("text"):
+            return "Edit Text"
+        if old.get("fontFamily") != new.get("fontFamily"):
+            return "Change Font"
+        if old.get("fontSize") != new.get("fontSize"):
+            return "Change Font Size"
+        if old.get("textColor") != new.get("textColor"):
+            return "Change Text Color"
+
+        return "Edit"
+
+    def _describe_appearance_change(
+        self, old_apps: List[Dict[str, Any]], new_apps: List[Dict[str, Any]]
+    ) -> str:
+        """Describe what changed in appearances."""
+        # Build lookup by type for comparison
+        old_by_type = {app.get("type"): app for app in old_apps}
+        new_by_type = {app.get("type"): app for app in new_apps}
+
+        changes: List[str] = []
+
+        for app_type in ("stroke", "fill"):
+            old_app = old_by_type.get(app_type, {})
+            new_app = new_by_type.get(app_type, {})
+
+            if old_app != new_app:
+                # Determine what specifically changed
+                if old_app.get("color") != new_app.get("color"):
+                    changes.append(f"{app_type.capitalize()} Color")
+                elif old_app.get("opacity") != new_app.get("opacity"):
+                    changes.append(f"{app_type.capitalize()} Opacity")
+                elif old_app.get("width") != new_app.get("width"):
+                    changes.append("Stroke Width")
+                else:
+                    changes.append(f"{app_type.capitalize()}")
+
+        if changes:
+            return f"Change {', '.join(changes)}"
+        return "Edit Appearance"
 
     def execute(self) -> None:
         self._apply_props(self._new_props)

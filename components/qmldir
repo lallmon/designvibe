@@ -9,7 +9,8 @@ HitTestHelper 1.0 HitTestHelper.qml
 StatusBar 1.0 panels/StatusBar.qml
 LayerPanel 1.0 panels/LayerPanel.qml
 LayerListItem 1.0 panels/LayerListItem.qml
-RightPanel 1.0 panels/RightPanel.qml
+HistoryPanel 1.0 panels/HistoryPanel.qml
+RightPane 1.0 panels/RightPane.qml
 TransformPanel 1.0 panels/TransformPanel.qml
 DebugPanel 1.0 panels/DebugPanel.qml
 SelectionOverlay 1.0 SelectionOverlay.qml

@@ -479,7 +479,7 @@ class TestBakeTransform:
         canvas_model.bakeTransform(-1)
         canvas_model.bakeTransform(999)
 
-    def test_bake_transform_undoable(self, canvas_model):
+    def test_bake_transform_undoable(self, canvas_model, history_manager):
         """Baking transform should be undoable."""
         rect_data = make_rectangle(x=0, y=0, width=100, height=50)
         rect_data["transform"] = {"scaleX": 2.0, "scaleY": 2.0}
@@ -494,7 +494,7 @@ class TestBakeTransform:
         assert canvas_model.getItemTransform(0)["scaleX"] == 1
 
         # Undo
-        canvas_model.undo()
+        history_manager.undo()
 
         # Should restore original state
         restored_transform = canvas_model.getItemTransform(0)

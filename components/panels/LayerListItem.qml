@@ -441,13 +441,13 @@ Item {
                         if (nameEditor.isEditing)
                             return;
                         if (event.matches(StandardKey.Undo)) {
-                            if (canvasModel) {
-                                canvasModel.undo();
+                            if (historyManager) {
+                                historyManager.undo();
                             }
                             event.accepted = true;
                         } else if (event.matches(StandardKey.Redo)) {
-                            if (canvasModel) {
-                                canvasModel.redo();
+                            if (historyManager) {
+                                historyManager.redo();
                             }
                             event.accepted = true;
                         }

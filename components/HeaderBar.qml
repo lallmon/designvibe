@@ -100,16 +100,16 @@ ToolBar {
                 Action {
                     text: qsTr("&Undo")
                     shortcut: StandardKey.Undo
-                    enabled: canvasModel ? canvasModel.canUndo : false
-                    onTriggered: if (canvasModel)
-                        canvasModel.undo()
+                    enabled: historyManager ? historyManager.canUndo : false
+                    onTriggered: if (historyManager)
+                        historyManager.undo()
                 }
                 Action {
                     text: qsTr("&Redo")
                     shortcut: StandardKey.Redo
-                    enabled: canvasModel ? canvasModel.canRedo : false
-                    onTriggered: if (canvasModel)
-                        canvasModel.redo()
+                    enabled: historyManager ? historyManager.canRedo : false
+                    onTriggered: if (historyManager)
+                        historyManager.redo()
                 }
                 Action {
                     text: qsTr("&Duplicate")

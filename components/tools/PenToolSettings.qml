@@ -157,6 +157,8 @@ RowLayout {
         color: root.strokeColor
         colorOpacity: root.strokeOpacity
         dialogTitle: qsTr("Choose Stroke Color")
+        onDialogOpened: canvasModel.beginTransaction()
+        onDialogClosed: canvasModel.endTransaction()
         onColorPreview: previewColor => root.updateProperty("strokeColor", previewColor.toString())
         onOpacityPreview: previewOpacity => root.updateProperty("strokeOpacity", previewOpacity)
         onColorPicked: newColor => root.updateProperty("strokeColor", newColor.toString())
@@ -181,6 +183,8 @@ RowLayout {
         color: root.fillColor
         colorOpacity: root.fillOpacity
         dialogTitle: qsTr("Choose Fill Color")
+        onDialogOpened: canvasModel.beginTransaction()
+        onDialogClosed: canvasModel.endTransaction()
         onColorPreview: previewColor => root.updateProperty("fillColor", previewColor.toString())
         onOpacityPreview: previewOpacity => root.updateProperty("fillOpacity", previewOpacity)
         onColorPicked: newColor => root.updateProperty("fillColor", newColor.toString())

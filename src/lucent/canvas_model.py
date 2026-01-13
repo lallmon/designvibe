@@ -1,7 +1,7 @@
 # Copyright (C) 2026 The Culture List, Inc.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Canvas model for Lucent - manages canvas items with undo/redo support."""
+"""Canvas model for Lucent - manages canvas items."""
 
 from typing import List, Optional, Dict, Any, Union
 from PySide6.QtCore import (
@@ -11,7 +11,6 @@ from PySide6.QtCore import (
     Qt,
     Signal,
     Slot,
-    Property,
     QObject,
     QByteArray,
 )
@@ -62,7 +61,7 @@ from lucent.quadtree import SpatialIndex, Rect
 
 
 class CanvasModel(QAbstractListModel):
-    """Manages CanvasItem objects as a Qt list model with undo/redo support."""
+    """Manages CanvasItem objects as a Qt list model."""
 
     # Custom roles for QML data binding
     NameRole = Qt.UserRole + 1  # type: ignore[attr-defined]
@@ -75,23 +74,20 @@ class CanvasModel(QAbstractListModel):
     LockedRole = Qt.UserRole + 8  # type: ignore[attr-defined]
     EffectiveLockedRole = Qt.UserRole + 9  # type: ignore[attr-defined]
 
-    # Legacy signals (kept for backward compatibility with CanvasRenderer)
+    # Signals for canvas item changes
     itemAdded = Signal(int)
     itemRemoved = Signal(int)
     itemsCleared = Signal()
     itemModified = Signal(int, "QVariant")  # type: ignore[arg-type]
     itemsReordered = Signal()
-    undoStackChanged = Signal()
-    redoStackChanged = Signal()
     itemTransformChanged = Signal(int)  # Emitted when item transform is updated
 
-    def __init__(self, parent: Optional[QObject] = None) -> None:
+    def __init__(
+        self, history_manager: HistoryManager, parent: Optional[QObject] = None
+    ) -> None:
         super().__init__(parent)
         self._items: List[CanvasItem] = []
-        self._history = HistoryManager(
-            on_undo_stack_changed=self.undoStackChanged.emit,
-            on_redo_stack_changed=self.redoStackChanged.emit,
-        )
+        self._history = history_manager
         self._transaction_active: bool = False
         self._transaction_snapshot: Dict[int, Dict[str, Any]] = {}
         self._type_counters: Dict[str, int] = {}
@@ -206,7 +202,9 @@ class CanvasModel(QAbstractListModel):
         self._transaction_snapshot = {}
 
         if commands:
-            transaction = TransactionCommand(commands, "Edit Properties")
+            # Use first command's description for the transaction label
+            label = commands[0].description if len(commands) == 1 else "Edit Properties"
+            transaction = TransactionCommand(commands, label)
             self._history.execute(transaction)
 
         self._transaction_active = False
@@ -697,24 +695,6 @@ class CanvasModel(QAbstractListModel):
     @Slot(result=int)
     def count(self) -> int:
         return len(self._items)
-
-    def _canUndo(self) -> bool:
-        return self._history.can_undo
-
-    canUndo = Property(bool, _canUndo, notify=undoStackChanged)
-
-    @Slot(result=bool)
-    def undo(self) -> bool:
-        return self._history.undo()
-
-    def _canRedo(self) -> bool:
-        return self._history.can_redo
-
-    canRedo = Property(bool, _canRedo, notify=redoStackChanged)
-
-    @Slot(result=bool)
-    def redo(self) -> bool:
-        return self._history.redo()
 
     def getItems(self) -> List[CanvasItem]:
         return self._items

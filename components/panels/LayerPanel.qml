@@ -40,13 +40,6 @@ Item {
             Layout.leftMargin: Lucent.Styles.pad.xsm
             Layout.rightMargin: Lucent.Styles.pad.xsm
 
-            Label {
-                text: qsTr("Layers")
-                font.pixelSize: 12
-                color: themePalette.text
-                Layout.fillWidth: true
-            }
-
             RowLayout {
                 spacing: 2
 

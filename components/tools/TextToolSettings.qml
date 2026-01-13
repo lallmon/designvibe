@@ -212,6 +212,8 @@ RowLayout {
         color: root.textColor
         colorOpacity: root.textOpacity
         dialogTitle: qsTr("Choose Text Color")
+        onDialogOpened: canvasModel.beginTransaction()
+        onDialogClosed: canvasModel.endTransaction()
         onColorPreview: previewColor => root.updateProperty("textColor", previewColor.toString())
         onOpacityPreview: previewOpacity => root.updateProperty("textOpacity", previewOpacity)
         onColorPicked: newColor => root.updateProperty("textColor", newColor.toString())

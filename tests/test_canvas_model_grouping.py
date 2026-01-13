@@ -70,7 +70,9 @@ class TestCanvasModelGrouping:
         canvas_model.ungroup(0)
         assert canvas_model.count() == 1
 
-    def test_ungroup_undo_restores_group_with_children(self, canvas_model):
+    def test_ungroup_undo_restores_group_with_children(
+        self, canvas_model, history_manager
+    ):
         """Undoing ungroup should restore the group with its children."""
         canvas_model.addItem(make_rectangle(name="A"))
         canvas_model.addItem(make_rectangle(name="B"))
@@ -91,7 +93,7 @@ class TestCanvasModelGrouping:
         assert canvas_model.count() == 2  # Group removed, 2 shapes remain
 
         # Undo the ungroup
-        canvas_model.undo()
+        history_manager.undo()
         assert canvas_model.count() == 3  # Group restored
 
         # Verify children are back under the group
