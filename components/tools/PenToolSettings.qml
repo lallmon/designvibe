@@ -18,7 +18,7 @@ RowLayout {
     property color _defaultStrokeColor: Lucent.Themed.defaultStroke
     property real _defaultStrokeOpacity: 1.0
     property color _defaultFillColor: Lucent.Themed.defaultFill
-    property real _defaultFillOpacity: 0.0
+    property real _defaultFillOpacity: 1.0
 
     // Helper to get fill appearance from selectedItem
     function _getFill() {
@@ -183,12 +183,7 @@ RowLayout {
         color: root.fillColor
         colorOpacity: root.fillOpacity
         dialogTitle: qsTr("Choose Fill Color")
-        onDialogOpened: {
-            // Auto-enable fill when user opens the fill picker (implies intent to fill)
-            if (root._defaultFillOpacity === 0.0)
-                root._defaultFillOpacity = 1.0;
-            canvasModel.beginTransaction();
-        }
+        onDialogOpened: canvasModel.beginTransaction()
         onDialogClosed: canvasModel.endTransaction()
         onColorPreview: previewColor => root.updateProperty("fillColor", previewColor.toString())
         onOpacityPreview: previewOpacity => root.updateProperty("fillOpacity", previewOpacity)

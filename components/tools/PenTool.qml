@@ -47,7 +47,7 @@ Item {
             var strokeColor = tool._colorString(settings && settings.strokeColor) || "#ffffff";
             var strokeOpacity = settings && settings.strokeOpacity !== undefined ? settings.strokeOpacity : 1.0;
             var fillColor = tool._colorString(settings && settings.fillColor) || "#ffffff";
-            var fillOpacity = settings && settings.fillOpacity !== undefined ? settings.fillOpacity : 0.0;
+            var fillOpacity = settings && settings.fillOpacity !== undefined ? settings.fillOpacity : 1.0;
 
             var handleLineColor = Lucent.Themed.palette.highlight.toString();
             var handleGripColor = Lucent.Themed.palette.highlight.toString();
@@ -325,7 +325,7 @@ Item {
         var strokeColor = tool._colorString(s.strokeColor);
         var strokeOpacity = s.strokeOpacity !== undefined ? s.strokeOpacity : 1.0;
         var fillColor = tool._colorString(s.fillColor);
-        var fillOpacity = s.fillOpacity !== undefined ? s.fillOpacity : 0.0;
+        var fillOpacity = s.fillOpacity !== undefined ? s.fillOpacity : 1.0;
 
         itemCompleted({
             type: "path",
