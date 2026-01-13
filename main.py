@@ -15,7 +15,7 @@ from pathlib import Path
 
 from typing import Optional, cast
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QOpenGLContext, QFont
+from PySide6.QtGui import QOpenGLContext, QFont, QIcon
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 from PySide6.QtCore import QObject, Property, Signal
 from PySide6.QtQuick import QQuickWindow, QSGRendererInterface
@@ -52,6 +52,11 @@ if __name__ == "__main__":
 
     # Use QApplication (not QGuiApplication) to support Qt.labs.platform native dialogs
     app = QApplication(sys.argv)
+
+    # Set application icon
+    icon_path = Path(__file__).resolve().parent / "assets" / "appIcon.png"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
 
     # Use fusion style on Windows to match Linux
     if sys.platform == "win32":
