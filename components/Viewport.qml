@@ -38,9 +38,6 @@ Item {
             return;
         gridShader.baseGridSize = gridSpacingCanvas;
         gridShader.majorMultiplier = gridConfig.majorMultiplier;
-        if (gridFallback.visible) {
-            gridFallback.requestPaint();
-        }
     }
 
     Component.onCompleted: {
@@ -115,28 +112,55 @@ Item {
         property var viewportSize: Qt.vector2d(width, height)
         property color minorColor: Lucent.Themed.gridMinor
         property color majorColor: Lucent.Themed.gridMajor
-        // Precomputed spacing/visibility (matches fallback)
-        property real minorStepCanvas: {
-            var gridSize = root.gridSpacingCanvas;
-            var msPx = gridSize * root.zoomLevel;
-            if (msPx < 6) {
-                return gridSize; // hidden via showMinorFlag
-            } else if (msPx > 24) {
-                gridSize = root.gridSpacingCanvas * 0.5;
-            }
-            return gridSize;
-        }
+        // Precomputed spacing/visibility
         property real majorStepCanvas: {
-            var major = root.gridSpacingCanvas * root.gridConfig.majorMultiplier;
-            var msPx = major * root.zoomLevel;
-            if (msPx < 12) {
-                major = root.gridSpacingCanvas * root.gridConfig.majorMultiplier * 2.0;
+            var z = root.zoomLevel;
+            var base = root.gridSpacingCanvas;
+            if (!isFinite(z) || z <= 0 || !isFinite(base) || base <= 0)
+                return base * root.gridConfig.majorMultiplier;
+
+            var us = typeof unitSettings !== "undefined" ? unitSettings : null;
+
+            // Pixel unit: target ~16px using powers of two
+            if (us && us.displayUnit === "px") {
+                var targetPx = 16.0;
+                var targetCanvas = targetPx / z;
+                var power = Math.round(Math.log(targetCanvas) / Math.LN2);
+                var step = Math.pow(2, power);
+                return step * root.gridConfig.majorMultiplier;
             }
-            return major;
+
+            // Inches: target 2"
+            if (us && us.displayUnit === "in" && us.displayToCanvas) {
+                return us.displayToCanvas(2.0);
+            }
+
+            // Millimeters: target 100 mm
+            if (us && us.displayUnit === "mm" && us.displayToCanvas) {
+                return us.displayToCanvas(100.0);
+            }
+
+            // Other units: 1-2-5 ladder near targetMajorPx
+            var targetPx = root.gridConfig.targetMajorPx || 80;
+            var targetCanvas = targetPx / z;
+            var ratio = targetCanvas / base;
+            var pow10 = Math.pow(10, Math.floor(Math.log(ratio) / Math.LN10));
+            var best = base * pow10;
+            var bestDiff = Math.abs(best - targetCanvas);
+            var candidates = [1, 2, 5];
+            for (var i = 0; i < candidates.length; i++) {
+                var step = base * candidates[i] * pow10;
+                var diff = Math.abs(step - targetCanvas);
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    best = step;
+                }
+            }
+            return best;
         }
+        property real minorStepCanvas: majorStepCanvas / root.gridConfig.majorMultiplier
         property real showMinorFlag: {
-            var gridSize = root.gridSpacingCanvas;
-            var msPx = gridSize * root.zoomLevel;
+            var msPx = minorStepCanvas * root.zoomLevel;
             if (msPx < 6)
                 return 0;
             return 1;
