@@ -18,6 +18,8 @@ Button {
     signal opacityPicked(real newOpacity)
     signal colorPreview(color previewColor)
     signal opacityPreview(real previewOpacity)
+    signal dialogOpened
+    signal dialogClosed
 
     readonly property SystemPalette themePalette: Lucent.Themed.palette
     readonly property real buttonHeight: 16
@@ -30,6 +32,7 @@ Button {
         // Set initial color with alpha only when opening (not as binding to avoid loops)
         colorDialog.selectedColor = Qt.rgba(root.color.r, root.color.g, root.color.b, root.colorOpacity);
         colorDialog.open();
+        root.dialogOpened();
     }
 
     background: Rectangle {
@@ -91,12 +94,14 @@ Button {
         onAccepted: {
             root.colorPicked(selectedColor);
             root.opacityPicked(selectedColor.a);
+            root.dialogClosed();
         }
 
         onRejected: {
             // Restore original color and opacity on cancel
             root.colorPreview(root.color);
             root.opacityPreview(root.colorOpacity);
+            root.dialogClosed();
         }
     }
 }

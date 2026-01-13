@@ -14,15 +14,6 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        ToolSeparator {
-            Layout.fillWidth: true
-            orientation: Qt.Horizontal
-            contentItem: Rectangle {
-                implicitHeight: 1
-                color: themePalette.mid
-            }
-        }
-
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -33,18 +24,35 @@ Item {
                 anchors.fill: parent
                 model: historyManager.undoDescriptions
 
-                delegate: Rectangle {
-                    width: historyList.width
-                    height: 24
-                    color: "transparent"
+                // Auto-scroll to show newest item at bottom
+                onCountChanged: {
+                    if (count > 0) {
+                        positionViewAtEnd();
+                    }
+                }
 
-                    Label {
-                        anchors.fill: parent
-                        anchors.leftMargin: Lucent.Styles.pad.sm
-                        verticalAlignment: Text.AlignVCenter
-                        text: modelData
-                        color: root.themePalette.text
-                        font.pixelSize: 11
+                delegate: Column {
+                    width: historyList.width
+
+                    Rectangle {
+                        width: parent.width
+                        height: 32
+                        color: "transparent"
+
+                        Label {
+                            anchors.fill: parent
+                            anchors.leftMargin: Lucent.Styles.pad.sm
+                            verticalAlignment: Text.AlignVCenter
+                            text: modelData
+                            color: root.themePalette.text
+                            font.pixelSize: 11
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: root.themePalette.mid
                     }
                 }
             }

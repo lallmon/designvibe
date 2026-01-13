@@ -161,12 +161,13 @@ class TestUpdateItemCommand:
         assert item.name == "Original"
 
     def test_has_description(self, canvas_model):
-        """Test command has a meaningful description."""
+        """Test command has a meaningful description based on what changed."""
         old_data = make_rectangle()
         canvas_model.addItem(old_data)
         new_data = make_rectangle(x=10, y=10)
         cmd = UpdateItemCommand(canvas_model, 0, old_data, new_data)
-        assert "Update" in cmd.description
+        # Position changed, so description should reflect that
+        assert "Move" in cmd.description or "Rectangle" in cmd.description
 
 
 class TestClearCommand:

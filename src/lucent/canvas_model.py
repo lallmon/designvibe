@@ -202,7 +202,9 @@ class CanvasModel(QAbstractListModel):
         self._transaction_snapshot = {}
 
         if commands:
-            transaction = TransactionCommand(commands, "Edit Properties")
+            # Use first command's description for the transaction label
+            label = commands[0].description if len(commands) == 1 else "Edit Properties"
+            transaction = TransactionCommand(commands, label)
             self._history.execute(transaction)
 
         self._transaction_active = False
