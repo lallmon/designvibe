@@ -15,6 +15,7 @@ from PySide6.QtCore import QUrl
 from PySide6.QtQml import QQmlComponent
 
 from lucent.canvas_model import CanvasModel
+from lucent.history_manager import HistoryManager
 
 
 class TestLayerPanelModelBehaviors:
@@ -22,7 +23,7 @@ class TestLayerPanelModelBehaviors:
 
     @pytest.fixture
     def model(self, qapp):
-        return CanvasModel()
+        return CanvasModel(HistoryManager())
 
     def test_add_layer_creates_layer_item(self, model):
         """LayerPanel calls canvasModel.addLayer() on button tap."""

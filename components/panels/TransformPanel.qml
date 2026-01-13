@@ -57,6 +57,10 @@ Item {
             if (index === root.selectedIndex)
                 root.refreshTransform();
         }
+    }
+
+    Connections {
+        target: historyManager
         function onUndoStackChanged() {
             root.refreshTransform();
         }
@@ -134,30 +138,8 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.leftMargin: Lucent.Styles.pad.sm
-            Layout.rightMargin: Lucent.Styles.pad.sm
-
-            Label {
-                text: qsTr("Transform")
-                font.pixelSize: 12
-                color: themePalette.text
-                Layout.fillWidth: true
-            }
-        }
-
-        ToolSeparator {
-            Layout.fillWidth: true
-            orientation: Qt.Horizontal
-            contentItem: Rectangle {
-                implicitHeight: 1
-                color: themePalette.mid
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: 4
-            Layout.bottomMargin: 8
+            Layout.topMargin: 16
+            Layout.bottomMargin: 16
             Layout.leftMargin: Lucent.Styles.pad.sm
             Layout.rightMargin: Lucent.Styles.pad.sm
             spacing: 8

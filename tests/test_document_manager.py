@@ -9,6 +9,7 @@ from pathlib import Path
 
 from lucent.document_manager import DocumentManager
 from lucent.canvas_model import CanvasModel
+from lucent.history_manager import HistoryManager
 from lucent.file_io import LUCENT_VERSION
 from test_helpers import make_rectangle
 
@@ -16,7 +17,7 @@ from test_helpers import make_rectangle
 @pytest.fixture
 def canvas_model(qapp):
     """Create a fresh CanvasModel for testing."""
-    return CanvasModel()
+    return CanvasModel(HistoryManager())
 
 
 @pytest.fixture

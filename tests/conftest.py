@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from lucent.canvas_model import CanvasModel
 from lucent.canvas_renderer import CanvasRenderer
+from lucent.history_manager import HistoryManager
 
 
 @pytest.fixture(scope="session")
@@ -25,9 +26,15 @@ def qapp():
 
 
 @pytest.fixture
-def canvas_model(qapp):
+def history_manager(qapp):
+    """Create a fresh HistoryManager instance for each test."""
+    return HistoryManager()
+
+
+@pytest.fixture
+def canvas_model(history_manager):
     """Create a fresh CanvasModel instance for each test."""
-    return CanvasModel()
+    return CanvasModel(history_manager)
 
 
 @pytest.fixture

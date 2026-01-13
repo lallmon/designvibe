@@ -377,41 +377,41 @@ class TestCanvasModelRenameItem:
 
 
 class TestCanvasModelUndoRedo:
-    """Tests for undo/redo functionality."""
+    """Tests for undo/redo functionality via HistoryManager."""
 
-    def test_undo_add_item(self, canvas_model):
+    def test_undo_add_item(self, canvas_model, history_manager):
         canvas_model.addItem(make_rectangle())
         assert canvas_model.count() == 1
 
-        result = canvas_model.undo()
+        result = history_manager.undo()
         assert result is True
         assert canvas_model.count() == 0
 
-    def test_redo_add_item(self, canvas_model):
+    def test_redo_add_item(self, canvas_model, history_manager):
         canvas_model.addItem(make_rectangle())
-        canvas_model.undo()
+        history_manager.undo()
         assert canvas_model.count() == 0
 
-        result = canvas_model.redo()
+        result = history_manager.redo()
         assert result is True
         assert canvas_model.count() == 1
 
-    def test_can_undo_property(self, canvas_model):
-        assert canvas_model.canUndo is False
+    def test_can_undo_property(self, canvas_model, history_manager):
+        assert history_manager.canUndo is False
         canvas_model.addItem(make_rectangle())
-        assert canvas_model.canUndo is True
+        assert history_manager.canUndo is True
 
-    def test_can_redo_property(self, canvas_model):
+    def test_can_redo_property(self, canvas_model, history_manager):
         canvas_model.addItem(make_rectangle())
-        assert canvas_model.canRedo is False
-        canvas_model.undo()
-        assert canvas_model.canRedo is True
+        assert history_manager.canRedo is False
+        history_manager.undo()
+        assert history_manager.canRedo is True
 
 
 class TestCanvasModelTransaction:
     """Tests for transaction batching."""
 
-    def test_transaction_batches_updates(self, canvas_model, qtbot):
+    def test_transaction_batches_updates(self, canvas_model, history_manager, qtbot):
         canvas_model.addItem(make_rectangle(x=0, y=0, name="A"))
         canvas_model.addItem(make_rectangle(x=10, y=10, name="B"))
         assert canvas_model.count() == 2
@@ -432,7 +432,7 @@ class TestCanvasModelTransaction:
         assert items[0].geometry.x == 100
         assert items[1].geometry.x == 200
 
-        canvas_model.undo()
+        history_manager.undo()
         items = canvas_model.getItems()
         assert items[0].geometry.x == 0
         assert items[1].geometry.x == 10

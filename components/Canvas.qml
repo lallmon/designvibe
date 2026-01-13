@@ -642,12 +642,17 @@ Item {
         indices.sort(function (a, b) {
             return b - a;
         });
+
+        // Wrap in transaction so deleting multiple items is one undo step
+        canvasModel.beginTransaction();
         for (var i = 0; i < indices.length; i++) {
             var idx = indices[i];
             if (canvasModel.isEffectivelyLocked(idx))
                 continue;
             canvasModel.removeItem(idx);
         }
+        canvasModel.endTransaction();
+
         Lucent.SelectionManager.setSelection([]);
     }
 
