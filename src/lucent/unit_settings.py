@@ -113,6 +113,38 @@ class UnitSettings(QObject):
         float, _get_grid_spacing_canvas, notify=gridSpacingCanvasChanged
     )
 
+    # Unit-aware grid defaults (minor, major multiplier, label style, target px)
+    @Slot(result="QVariantMap")  # type: ignore[arg-type]
+    def gridConfig(self) -> dict[str, object]:
+        unit = self._display_unit
+        dpi = self._preview_dpi
+        if unit == "in":
+            minor_canvas = unit_to_canvas(0.5, "in", dpi)  # 1/2"
+            major_mult = 4  # 2"
+            label_style = "fraction"
+            target_px = 100.0
+            allowed_major = [2.0, 4.0, 8.0]  # inches
+        elif unit == "mm":
+            minor_canvas = unit_to_canvas(20.0, "mm", dpi)  # 20 mm
+            major_mult = 5  # 100 mm
+            label_style = "decimal"
+            target_px = 120.0
+            allowed_major = [100.0, 200.0, 500.0]  # mm
+        else:  # px
+            minor_canvas = 10.0
+            major_mult = 10
+            label_style = "decimal"
+            target_px = 100.0
+            allowed_major = [100.0, 200.0, 400.0]  # px
+
+        return {
+            "minorCanvas": minor_canvas,
+            "majorMultiplier": major_mult,
+            "labelStyle": label_style,
+            "targetMajorPx": target_px,
+            "allowedMajorUnits": allowed_major,
+        }
+
     # Conversion helpers exposed to QML
     @Slot(float, result=float)
     def canvasToDisplay(self, value: float) -> float:

@@ -129,6 +129,7 @@ Item {
 
         SelectionOverlay {
             id: selectionOverlay
+            z: 20
             geometryBounds: root._selectionGeometryBounds
             itemTransform: root._selectionTransform
             zoomLevel: root.zoomLevel
@@ -181,6 +182,7 @@ Item {
         }
 
         Lucent.ToolTipCanvas {
+            z: 30
             visible: (selectionOverlay.isResizing || selectionOverlay.isRotating) && root._selectionGeometryBounds
             zoomLevel: root.zoomLevel
             cursorX: root.cursorX

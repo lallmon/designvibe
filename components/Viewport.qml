@@ -11,16 +11,44 @@ Item {
     clip: true  // Constrain rendering to viewport boundaries
     readonly property SystemPalette themePalette: Lucent.Themed.palette
 
-    // Grid spacing in canvas units (physical-ready when unitSettings is present)
-    property real gridSpacingCanvas: {
+    // Grid config derived from unitSettings (display unit + preview DPI)
+    readonly property var gridConfig: {
         if (typeof unitSettings !== "undefined" && unitSettings) {
-            return unitSettings.gridSpacingCanvas;
+            // Touch properties so binding re-evaluates on change
+            unitSettings.displayUnit;
+            unitSettings.previewDPI;
+            return unitSettings.gridConfig();
         }
-        return 32.0;
+        return {
+            minorCanvas: 32.0,
+            majorMultiplier: 5.0,
+            labelStyle: "decimal",
+            targetMajorPx: 80.0
+        };
     }
+
+    // Grid spacing in canvas units (driven by gridConfig)
+    property real gridSpacingCanvas: gridConfig.minorCanvas || 32.0
 
     // Grid visibility (toggled from View menu)
     property bool gridVisible: true
+
+    function refreshGrid() {
+        if (!gridVisible)
+            return;
+        gridShader.baseGridSize = gridSpacingCanvas;
+        gridShader.majorMultiplier = gridConfig.majorMultiplier;
+    }
+
+    Component.onCompleted: {
+        console.log("[viewport] completed size:", width, height);
+    }
+    onWidthChanged: {
+        console.log("[viewport] width changed:", width, "height:", height);
+    }
+    onHeightChanged: {
+        console.log("[viewport] height changed:", height, "width:", width);
+    }
 
     // Zoom/pan state (camera controls)
     property real zoomLevel: 0.7  // Start at 70%
@@ -52,172 +80,142 @@ Item {
         color: Lucent.Themed.gridBackground
     }
 
+    Connections {
+        target: typeof unitSettings !== "undefined" ? unitSettings : null
+        function onDisplayUnitChanged() {
+            refreshGrid();
+        }
+        function onPreviewDPIChanged() {
+            refreshGrid();
+        }
+        function onGridSpacingCanvasChanged() {
+            refreshGrid();
+        }
+    }
+
     // GPU grid overlay: crisp, infinite-feel, tied to current viewport
     ShaderEffect {
         id: gridShader
         anchors.fill: parent
-        visible: gridVisible && status === ShaderEffect.Ready
-        z: 1000  // Render above content as an overlay
+        visible: gridVisible && width > 0 && height > 0
+        z: 5  // Above shapes, below overlays/tooltips
 
+        // Order matters: must match shader uniform block
         property real baseGridSize: 32.0
         property real majorMultiplier: 5.0
-        Binding on baseGridSize {
-            value: root.gridSpacingCanvas
-        }
-        // Keep lines consistent across zoom by tying thickness to projected spacing.
-        // Matches shader gridSize logic (base, zoomed-out major-only, zoomed-in half).
-        // Keep lines very thin across zoom: small clamps plus modest scaling.
-        property real _gridSizePx: {
-            var g = baseGridSize;
-            if (root.zoomLevel < 0.5) {
-                g = baseGridSize * majorMultiplier;
-            } else if (root.zoomLevel > 2.0) {
-                g = baseGridSize * 0.5;
-            }
-            return g * root.zoomLevel;
-        }
-        property real minorThicknessPx: Math.min(0.6, Math.max(0.15, _gridSizePx * 0.08))
-        property real majorThicknessPx: Math.min(0.9, Math.max(0.2, _gridSizePx * 0.12))
-        property real featherPx: Math.min(0.8, Math.max(0.25, minorThicknessPx * 0.7))
+        property real minorThicknessPx: 0.4
+        property real majorThicknessPx: 0.7
+        property real featherPx: 0.4
         property real zoomLevel: root.zoomLevel
         property real offsetX: root.offsetX
         property real offsetY: root.offsetY
-        property color majorColor: Lucent.Themed.gridMajor
-        property color minorColor: Lucent.Themed.gridMinor
         property var viewportSize: Qt.vector2d(width, height)
+        property color minorColor: Qt.rgba(Lucent.Themed.gridMinor.r, Lucent.Themed.gridMinor.g, Lucent.Themed.gridMinor.b, 0.25)
+        property color majorColor: Qt.rgba(Lucent.Themed.gridMajor.r, Lucent.Themed.gridMajor.g, Lucent.Themed.gridMajor.b, 0.85)
+        // Precomputed spacing/visibility
+        property real majorStepCanvas: {
+            var z = root.zoomLevel;
+            var base = root.gridSpacingCanvas;
+            if (!isFinite(z) || z <= 0 || !isFinite(base) || base <= 0)
+                return base * root.gridConfig.majorMultiplier;
+
+            var us = typeof unitSettings !== "undefined" ? unitSettings : null;
+
+            // Pixel unit: target ~16px using powers of two
+            if (us && us.displayUnit === "px") {
+                var targetPx = 16.0;
+                var targetCanvas = targetPx / z;
+                var power = Math.round(Math.log(targetCanvas) / Math.LN2);
+                var step = Math.pow(2, power);
+                return step * root.gridConfig.majorMultiplier;
+            }
+
+            // Inches: pick nearest clean step to target pixels
+            if (us && us.displayUnit === "in" && us.displayToCanvas) {
+                var targetPxIn = 80.0; // aim majors near ~80px
+                var candidatesIn = [0.25, 0.5, 1.0, 2.0, 4.0]; // inches
+                var bestIn = candidatesIn[0];
+                var bestDiffIn = 1e9;
+                for (var i = 0; i < candidatesIn.length; i++) {
+                    var stepIn = candidatesIn[i];
+                    var stepCanvas = us.displayToCanvas(stepIn);
+                    var diff = Math.abs(stepCanvas * z - targetPxIn);
+                    if (diff < bestDiffIn) {
+                        bestDiffIn = diff;
+                        bestIn = stepIn;
+                    }
+                }
+                return us.displayToCanvas(bestIn);
+            }
+
+            // Millimeters: pick nearest clean step to target pixels
+            if (us && us.displayUnit === "mm" && us.displayToCanvas) {
+                var targetPxMm = 100.0; // aim majors near ~100px
+                var candidatesMm = [10.0, 20.0, 25.0, 50.0, 100.0, 200.0]; // mm
+                var bestMm = candidatesMm[0];
+                var bestDiffMm = 1e9;
+                for (var j = 0; j < candidatesMm.length; j++) {
+                    var stepMm = candidatesMm[j];
+                    var stepCanvasMm = us.displayToCanvas(stepMm);
+                    var diffMm = Math.abs(stepCanvasMm * z - targetPxMm);
+                    if (diffMm < bestDiffMm) {
+                        bestDiffMm = diffMm;
+                        bestMm = stepMm;
+                    }
+                }
+                return us.displayToCanvas(bestMm);
+            }
+
+            // Other units: 1-2-5 ladder near targetMajorPx
+            var targetPx = root.gridConfig.targetMajorPx || 80;
+            var targetCanvas = targetPx / z;
+            var ratio = targetCanvas / base;
+            var pow10 = Math.pow(10, Math.floor(Math.log(ratio) / Math.LN10));
+            var best = base * pow10;
+            var bestDiff = Math.abs(best - targetCanvas);
+            var candidates = [1, 2, 5];
+            for (var i = 0; i < candidates.length; i++) {
+                var step = base * candidates[i] * pow10;
+                var diff = Math.abs(step - targetCanvas);
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    best = step;
+                }
+            }
+            return best;
+        }
+        property real minorStepCanvas: majorStepCanvas / root.gridConfig.majorMultiplier
+        property real showMinorFlag: {
+            var msPx = minorStepCanvas * root.zoomLevel;
+            if (msPx < 6)
+                return 0;
+            return 1;
+        }
+        Binding on baseGridSize {
+            value: root.gridSpacingCanvas
+        }
+        Binding on majorMultiplier {
+            value: root.gridConfig.majorMultiplier
+        }
 
         vertexShader: Qt.resolvedUrl("shaders/grid.vert.qsb")
         fragmentShader: Qt.resolvedUrl("shaders/grid.frag.qsb")
 
         onStatusChanged: {
-            if (status === ShaderEffect.Error) {
-                console.error("[gridShader] status=Error; grid fallback will activate");
-            } else if (status !== ShaderEffect.Ready) {
-                console.warn("[gridShader] status:", status, "grid fallback will activate if not Ready");
-            }
-        }
-    }
-
-    // Fallback grid when shader fails or is unavailable (e.g., missing GL backend)
-    Canvas {
-        id: gridFallback
-        anchors.fill: parent
-        visible: gridVisible && gridShader.status !== ShaderEffect.Ready
-        antialiasing: false
-        z: gridShader.z  // Keep overlay ordering in fallback
-
-        // Mirror shader params to keep spacing/colors consistent
-        property real baseGridSize: gridShader.baseGridSize
-        property real majorMultiplier: gridShader.majorMultiplier
-
-        function gridParams() {
-            var gridSize = baseGridSize;
-            var showMinor = true;
-
-            var minorStepPx = gridSize * root.zoomLevel;
-            if (minorStepPx < 6) {
-                showMinor = false;
-            } else if (minorStepPx > 24) {
-                gridSize = baseGridSize * 0.5;
-                minorStepPx = gridSize * root.zoomLevel;
-            }
-
-            var majorStep = baseGridSize * majorMultiplier;
-            var majorStepPx = majorStep * root.zoomLevel;
-            if (majorStepPx < 12) {
-                majorStep = baseGridSize * majorMultiplier * 2.0;
-                majorStepPx = majorStep * root.zoomLevel;
-            }
-
-            return {
-                gridSize: gridSize,
-                majorStep: majorStep,
-                showMinor: showMinor
-            };
+            console.log("[gridShader] status:", status, "baseGridSize:", baseGridSize, "majorMultiplier:", majorMultiplier, "zoomLevel:", root.zoomLevel, "offsetX:", root.offsetX, "offsetY:", root.offsetY, "viewport:", width, height);
         }
 
-        function drawLines(stepPx, color, lineWidth) {
-            if (!isFinite(stepPx) || stepPx < 1) {
-                return;
-            }
-            var ctx = getContext("2d");
-            ctx.save();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = lineWidth;
-
-            var originX = (width * 0.5) + root.offsetX;
-            var originY = (height * 0.5) + root.offsetY;
-
-            var startX = originX % stepPx;
-            if (startX < 0)
-                startX += stepPx;
-            for (var x = startX; x <= width; x += stepPx) {
-                ctx.beginPath();
-                ctx.moveTo(x + 0.5, 0);
-                ctx.lineTo(x + 0.5, height);
-                ctx.stroke();
-            }
-
-            var startY = originY % stepPx;
-            if (startY < 0)
-                startY += stepPx;
-            for (var y = startY; y <= height; y += stepPx) {
-                ctx.beginPath();
-                ctx.moveTo(0, y + 0.5);
-                ctx.lineTo(width, y + 0.5);
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-
-        onPaint: {
-            var ctx = getContext("2d");
-            ctx.resetTransform();
-            ctx.clearRect(0, 0, width, height);
-
-            var params = gridParams();
-            var zoom = root.zoomLevel;
-            if (!isFinite(zoom) || zoom <= 0)
-                return;
-
-            var minorStepPx = params.gridSize * zoom;
-            var majorStepPx = params.majorStep * zoom;
-
-            if (majorStepPx < 2)
-                return;
-
-            // Minor grid
-            if (params.showMinor) {
-                drawLines(minorStepPx, gridShader.minorColor, gridShader.minorThicknessPx);
-            }
-            // Major grid overlays minor
-            drawLines(majorStepPx, gridShader.majorColor, gridShader.majorThicknessPx);
-        }
-
-        onVisibleChanged: {
-            if (visible) {
-                requestPaint();
+        onWidthChanged: {
+            if (width > 0 && height > 0 && gridVisible) {
+                gridShader.baseGridSize = root.gridSpacingCanvas;
+                gridShader.majorMultiplier = root.gridConfig.majorMultiplier;
             }
         }
-        onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
 
-        Connections {
-            target: root
-            function onZoomLevelChanged() {
-                if (gridFallback.visible) {
-                    gridFallback.requestPaint();
-                }
-            }
-            function onOffsetXChanged() {
-                if (gridFallback.visible) {
-                    gridFallback.requestPaint();
-                }
-            }
-            function onOffsetYChanged() {
-                if (gridFallback.visible) {
-                    gridFallback.requestPaint();
-                }
+        onHeightChanged: {
+            if (width > 0 && height > 0 && gridVisible) {
+                gridShader.baseGridSize = root.gridSpacingCanvas;
+                gridShader.majorMultiplier = root.gridConfig.majorMultiplier;
             }
         }
     }
