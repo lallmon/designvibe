@@ -44,6 +44,64 @@ Item {
     // Selection geometry bounds (untransformed, from model)
     property var _selectionGeometryBounds: null
 
+    // Exposed properties for SelectionOverlay (used by Viewport)
+    readonly property var selectionGeometryBounds: _selectionGeometryBounds
+    readonly property var selectionTransform: _selectionTransform
+
+    // Overlay state tracking (set by Viewport's SelectionOverlay)
+    property bool overlayIsResizing: false
+    property bool overlayIsRotating: false
+
+    // Signals emitted by SelectionOverlay in Viewport, handled here
+    signal overlayResizeRequested(var newBounds)
+    signal overlayRotateRequested(real angle)
+    signal overlayScaleResizeRequested(real scaleX, real scaleY, real anchorX, real anchorY)
+    signal overlayResizingChanged(bool isResizing)
+    signal overlayRotatingChanged(bool isRotating)
+
+    // Handle overlay signals from Viewport's SelectionOverlay
+    onOverlayResizingChanged: function (isResizing) {
+        if (isResizing) {
+            canvasModel.beginTransaction();
+        } else {
+            canvasModel.endTransaction();
+        }
+    }
+
+    onOverlayRotatingChanged: function (isRotating) {
+        if (isRotating) {
+            canvasModel.beginTransaction();
+            // Move origin to center BEFORE rotation starts to prevent visual jump
+            var idx = Lucent.SelectionManager.selectedItemIndex;
+            if (idx >= 0) {
+                canvasModel.ensureOriginCentered(idx);
+            }
+        } else {
+            canvasModel.endTransaction();
+        }
+    }
+
+    onOverlayResizeRequested: function (newBounds) {
+        var idx = Lucent.SelectionManager.selectedItemIndex;
+        if (idx >= 0 && canvasModel) {
+            canvasModel.setBoundingBox(idx, newBounds);
+        }
+    }
+
+    onOverlayRotateRequested: function (angle) {
+        var idx = Lucent.SelectionManager.selectedItemIndex;
+        if (idx >= 0 && canvasModel) {
+            canvasModel.updateTransformProperty(idx, "rotate", angle);
+        }
+    }
+
+    onOverlayScaleResizeRequested: function (scaleX, scaleY, anchorX, anchorY) {
+        var idx = Lucent.SelectionManager.selectedItemIndex;
+        if (idx >= 0 && canvasModel) {
+            canvasModel.applyScaleResize(idx, scaleX, scaleY, anchorX, anchorY);
+        }
+    }
+
     // Canvas content (no transforms - handled by parent Viewport)
     Item {
         id: shapesLayer
@@ -127,88 +185,7 @@ Item {
             }
         }
 
-        SelectionOverlay {
-            id: selectionOverlay
-            z: 20
-            geometryBounds: root._selectionGeometryBounds
-            itemTransform: root._selectionTransform
-            zoomLevel: root.zoomLevel
-            cursorX: root.cursorX
-            cursorY: root.cursorY
-            shiftPressed: !!(root.currentModifiers & Qt.ShiftModifier)
-
-            onIsResizingChanged: {
-                if (isResizing) {
-                    canvasModel.beginTransaction();
-                } else {
-                    canvasModel.endTransaction();
-                }
-            }
-
-            onIsRotatingChanged: {
-                if (isRotating) {
-                    canvasModel.beginTransaction();
-                    // Move origin to center BEFORE rotation starts to prevent visual jump
-                    var idx = Lucent.SelectionManager.selectedItemIndex;
-                    if (idx >= 0) {
-                        canvasModel.ensureOriginCentered(idx);
-                    }
-                } else {
-                    canvasModel.endTransaction();
-                }
-            }
-
-            onResizeRequested: function (newBounds) {
-                var idx = Lucent.SelectionManager.selectedItemIndex;
-                if (idx >= 0 && canvasModel) {
-                    canvasModel.setBoundingBox(idx, newBounds);
-                }
-            }
-
-            onRotateRequested: function (angle) {
-                var idx = Lucent.SelectionManager.selectedItemIndex;
-                if (idx >= 0 && canvasModel) {
-                    // Origin is already at center (set in onIsRotatingChanged)
-                    canvasModel.updateTransformProperty(idx, "rotate", angle);
-                }
-            }
-
-            onScaleResizeRequested: function (scaleX, scaleY, anchorX, anchorY) {
-                var idx = Lucent.SelectionManager.selectedItemIndex;
-                if (idx >= 0 && canvasModel) {
-                    canvasModel.applyScaleResize(idx, scaleX, scaleY, anchorX, anchorY);
-                }
-            }
-        }
-
-        Lucent.ToolTipCanvas {
-            z: 30
-            visible: (selectionOverlay.isResizing || selectionOverlay.isRotating) && root._selectionGeometryBounds
-            zoomLevel: root.zoomLevel
-            cursorX: root.cursorX
-            cursorY: root.cursorY
-            text: {
-                if (selectionOverlay.isRotating) {
-                    var angle = root._selectionTransform ? Math.round(root._selectionTransform.rotate || 0) : 0;
-                    return angle + "°";
-                }
-                // Show displayed size (geometry × scale) during resize
-                if (root._selectionGeometryBounds) {
-                    var scaleX = root._selectionTransform ? (root._selectionTransform.scaleX || 1) : 1;
-                    var scaleY = root._selectionTransform ? (root._selectionTransform.scaleY || 1) : 1;
-                    var w = root._selectionGeometryBounds.width * scaleX;
-                    var h = root._selectionGeometryBounds.height * scaleY;
-                    var label = "px";
-                    if (typeof unitSettings !== "undefined" && unitSettings) {
-                        w = unitSettings.canvasToDisplay(w);
-                        h = unitSettings.canvasToDisplay(h);
-                        label = unitSettings.displayUnit;
-                    }
-                    return Math.round(w) + " × " + Math.round(h) + " " + label;
-                }
-                return "";
-            }
-        }
+        // SelectionOverlay and ToolTipCanvas have been moved to Viewport.qml overlayContainer
 
         // Select tool for object selection (panning handled by Viewport)
         SelectTool {
@@ -223,13 +200,13 @@ Item {
             // Overlay geometry for manual handle hit testing
             overlayGeometry: root._selectionGeometryBounds ? {
                 bounds: root._selectionGeometryBounds,
-                transform: selectionOverlay.itemTransform || {},
+                transform: root._selectionTransform || {},
                 armLength: 30 / root.zoomLevel,
                 handleSize: 8 / root.zoomLevel,
                 zoomLevel: root.zoomLevel
             } : null
             // Don't drag object when overlay resize/rotate handles are being used
-            overlayActive: selectionOverlay.isResizing || selectionOverlay.isRotating
+            overlayActive: root.overlayIsResizing || root.overlayIsRotating
 
             onPanDelta: (dx, dy) => {
                 root.panRequested(dx, dy);
@@ -432,7 +409,7 @@ Item {
         updateSelection(hitIndex, multiSelect === true);
     }
 
-    function selectionTransform() {
+    function getSelectionTransform() {
         var idx = Lucent.SelectionManager.selectedItemIndex;
         if (idx < 0 || !canvasModel)
             return null;
@@ -440,7 +417,7 @@ Item {
     }
 
     function refreshSelectionTransform() {
-        _selectionTransform = selectionTransform();
+        _selectionTransform = getSelectionTransform();
     }
 
     function refreshSelectionGeometryBounds() {
