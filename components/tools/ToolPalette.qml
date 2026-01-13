@@ -48,7 +48,7 @@ Pane {
                 activeTool: root.activeTool
                 buttonGroup: toolButtonGroup
                 isDefaultSelect: modelData === "select"
-                deselectValue: modelData === "select" ? "" : undefined
+                deselectValue: ""
 
                 onToolClicked: function (nextTool) {
                     root.toolSelected(nextTool);
