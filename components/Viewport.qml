@@ -300,7 +300,7 @@ Item {
             SelectionOverlay {
                 id: selectionOverlay
                 z: 20
-                visible: overlayContainer.canvasRef && !overlayContainer.canvasRef.pathEditModeActive
+                visible: overlayContainer.canvasRef && overlayContainer.canvasRef.selectionGeometryBounds !== null && !overlayContainer.canvasRef.pathEditModeActive
                 geometryBounds: overlayContainer.canvasRef ? overlayContainer.canvasRef.selectionGeometryBounds : null
                 itemTransform: overlayContainer.canvasRef ? overlayContainer.canvasRef.selectionTransform : null
                 zoomLevel: root.zoomLevel
@@ -350,6 +350,7 @@ Item {
                 zoomLevel: root.zoomLevel
                 cursorX: overlayContainer.canvasRef ? overlayContainer.canvasRef.cursorX : 0
                 cursorY: overlayContainer.canvasRef ? overlayContainer.canvasRef.cursorY : 0
+                currentModifiers: overlayContainer.canvasRef ? overlayContainer.canvasRef.currentModifiers : 0
                 selectedPointIndices: overlayContainer.canvasRef ? overlayContainer.canvasRef.pathSelectedPointIndices : []
 
                 onPointClicked: function (index, modifiers) {

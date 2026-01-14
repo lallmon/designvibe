@@ -16,6 +16,7 @@ Item {
 
     property real cursorX: 0
     property real cursorY: 0
+    property int currentModifiers: 0
 
     signal pointClicked(int index, int modifiers)
     signal pointMoved(int index, real x, real y)
@@ -255,8 +256,8 @@ Item {
                 property real startPointY: 0
 
                 TapHandler {
-                    onTapped: function (eventPoint, button) {
-                        overlay.pointClicked(pointItem.index, eventPoint.modifiers);
+                    onTapped: {
+                        overlay.pointClicked(pointItem.index, overlay.currentModifiers);
                     }
                 }
 

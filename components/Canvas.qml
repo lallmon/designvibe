@@ -423,6 +423,10 @@ Item {
             }
 
             onObjectClicked: (viewportX, viewportY, modifiers) => {
+                // Skip the click that follows entering edit mode via double-click
+                if (Lucent.SelectionManager.shouldSkipClick())
+                    return;
+
                 var canvasCoords = root.viewportToCanvas(viewportX, viewportY);
 
                 // If in edit mode, exit when clicking outside path points

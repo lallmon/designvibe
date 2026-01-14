@@ -13,6 +13,7 @@ QtObject {
     // Path edit mode state
     property bool editModeActive: false
     property var selectedPointIndices: []
+    property bool _skipNextClick: false
 
     signal editModeEntered
     signal editModeExited
@@ -21,6 +22,7 @@ QtObject {
         if (selectedItem && selectedItem.type === "path") {
             editModeActive = true;
             selectedPointIndices = [];
+            _skipNextClick = true;
             editModeEntered();
         }
     }
@@ -31,6 +33,14 @@ QtObject {
             selectedPointIndices = [];
             editModeExited();
         }
+    }
+
+    function shouldSkipClick() {
+        if (_skipNextClick) {
+            _skipNextClick = false;
+            return true;
+        }
+        return false;
     }
 
     function selectPoint(index, multi) {
