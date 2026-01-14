@@ -173,10 +173,10 @@ Item {
             rectHeight = size;
         }
 
-        // Calculate position based on Alt (center mode) or corner mode
+        // Calculate position based on Ctrl (center mode) or corner mode
         var rectX, rectY;
-        if (modifiers & Qt.AltModifier) {
-            // Alt: draw from center - double the dimensions
+        if (modifiers & Qt.ControlModifier) {
+            // Ctrl: draw from center - double the dimensions
             rectWidth *= 2;
             rectHeight *= 2;
             rectX = helper.startX - rectWidth / 2;

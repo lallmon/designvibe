@@ -11,35 +11,35 @@ QtObject {
                 shortcut: "V",
                 icon: "cursor-fill",
                 iconWeight: "fill",
-                instruction: "Click to select • Drag to move • Shift+click for multi-select"
+                instruction: "<b>Click</b> to select • <b>Drag</b> to move • <b>Shift + click</b> to multi-select • <b>Double-click</b> to edit shapes"
             },
             "rectangle": {
                 name: "Rectangle Tool",
                 shortcut: "R",
                 icon: "rectangle",
                 iconWeight: "regular",
-                instruction: "Click and drag to draw • Shift: Square • Alt: From center"
+                instruction: "<b>Click</b> and <b>Drag</b> to draw • <b>Shift</b>: Draw evenly sized • <b>Ctrl</b>: Draw from center"
             },
             "ellipse": {
                 name: "Ellipse Tool",
                 shortcut: "O",
                 icon: "circle",
                 iconWeight: "regular",
-                instruction: "Click and drag to draw • Shift: Circle • Alt: From center"
+                instruction: "<b>Click</b> and <b>Drag</b> to draw • <b>Shift</b>: Draw evenly sized • <b>Ctrl</b>: Draw from center"
             },
             "pen": {
                 name: "Pen Tool",
                 shortcut: "P",
                 icon: "pen-nib",
                 iconWeight: "regular",
-                instruction: "Click to add points • Click first point to close path"
+                instruction: "<b>Click</b> to add points • <b>Drag</b>: bezier curve • <b>Click</b> start to close • <b>Double-click</b> for line"
             },
             "text": {
                 name: "Text Tool",
                 shortcut: "T",
                 icon: "text-t",
                 iconWeight: "regular",
-                instruction: "Click to place text • Type, then Enter to confirm"
+                instruction: "<b>Click</b> to place text box • <b>Type</b> to enter, then <b>Enter</b> to commit text"
             }
         })
 
