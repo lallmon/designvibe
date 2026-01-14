@@ -299,6 +299,7 @@ ApplicationWindow {
                         anchors.right: parent.right
                         anchors.margins: 10
                         z: 1000
+                        gpuRenderingEnabled: canvasContainer.gpuRenderingEnabled
 
                         onGpuRenderingToggled: function (enabled) {
                             canvasContainer.gpuRenderingEnabled = enabled;

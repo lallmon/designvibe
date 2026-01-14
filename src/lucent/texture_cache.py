@@ -127,8 +127,13 @@ class TextureCache:
         item: "CanvasItem",
         version: int,
     ) -> Optional[TextureCacheEntry]:
-        """Rasterize an item to a QImage texture."""
+        """Rasterize an item to a QImage texture.
+
+        The texture contains ONLY the base geometry without transforms.
+        Transforms are applied by the GPU via QSGTransformNode.
+        """
         from lucent.canvas_items import ShapeItem, TextItem
+        from lucent.transforms import Transform
 
         if not isinstance(item, (ShapeItem, TextItem)):
             return None
@@ -162,10 +167,19 @@ class TextureCache:
         painter.scale(scale, scale)
         painter.translate(padding - bounds.x(), padding - bounds.y())
 
-        # Paint using the item's existing paint method
-        # Pass zoom_level=1.0 (we render at base size, GPU handles zoom)
-        # Pass offset 0,0 since we've already translated the painter
-        item.paint(painter, zoom_level=1.0, offset_x=0.0, offset_y=0.0)
+        # Temporarily replace transform with identity so we rasterize base geometry
+        # GPU will apply the actual transform via QSGTransformNode
+        original_transform = item.transform
+        item.transform = Transform()  # Identity transform
+
+        try:
+            # Paint using the item's existing paint method
+            # Pass zoom_level=1.0 (we render at base size, GPU handles zoom)
+            # Pass offset 0,0 since we've already translated the painter
+            item.paint(painter, zoom_level=1.0, offset_x=0.0, offset_y=0.0)
+        finally:
+            # Restore original transform
+            item.transform = original_transform
 
         painter.end()
 
