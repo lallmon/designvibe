@@ -12,7 +12,7 @@ Item {
     property var itemTransform: null
     property real zoomLevel: 1.0
     property var selectedPointIndices: []
-    property color accentColor: Lucent.Themed.selector
+    property color accentColor: Lucent.Themed.editSelector
 
     property real cursorX: 0
     property real cursorY: 0
