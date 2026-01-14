@@ -52,7 +52,7 @@ Item {
     property bool overlayIsResizing: false
     property bool overlayIsRotating: false
 
-    // Path edit mode properties (exposed for PathEditOverlay in Viewport)
+    // Path edit mode
     readonly property bool pathEditModeActive: Lucent.SelectionManager.editModeActive
     readonly property var pathEditGeometry: {
         if (!pathEditModeActive)
@@ -122,7 +122,6 @@ Item {
         }
     }
 
-    // Path edit mode handlers
     function handlePathPointClicked(index, modifiers) {
         var multi = modifiers & Qt.ShiftModifier;
         Lucent.SelectionManager.selectPoint(index, multi);
@@ -137,19 +136,16 @@ Item {
         if (!item || item.type !== "path")
             return;
 
-        // Calculate delta from the dragged point
         var draggedPt = item.geometry.points[index];
         var dx = x - draggedPt.x;
         var dy = y - draggedPt.y;
 
-        // Get selected points - if dragged point is selected, move all selected points
         var selectedIndices = Lucent.SelectionManager.selectedPointIndices || [];
         var isDraggedSelected = selectedIndices.indexOf(index) >= 0;
 
         var newPoints = [];
         for (var i = 0; i < item.geometry.points.length; i++) {
             var pt = item.geometry.points[i];
-            // Move this point if it's the dragged point, or if it's selected and the dragged point is also selected
             var shouldMove = (i === index) || (isDraggedSelected && selectedIndices.indexOf(i) >= 0);
 
             if (shouldMove) {
@@ -157,18 +153,16 @@ Item {
                     x: pt.x + dx,
                     y: pt.y + dy
                 };
-                if (pt.handleIn) {
+                if (pt.handleIn)
                     newPt.handleIn = {
                         x: pt.handleIn.x + dx,
                         y: pt.handleIn.y + dy
                     };
-                }
-                if (pt.handleOut) {
+                if (pt.handleOut)
                     newPt.handleOut = {
                         x: pt.handleOut.x + dx,
                         y: pt.handleOut.y + dy
                     };
-                }
                 newPoints.push(newPt);
             } else {
                 newPoints.push(pt);
@@ -201,21 +195,27 @@ Item {
                     y: pt.y
                 };
                 if (pt.handleIn)
-                    newPt.handleIn = pt.handleIn;
+                    newPt.handleIn = {
+                        x: pt.handleIn.x,
+                        y: pt.handleIn.y
+                    };
                 if (pt.handleOut)
-                    newPt.handleOut = pt.handleOut;
+                    newPt.handleOut = {
+                        x: pt.handleOut.x,
+                        y: pt.handleOut.y
+                    };
 
-                if (handleType === "handleIn") {
+                if (handleType === "handleIn")
                     newPt.handleIn = {
                         x: x,
                         y: y
                     };
-                } else if (handleType === "handleOut") {
+                else if (handleType === "handleOut")
                     newPt.handleOut = {
                         x: x,
                         y: y
                     };
-                }
+
                 newPoints.push(newPt);
             } else {
                 newPoints.push(pt);
@@ -433,18 +433,15 @@ Item {
             }
 
             onObjectClicked: (viewportX, viewportY, modifiers) => {
-                // Skip the click that follows entering edit mode via double-click
                 if (Lucent.SelectionManager.shouldSkipClick())
                     return;
 
-                var canvasCoords = root.viewportToCanvas(viewportX, viewportY);
-
-                // If in edit mode, exit when clicking outside path points
                 if (Lucent.SelectionManager.editModeActive) {
                     Lucent.SelectionManager.exitEditMode();
                     return;
                 }
 
+                var canvasCoords = root.viewportToCanvas(viewportX, viewportY);
                 root.selectItemAt(canvasCoords.x, canvasCoords.y, !!(modifiers & Qt.ControlModifier));
             }
 
@@ -817,7 +814,6 @@ Item {
             refreshSelectionGeometryBounds();
         }
         function onEditModeExited() {
-            // Refresh bounds after path editing to ensure overlay is correctly sized
             refreshSelectionTransform();
             refreshSelectionGeometryBounds();
         }

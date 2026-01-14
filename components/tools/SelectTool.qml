@@ -171,10 +171,8 @@ Item {
         if (!tool.active)
             return false;
 
-        // Don't handle left clicks in edit mode - PathEditOverlay handles them
-        if (button === Qt.LeftButton && Lucent.SelectionManager.editModeActive) {
+        if (button === Qt.LeftButton && Lucent.SelectionManager.editModeActive)
             return false;
-        }
 
         if (button === Qt.MiddleButton) {
             isPanning = true;
@@ -247,10 +245,8 @@ Item {
             var dy = Math.abs(screenY - selectPressY);
 
             if (dx < clickThreshold && dy < clickThreshold) {
-                // Don't emit objectClicked when in path edit mode - handled by PathEditOverlay
-                if (!Lucent.SelectionManager.editModeActive) {
+                if (!Lucent.SelectionManager.editModeActive)
                     objectClicked(screenX, screenY, modifiers);
-                }
             }
 
             return true;

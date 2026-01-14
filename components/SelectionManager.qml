@@ -10,7 +10,6 @@ QtObject {
     property var selectedItem: null
     property var selectedIndices: []
 
-    // Path edit mode state
     property bool editModeActive: false
     property var selectedPointIndices: []
     property bool _skipNextClick: false
@@ -77,10 +76,8 @@ QtObject {
     }
 
     function setSelection(indices) {
-        // Exit edit mode when selection changes
-        if (editModeActive) {
+        if (editModeActive)
             exitEditMode();
-        }
 
         var next = indices ? indices.slice() : [];
         selectedIndices = next;

@@ -434,25 +434,21 @@ Item {
         cursorShape: canvasComponent ? canvasComponent.currentCursorShape : Qt.ArrowCursor
 
         Keys.onDeletePressed: {
-            if (canvasComponent) {
-                // In edit mode, delete selected points instead of the whole item
-                if (Lucent.SelectionManager.editModeActive) {
-                    canvasComponent.deleteSelectedPoints();
-                } else {
-                    canvasComponent.deleteSelectedItem();
-                }
-            }
+            if (!canvasComponent)
+                return;
+            if (Lucent.SelectionManager.editModeActive)
+                canvasComponent.deleteSelectedPoints();
+            else
+                canvasComponent.deleteSelectedItem();
         }
 
         Keys.onEscapePressed: {
-            // Exit edit mode first if active
             if (Lucent.SelectionManager.editModeActive) {
                 Lucent.SelectionManager.exitEditMode();
                 return;
             }
-            if (canvasComponent) {
+            if (canvasComponent)
                 canvasComponent.cancelCurrentTool();
-            }
         }
 
         Keys.onReturnPressed: {
