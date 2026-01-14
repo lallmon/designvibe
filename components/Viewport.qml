@@ -370,6 +370,14 @@ Item {
                         overlayContainer.canvasRef.handlePathHandleMoved(index, handleType, x, y);
                     }
                 }
+
+                onDragStarted: {
+                    canvasModel.beginTransaction();
+                }
+
+                onDragEnded: {
+                    canvasModel.endTransaction();
+                }
             }
 
             Lucent.ToolTipCanvas {

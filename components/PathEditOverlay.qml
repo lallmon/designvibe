@@ -22,6 +22,8 @@ Item {
     signal pointMoved(int index, real x, real y)
     signal handleMoved(int index, string handleType, real x, real y)
     signal backgroundClicked
+    signal dragStarted
+    signal dragEnded
 
     readonly property var points: pathGeometry ? pathGeometry.points : []
     readonly property bool isClosed: pathGeometry ? pathGeometry.closed : false
@@ -182,6 +184,9 @@ Item {
                             handleIn.startY = overlay.cursorY;
                             handleIn.startHandleX = pointItem.pointData.handleIn.x;
                             handleIn.startHandleY = pointItem.pointData.handleIn.y;
+                            overlay.dragStarted();
+                        } else {
+                            overlay.dragEnded();
                         }
                     }
                     onTranslationChanged: {
@@ -226,6 +231,9 @@ Item {
                             handleOut.startY = overlay.cursorY;
                             handleOut.startHandleX = pointItem.pointData.handleOut.x;
                             handleOut.startHandleY = pointItem.pointData.handleOut.y;
+                            overlay.dragStarted();
+                        } else {
+                            overlay.dragEnded();
                         }
                     }
                     onTranslationChanged: {
@@ -276,6 +284,9 @@ Item {
                             anchorPoint.startY = overlay.cursorY;
                             anchorPoint.startPointX = pointItem.pointData.x;
                             anchorPoint.startPointY = pointItem.pointData.y;
+                            overlay.dragStarted();
+                        } else {
+                            overlay.dragEnded();
                         }
                     }
                     onTranslationChanged: {
