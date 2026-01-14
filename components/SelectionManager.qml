@@ -10,12 +10,17 @@ QtObject {
     property var selectedItem: null
     property var selectedIndices: []
 
+    // Path edit mode properties
     property bool editModeActive: false
     property var selectedPointIndices: []
     property bool _skipNextClick: false
 
     signal editModeEntered
     signal editModeExited
+
+    // Selection-derived data for overlays (managed by SelectionManager)
+    property var selectionTransform: null
+    property var geometryBounds: null
 
     function enterEditMode() {
         if (selectedItem && selectedItem.type === "path") {
@@ -84,6 +89,18 @@ QtObject {
         var primary = next.length > 0 ? next[next.length - 1] : -1;
         selectedItemIndex = primary;
         selectedItem = primary >= 0 ? canvasModel.getItemData(primary) : null;
+        refreshSelectionData();
+    }
+
+    // Refresh transform and bounds from the model
+    function refreshSelectionData() {
+        if (selectedItemIndex >= 0 && canvasModel) {
+            selectionTransform = canvasModel.getItemTransform(selectedItemIndex);
+            geometryBounds = canvasModel.getGeometryBounds(selectedItemIndex);
+        } else {
+            selectionTransform = null;
+            geometryBounds = null;
+        }
     }
 
     function toggleSelection(index, multi) {
@@ -111,6 +128,13 @@ QtObject {
         canvasModel.itemModified.connect(function (index, data) {
             if (index === selectedItemIndex) {
                 selectedItem = data;
+                refreshSelectionData();
+            }
+        });
+
+        canvasModel.itemTransformChanged.connect(function (index) {
+            if (index === selectedItemIndex) {
+                refreshSelectionData();
             }
         });
 
@@ -138,12 +162,15 @@ QtObject {
                 selectedItemIndex = selectedItemIndex - 1;
                 selectedItem = selectedItemIndex >= 0 ? canvasModel.getItemData(selectedItemIndex) : null;
             }
+            refreshSelectionData();
         });
 
         canvasModel.itemsCleared.connect(function () {
             selectedItemIndex = -1;
             selectedItem = null;
             selectedIndices = [];
+            selectionTransform = null;
+            geometryBounds = null;
         });
     }
 }

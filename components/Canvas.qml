@@ -5,6 +5,7 @@ import QtQuick
 import QtQuick.Controls
 import CanvasRendering 1.0
 import "." as Lucent
+import "tools" as Tools
 
 // Canvas component focused on data management and tool coordination
 Item {
@@ -38,15 +39,9 @@ Item {
     // Current cursor shape (for dynamic cursor changes)
     property int currentCursorShape: Qt.OpenHandCursor
 
-    // Selection transform (updated reactively via signal)
-    property var _selectionTransform: null
-
-    // Selection geometry bounds (untransformed, from model)
-    property var _selectionGeometryBounds: null
-
-    // Exposed properties for SelectionOverlay (used by Viewport)
-    readonly property var selectionGeometryBounds: _selectionGeometryBounds
-    readonly property var selectionTransform: _selectionTransform
+    // Exposed properties for SelectionOverlay (bound from SelectionManager)
+    readonly property var selectionGeometryBounds: Lucent.SelectionManager.geometryBounds
+    readonly property var selectionTransform: Lucent.SelectionManager.selectionTransform
 
     // Overlay state tracking (set by Viewport's SelectionOverlay)
     property bool overlayIsResizing: false
@@ -461,9 +456,9 @@ Item {
                 return canvasModel.getBoundingBox(idx);
             }
             // Overlay geometry for manual handle hit testing
-            overlayGeometry: root._selectionGeometryBounds ? {
-                bounds: root._selectionGeometryBounds,
-                transform: root._selectionTransform || {},
+            overlayGeometry: root.selectionGeometryBounds ? {
+                bounds: root.selectionGeometryBounds,
+                transform: root.selectionTransform || {},
                 armLength: 30 / root.zoomLevel,
                 handleSize: 8 / root.zoomLevel,
                 zoomLevel: root.zoomLevel
@@ -497,47 +492,17 @@ Item {
             }
         }
 
-        // Dynamic tool loader - loads the appropriate tool based on drawingMode
-        Loader {
-            id: currentToolLoader
-            active: root.drawingMode !== "" && root.drawingMode !== "select"
+        // Dynamic tool loader for drawing tools
+        Tools.ToolLoader {
+            id: toolLoader
+            drawingMode: root.drawingMode
+            zoomLevel: root.zoomLevel
+            toolSettings: root.toolSettings
+            viewportWidth: root.width
+            viewportHeight: root.height
 
-            source: {
-                var toolMap = {
-                    "rectangle": "tools/RectangleTool.qml",
-                    "ellipse": "tools/EllipseTool.qml",
-                    "pen": "tools/PenTool.qml",
-                    "text": "tools/TextTool.qml"
-                };
-                return toolMap[root.drawingMode] || "";
-            }
-
-            onLoaded: {
-                if (item) {
-                    // Bind properties to the loaded tool
-                    item.zoomLevel = Qt.binding(function () {
-                        return root.zoomLevel;
-                    });
-                    item.active = Qt.binding(function () {
-                        return root.drawingMode !== "" && root.drawingMode !== "select";
-                    });
-                    item.settings = Qt.binding(function () {
-                        return root.toolSettings[root.drawingMode];
-                    });
-                    if (item.hasOwnProperty("viewportWidth")) {
-                        item.viewportWidth = Qt.binding(function () {
-                            return root.width;
-                        });
-                    }
-                    if (item.hasOwnProperty("viewportHeight")) {
-                        item.viewportHeight = Qt.binding(function () {
-                            return root.height;
-                        });
-                    }
-
-                    // Connect the itemCompleted signal
-                    item.itemCompleted.connect(root.handleItemCompleted);
-                }
+            onItemCompleted: function (itemData) {
+                root.handleItemCompleted(itemData);
             }
         }
     }
@@ -577,7 +542,7 @@ Item {
         // Delegate to active tool (SelectTool uses viewport coords)
         if (root.drawingMode === "") {
             selectTool.handlePress(viewportX, viewportY, button, modifiers);
-        } else if (currentToolLoader.item && currentToolLoader.item.handleMousePress) {
+        } else if (toolLoader.currentTool && toolLoader.currentTool.handleMousePress) {
             // When using a drawing tool, don't start drawing if clicking on selection handles
             // This allows manipulating selected shapes without switching to select tool
             if (Lucent.SelectionManager.selectedItemIndex >= 0) {
@@ -587,23 +552,23 @@ Item {
                 }
             }
             var canvasCoords = viewportToCanvas(viewportX, viewportY);
-            currentToolLoader.item.handleMousePress(canvasCoords.x, canvasCoords.y, button, modifiers);
+            toolLoader.currentTool.handleMousePress(canvasCoords.x, canvasCoords.y, button, modifiers);
         }
     }
 
     function handleMouseRelease(viewportX, viewportY, button, modifiers) {
         if (root.drawingMode === "") {
             selectTool.handleRelease(viewportX, viewportY, button, modifiers);
-        } else if (currentToolLoader.item && currentToolLoader.item.handleMouseRelease) {
+        } else if (toolLoader.currentTool && toolLoader.currentTool.handleMouseRelease) {
             var canvasCoords = viewportToCanvas(viewportX, viewportY);
-            currentToolLoader.item.handleMouseRelease(canvasCoords.x, canvasCoords.y);
+            toolLoader.currentTool.handleMouseRelease(canvasCoords.x, canvasCoords.y);
         }
     }
 
     function handleMouseClick(viewportX, viewportY, button) {
-        if (currentToolLoader.item && currentToolLoader.item.handleClick && button === Qt.LeftButton) {
+        if (toolLoader.currentTool && toolLoader.currentTool.handleClick && button === Qt.LeftButton) {
             var canvasCoords = viewportToCanvas(viewportX, viewportY);
-            currentToolLoader.item.handleClick(canvasCoords.x, canvasCoords.y);
+            toolLoader.currentTool.handleClick(canvasCoords.x, canvasCoords.y);
         }
     }
 
@@ -627,9 +592,9 @@ Item {
         }
 
         // Otherwise, delegate to the current tool
-        if (currentToolLoader.item && currentToolLoader.item.handleDoubleClick) {
+        if (toolLoader.currentTool && toolLoader.currentTool.handleDoubleClick) {
             var coords = viewportToCanvas(viewportX, viewportY);
-            currentToolLoader.item.handleDoubleClick(coords.x, coords.y);
+            toolLoader.currentTool.handleDoubleClick(coords.x, coords.y);
         }
     }
 
@@ -648,8 +613,8 @@ Item {
         // Delegate to active tool
         if (root.drawingMode === "") {
             selectTool.handleMouseMove(viewportX, viewportY);
-        } else if (currentToolLoader.item) {
-            currentToolLoader.item.handleMouseMove(canvasCoords.x, canvasCoords.y, modifiers);
+        } else if (toolLoader.currentTool) {
+            toolLoader.currentTool.handleMouseMove(canvasCoords.x, canvasCoords.y, modifiers);
         }
     }
 
@@ -660,11 +625,7 @@ Item {
 
         // Select the newly created item (it's at the end of the list)
         var newIndex = canvasModel.count() - 1;
-        Lucent.SelectionManager.selectedIndices = [newIndex];
-        Lucent.SelectionManager.selectedItemIndex = newIndex;
-        Lucent.SelectionManager.selectedItem = canvasModel.getItemData(newIndex);
-        refreshSelectionTransform();
-        refreshSelectionGeometryBounds();
+        Lucent.SelectionManager.setSelection([newIndex]);
     }
 
     // Set the drawing mode
@@ -672,8 +633,8 @@ Item {
         // Reset any active tool
         if (drawingMode === "") {
             selectTool.reset();
-        } else if (currentToolLoader.item) {
-            currentToolLoader.item.reset();
+        } else {
+            toolLoader.reset();
         }
 
         // "select" mode is the same as no mode (pan/zoom)
@@ -702,42 +663,7 @@ Item {
     // Select item at canvas coordinates
     function selectItemAt(canvasX, canvasY, multiSelect) {
         var hitIndex = hitTest(canvasX, canvasY);
-        updateSelection(hitIndex, multiSelect === true);
-    }
-
-    function getSelectionTransform() {
-        var idx = Lucent.SelectionManager.selectedItemIndex;
-        if (idx < 0 || !canvasModel)
-            return null;
-        return canvasModel.getItemTransform(idx);
-    }
-
-    function refreshSelectionTransform() {
-        _selectionTransform = getSelectionTransform();
-    }
-
-    function refreshSelectionGeometryBounds() {
-        var indices = Lucent.SelectionManager.currentSelectionIndices();
-        if (indices.length === 0 || !canvasModel) {
-            _selectionGeometryBounds = null;
-            return;
-        }
-
-        if (indices.length === 1) {
-            // Single selection: try geometry bounds first, fall back to bounding box
-            var bounds = canvasModel.getGeometryBounds(indices[0]);
-            if (!bounds) {
-                bounds = canvasModel.getBoundingBox(indices[0]);
-            }
-            _selectionGeometryBounds = bounds;
-        } else {
-            // Multi-selection: compute union of all bounding boxes
-            _selectionGeometryBounds = canvasModel.getUnionBoundingBox(indices);
-        }
-    }
-
-    function updateSelection(hitIndex, multiSelect) {
-        Lucent.SelectionManager.toggleSelection(hitIndex, multiSelect);
+        Lucent.SelectionManager.toggleSelection(hitIndex, multiSelect === true);
     }
 
     function updateSelectedItemPosition(canvasDx, canvasDy) {
@@ -745,161 +671,17 @@ Item {
         if (indices.length === 0)
             return;
 
-        var containerIds = {};
-        for (var i = 0; i < indices.length; i++) {
-            var d = canvasModel.getItemData(indices[i]);
-            if (d && (d.type === "group" || d.type === "layer") && d.id) {
-                containerIds[d.id] = true;
-            }
-        }
-
-        var movedContainers = {};
-        for (var j = 0; j < indices.length; j++) {
-            var idx = indices[j];
-            var data = canvasModel.getItemData(idx);
-            if (!data)
-                continue;
-            if (canvasModel.isEffectivelyLocked(idx))
-                continue;
-
-            if (data.type === "group" || data.type === "layer") {
-                if (movedContainers[data.id])
-                    continue;
-                movedContainers[data.id] = true;
-                canvasModel.moveGroup(idx, canvasDx, canvasDy);
-            } else if (data.type === "rectangle") {
-                if (data.parentId && containerIds[data.parentId])
-                    continue;
-                // Update geometry with new position
-                var rectGeom = Object.assign({}, data.geometry);
-                rectGeom.x = rectGeom.x + canvasDx;
-                rectGeom.y = rectGeom.y + canvasDy;
-                canvasModel.updateItem(idx, {
-                    type: data.type,
-                    geometry: rectGeom,
-                    appearances: data.appearances,
-                    name: data.name,
-                    parentId: data.parentId,
-                    visible: data.visible,
-                    locked: data.locked
-                });
-            } else if (data.type === "ellipse") {
-                if (data.parentId && containerIds[data.parentId])
-                    continue;
-                var ellipseGeom = Object.assign({}, data.geometry);
-                ellipseGeom.centerX = ellipseGeom.centerX + canvasDx;
-                ellipseGeom.centerY = ellipseGeom.centerY + canvasDy;
-                canvasModel.updateItem(idx, {
-                    type: data.type,
-                    geometry: ellipseGeom,
-                    appearances: data.appearances,
-                    name: data.name,
-                    parentId: data.parentId,
-                    visible: data.visible,
-                    locked: data.locked
-                });
-            } else if (data.type === "text") {
-                if (data.parentId && containerIds[data.parentId])
-                    continue;
-                var textGeom = Object.assign({}, data.geometry);
-                textGeom.x = textGeom.x + canvasDx;
-                textGeom.y = textGeom.y + canvasDy;
-                canvasModel.updateItem(idx, {
-                    type: data.type,
-                    geometry: textGeom,
-                    text: data.text,
-                    fontFamily: data.fontFamily,
-                    fontSize: data.fontSize,
-                    textColor: data.textColor,
-                    textOpacity: data.textOpacity,
-                    name: data.name,
-                    parentId: data.parentId,
-                    visible: data.visible,
-                    locked: data.locked
-                });
-            } else if (data.type === "path") {
-                if (data.parentId && containerIds[data.parentId])
-                    continue;
-                // Move path by translating all points in geometry
-                var pathGeom = data.geometry;
-                var newPoints = [];
-                for (var p = 0; p < pathGeom.points.length; p++) {
-                    newPoints.push({
-                        x: pathGeom.points[p].x + canvasDx,
-                        y: pathGeom.points[p].y + canvasDy
-                    });
-                }
-                canvasModel.updateItem(idx, {
-                    type: data.type,
-                    geometry: {
-                        points: newPoints,
-                        closed: pathGeom.closed
-                    },
-                    appearances: data.appearances,
-                    name: data.name,
-                    parentId: data.parentId,
-                    visible: data.visible,
-                    locked: data.locked
-                });
-            }
-        }
-        refreshSelectionGeometryBounds();
-    }
-
-    Connections {
-        target: Lucent.SelectionManager
-        function onSelectedItemChanged() {
-            refreshSelectionTransform();
-            refreshSelectionGeometryBounds();
-        }
-        function onSelectedItemIndexChanged() {
-            refreshSelectionTransform();
-            refreshSelectionGeometryBounds();
-        }
-        function onSelectedIndicesChanged() {
-            refreshSelectionTransform();
-            refreshSelectionGeometryBounds();
-        }
-        function onEditModeExited() {
-            refreshSelectionTransform();
-            refreshSelectionGeometryBounds();
-        }
-    }
-
-    Connections {
-        target: canvasModel
-        function onItemTransformChanged(index) {
-            if (index === Lucent.SelectionManager.selectedItemIndex) {
-                refreshSelectionTransform();
-                refreshSelectionGeometryBounds();
-            }
-        }
-        function onItemModified(index) {
-            if (index === Lucent.SelectionManager.selectedItemIndex) {
-                refreshSelectionTransform();
-                refreshSelectionGeometryBounds();
-            }
-        }
+        // Delegate all move logic to Python model
+        canvasModel.moveItems(indices, canvasDx, canvasDy);
     }
 
     function deleteSelectedItem() {
         var indices = Lucent.SelectionManager.currentSelectionIndices();
         if (indices.length === 0)
             return;
-        indices.sort(function (a, b) {
-            return b - a;
-        });
 
-        // Wrap in transaction so deleting multiple items is one undo step
-        canvasModel.beginTransaction();
-        for (var i = 0; i < indices.length; i++) {
-            var idx = indices[i];
-            if (canvasModel.isEffectivelyLocked(idx))
-                continue;
-            canvasModel.removeItem(idx);
-        }
-        canvasModel.endTransaction();
-
+        // Delegate deletion logic to Python model
+        canvasModel.deleteItems(indices);
         Lucent.SelectionManager.setSelection([]);
     }
 
@@ -911,25 +693,24 @@ Item {
         if (!newIndices || newIndices.length === 0)
             return;
         Lucent.SelectionManager.setSelection(newIndices);
-        refreshSelectionGeometryBounds();
     }
 
     // Undo last action in current drawing tool (Escape key)
     function cancelCurrentTool() {
-        if (currentToolLoader.item) {
+        if (toolLoader.currentTool) {
             // Use undoLastAction if available (progressive undo), otherwise reset
-            if (currentToolLoader.item.undoLastAction) {
-                currentToolLoader.item.undoLastAction();
-            } else if (currentToolLoader.item.reset) {
-                currentToolLoader.item.reset();
+            if (toolLoader.currentTool.undoLastAction) {
+                toolLoader.currentTool.undoLastAction();
+            } else {
+                toolLoader.reset();
             }
         }
     }
 
     // Finish the current drawing tool operation (for open paths)
     function finishCurrentTool() {
-        if (currentToolLoader.item && currentToolLoader.item._finalize) {
-            currentToolLoader.item._finalize();
+        if (toolLoader.currentTool && toolLoader.currentTool._finalize) {
+            toolLoader.currentTool._finalize();
         }
     }
 }
