@@ -168,10 +168,10 @@ Item {
             ellipseHeight = size;
         }
 
-        // Calculate position based on Alt (center mode) or corner mode
+        // Calculate position based on Ctrl (center mode) or corner mode
         var ellipseX, ellipseY;
-        if (modifiers & Qt.AltModifier) {
-            // Alt: draw from center - double the dimensions
+        if (modifiers & Qt.ControlModifier) {
+            // Ctrl: draw from center - double the dimensions
             ellipseWidth *= 2;
             ellipseHeight *= 2;
             ellipseX = helper.startX - ellipseWidth / 2;

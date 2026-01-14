@@ -52,6 +52,26 @@ Item {
     property bool overlayIsResizing: false
     property bool overlayIsRotating: false
 
+    // Path edit mode
+    readonly property bool pathEditModeActive: Lucent.SelectionManager.editModeActive
+    readonly property var pathEditGeometry: {
+        if (!pathEditModeActive)
+            return null;
+        var item = Lucent.SelectionManager.selectedItem;
+        if (item && item.type === "path" && item.geometry)
+            return item.geometry;
+        return null;
+    }
+    readonly property var pathEditTransform: {
+        if (!pathEditModeActive)
+            return null;
+        var item = Lucent.SelectionManager.selectedItem;
+        if (item && item.transform)
+            return item.transform;
+        return {};
+    }
+    readonly property var pathSelectedPointIndices: Lucent.SelectionManager.selectedPointIndices
+
     // Signals emitted by SelectionOverlay in Viewport, handled here
     signal overlayResizeRequested(var newBounds)
     signal overlayRotateRequested(real angle)
@@ -99,6 +119,195 @@ Item {
         var idx = Lucent.SelectionManager.selectedItemIndex;
         if (idx >= 0 && canvasModel) {
             canvasModel.applyScaleResize(idx, scaleX, scaleY, anchorX, anchorY);
+        }
+    }
+
+    function handlePathPointClicked(index, modifiers) {
+        var multi = modifiers & Qt.ShiftModifier;
+        Lucent.SelectionManager.selectPoint(index, multi);
+    }
+
+    function handlePathPointMoved(index, x, y) {
+        var idx = Lucent.SelectionManager.selectedItemIndex;
+        if (idx < 0)
+            return;
+
+        var item = Lucent.SelectionManager.selectedItem;
+        if (!item || item.type !== "path")
+            return;
+
+        var draggedPt = item.geometry.points[index];
+        var dx = x - draggedPt.x;
+        var dy = y - draggedPt.y;
+
+        var selectedIndices = Lucent.SelectionManager.selectedPointIndices || [];
+        var isDraggedSelected = selectedIndices.indexOf(index) >= 0;
+
+        var newPoints = [];
+        for (var i = 0; i < item.geometry.points.length; i++) {
+            var pt = item.geometry.points[i];
+            var shouldMove = (i === index) || (isDraggedSelected && selectedIndices.indexOf(i) >= 0);
+
+            if (shouldMove) {
+                var newPt = {
+                    x: pt.x + dx,
+                    y: pt.y + dy
+                };
+                if (pt.handleIn)
+                    newPt.handleIn = {
+                        x: pt.handleIn.x + dx,
+                        y: pt.handleIn.y + dy
+                    };
+                if (pt.handleOut)
+                    newPt.handleOut = {
+                        x: pt.handleOut.x + dx,
+                        y: pt.handleOut.y + dy
+                    };
+                newPoints.push(newPt);
+            } else {
+                newPoints.push(pt);
+            }
+        }
+
+        canvasModel.updateItem(idx, {
+            geometry: {
+                points: newPoints,
+                closed: item.geometry.closed
+            }
+        });
+    }
+
+    function handlePathHandleMoved(index, handleType, x, y, modifiers) {
+        var idx = Lucent.SelectionManager.selectedItemIndex;
+        if (idx < 0)
+            return;
+
+        var item = Lucent.SelectionManager.selectedItem;
+        if (!item || item.type !== "path")
+            return;
+
+        var breakSymmetry = !!(modifiers & Qt.AltModifier);
+
+        var newPoints = [];
+        for (var i = 0; i < item.geometry.points.length; i++) {
+            var pt = item.geometry.points[i];
+            if (i === index) {
+                var newPt = {
+                    x: pt.x,
+                    y: pt.y
+                };
+
+                if (handleType === "handleIn") {
+                    newPt.handleIn = {
+                        x: x,
+                        y: y
+                    };
+                    if (pt.handleOut) {
+                        if (breakSymmetry) {
+                            newPt.handleOut = {
+                                x: pt.handleOut.x,
+                                y: pt.handleOut.y
+                            };
+                        } else {
+                            // Mirror angle, preserve opposite handle length
+                            var dx = x - pt.x;
+                            var dy = y - pt.y;
+                            var outDx = pt.handleOut.x - pt.x;
+                            var outDy = pt.handleOut.y - pt.y;
+                            var outLen = Math.sqrt(outDx * outDx + outDy * outDy);
+                            var inLen = Math.sqrt(dx * dx + dy * dy);
+                            if (inLen > 0.001) {
+                                newPt.handleOut = {
+                                    x: pt.x - (dx / inLen) * outLen,
+                                    y: pt.y - (dy / inLen) * outLen
+                                };
+                            } else {
+                                newPt.handleOut = {
+                                    x: pt.handleOut.x,
+                                    y: pt.handleOut.y
+                                };
+                            }
+                        }
+                    }
+                } else if (handleType === "handleOut") {
+                    newPt.handleOut = {
+                        x: x,
+                        y: y
+                    };
+                    if (pt.handleIn) {
+                        if (breakSymmetry) {
+                            newPt.handleIn = {
+                                x: pt.handleIn.x,
+                                y: pt.handleIn.y
+                            };
+                        } else {
+                            // Mirror angle, preserve opposite handle length
+                            var dx = x - pt.x;
+                            var dy = y - pt.y;
+                            var inDx = pt.handleIn.x - pt.x;
+                            var inDy = pt.handleIn.y - pt.y;
+                            var inLen = Math.sqrt(inDx * inDx + inDy * inDy);
+                            var outLen = Math.sqrt(dx * dx + dy * dy);
+                            if (outLen > 0.001) {
+                                newPt.handleIn = {
+                                    x: pt.x - (dx / outLen) * inLen,
+                                    y: pt.y - (dy / outLen) * inLen
+                                };
+                            } else {
+                                newPt.handleIn = {
+                                    x: pt.handleIn.x,
+                                    y: pt.handleIn.y
+                                };
+                            }
+                        }
+                    }
+                }
+
+                newPoints.push(newPt);
+            } else {
+                newPoints.push(pt);
+            }
+        }
+
+        canvasModel.updateItem(idx, {
+            geometry: {
+                points: newPoints,
+                closed: item.geometry.closed
+            }
+        });
+    }
+
+    function deleteSelectedPoints() {
+        var idx = Lucent.SelectionManager.selectedItemIndex;
+        if (idx < 0)
+            return;
+
+        var item = Lucent.SelectionManager.selectedItem;
+        if (!item || item.type !== "path")
+            return;
+
+        var selectedIndices = Lucent.SelectionManager.selectedPointIndices;
+        if (!selectedIndices || selectedIndices.length === 0)
+            return;
+
+        var newPoints = [];
+        for (var i = 0; i < item.geometry.points.length; i++) {
+            if (selectedIndices.indexOf(i) < 0) {
+                newPoints.push(item.geometry.points[i]);
+            }
+        }
+
+        if (newPoints.length < 2) {
+            canvasModel.removeItem(idx);
+            Lucent.SelectionManager.exitEditMode();
+        } else {
+            canvasModel.updateItem(idx, {
+                geometry: {
+                    points: newPoints,
+                    closed: item.geometry.closed && newPoints.length >= 3
+                }
+            });
+            Lucent.SelectionManager.clearPointSelection();
         }
     }
 
@@ -271,6 +480,14 @@ Item {
             }
 
             onObjectClicked: (viewportX, viewportY, modifiers) => {
+                if (Lucent.SelectionManager.shouldSkipClick())
+                    return;
+
+                if (Lucent.SelectionManager.editModeActive) {
+                    Lucent.SelectionManager.exitEditMode();
+                    return;
+                }
+
                 var canvasCoords = root.viewportToCanvas(viewportX, viewportY);
                 root.selectItemAt(canvasCoords.x, canvasCoords.y, !!(modifiers & Qt.ControlModifier));
             }
@@ -391,9 +608,28 @@ Item {
     }
 
     function handleMouseDoubleClick(viewportX, viewportY, button) {
-        if (currentToolLoader.item && currentToolLoader.item.handleDoubleClick && button === Qt.LeftButton) {
+        if (button !== Qt.LeftButton)
+            return;
+
+        // In selection mode, check if double-clicking on a path to enter edit mode
+        if (root.drawingMode === "") {
             var canvasCoords = viewportToCanvas(viewportX, viewportY);
-            currentToolLoader.item.handleDoubleClick(canvasCoords.x, canvasCoords.y);
+            var hitIndex = hitTest(canvasCoords.x, canvasCoords.y);
+
+            if (hitIndex >= 0) {
+                var itemData = canvasModel.getItemData(hitIndex);
+                if (itemData && itemData.type === "path") {
+                    Lucent.SelectionManager.setSelection([hitIndex]);
+                    Lucent.SelectionManager.enterEditMode();
+                    return;
+                }
+            }
+        }
+
+        // Otherwise, delegate to the current tool
+        if (currentToolLoader.item && currentToolLoader.item.handleDoubleClick) {
+            var coords = viewportToCanvas(viewportX, viewportY);
+            currentToolLoader.item.handleDoubleClick(coords.x, coords.y);
         }
     }
 
@@ -621,6 +857,10 @@ Item {
             refreshSelectionGeometryBounds();
         }
         function onSelectedIndicesChanged() {
+            refreshSelectionTransform();
+            refreshSelectionGeometryBounds();
+        }
+        function onEditModeExited() {
             refreshSelectionTransform();
             refreshSelectionGeometryBounds();
         }

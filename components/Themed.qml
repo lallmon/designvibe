@@ -20,8 +20,8 @@ QtObject {
     readonly property color gridMajor: isDark ? "#636363" : "#a8a8a8"
     readonly property color gridMinor: isDark ? "#575757" : "#b8b8b8"
 
-    // Selection overlay accent color
     readonly property color selector: "#409cff"
+    readonly property color editSelector: "#fc03d2"
 
     // Default tool colors that switch with theme
     readonly property color defaultStroke: "#808080"

@@ -10,6 +10,56 @@ QtObject {
     property var selectedItem: null
     property var selectedIndices: []
 
+    property bool editModeActive: false
+    property var selectedPointIndices: []
+    property bool _skipNextClick: false
+
+    signal editModeEntered
+    signal editModeExited
+
+    function enterEditMode() {
+        if (selectedItem && selectedItem.type === "path") {
+            editModeActive = true;
+            selectedPointIndices = [];
+            _skipNextClick = true;
+            editModeEntered();
+        }
+    }
+
+    function exitEditMode() {
+        if (editModeActive) {
+            editModeActive = false;
+            selectedPointIndices = [];
+            editModeExited();
+        }
+    }
+
+    function shouldSkipClick() {
+        if (_skipNextClick) {
+            _skipNextClick = false;
+            return true;
+        }
+        return false;
+    }
+
+    function selectPoint(index, multi) {
+        if (!editModeActive)
+            return;
+
+        var next = multi ? selectedPointIndices.slice() : [];
+        var pos = next.indexOf(index);
+        if (pos >= 0) {
+            next.splice(pos, 1);
+        } else {
+            next.push(index);
+        }
+        selectedPointIndices = next;
+    }
+
+    function clearPointSelection() {
+        selectedPointIndices = [];
+    }
+
     function hasSelection() {
         return ((selectedIndices && selectedIndices.length > 0) || selectedItemIndex >= 0);
     }
@@ -26,6 +76,9 @@ QtObject {
     }
 
     function setSelection(indices) {
+        if (editModeActive)
+            exitEditMode();
+
         var next = indices ? indices.slice() : [];
         selectedIndices = next;
         var primary = next.length > 0 ? next[next.length - 1] : -1;

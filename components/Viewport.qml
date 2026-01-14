@@ -300,6 +300,7 @@ Item {
             SelectionOverlay {
                 id: selectionOverlay
                 z: 20
+                visible: overlayContainer.canvasRef && overlayContainer.canvasRef.selectionGeometryBounds !== null && !overlayContainer.canvasRef.pathEditModeActive
                 geometryBounds: overlayContainer.canvasRef ? overlayContainer.canvasRef.selectionGeometryBounds : null
                 itemTransform: overlayContainer.canvasRef ? overlayContainer.canvasRef.selectionTransform : null
                 zoomLevel: root.zoomLevel
@@ -337,6 +338,44 @@ Item {
                     if (overlayContainer.canvasRef) {
                         overlayContainer.canvasRef.overlayScaleResizeRequested(scaleX, scaleY, anchorX, anchorY);
                     }
+                }
+            }
+
+            PathEditOverlay {
+                id: pathEditOverlay
+                z: 21
+                visible: overlayContainer.canvasRef && overlayContainer.canvasRef.pathEditModeActive
+                pathGeometry: overlayContainer.canvasRef ? overlayContainer.canvasRef.pathEditGeometry : null
+                itemTransform: overlayContainer.canvasRef ? overlayContainer.canvasRef.pathEditTransform : null
+                zoomLevel: root.zoomLevel
+                cursorX: overlayContainer.canvasRef ? overlayContainer.canvasRef.cursorX : 0
+                cursorY: overlayContainer.canvasRef ? overlayContainer.canvasRef.cursorY : 0
+                currentModifiers: overlayContainer.canvasRef ? overlayContainer.canvasRef.currentModifiers : 0
+                selectedPointIndices: overlayContainer.canvasRef ? overlayContainer.canvasRef.pathSelectedPointIndices : []
+
+                onPointClicked: function (index, modifiers) {
+                    if (overlayContainer.canvasRef) {
+                        overlayContainer.canvasRef.handlePathPointClicked(index, modifiers);
+                    }
+                }
+
+                onPointMoved: function (index, x, y) {
+                    if (overlayContainer.canvasRef) {
+                        overlayContainer.canvasRef.handlePathPointMoved(index, x, y);
+                    }
+                }
+
+                onHandleMoved: function (index, handleType, x, y, modifiers) {
+                    if (overlayContainer.canvasRef)
+                        overlayContainer.canvasRef.handlePathHandleMoved(index, handleType, x, y, modifiers);
+                }
+
+                onDragStarted: {
+                    canvasModel.beginTransaction();
+                }
+
+                onDragEnded: {
+                    canvasModel.endTransaction();
                 }
             }
 
@@ -394,15 +433,21 @@ Item {
         cursorShape: canvasComponent ? canvasComponent.currentCursorShape : Qt.ArrowCursor
 
         Keys.onDeletePressed: {
-            if (canvasComponent) {
+            if (!canvasComponent)
+                return;
+            if (Lucent.SelectionManager.editModeActive)
+                canvasComponent.deleteSelectedPoints();
+            else
                 canvasComponent.deleteSelectedItem();
-            }
         }
 
         Keys.onEscapePressed: {
-            if (canvasComponent) {
-                canvasComponent.cancelCurrentTool();
+            if (Lucent.SelectionManager.editModeActive) {
+                Lucent.SelectionManager.exitEditMode();
+                return;
             }
+            if (canvasComponent)
+                canvasComponent.cancelCurrentTool();
         }
 
         Keys.onReturnPressed: {

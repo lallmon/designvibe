@@ -171,6 +171,9 @@ Item {
         if (!tool.active)
             return false;
 
+        if (button === Qt.LeftButton && Lucent.SelectionManager.editModeActive)
+            return false;
+
         if (button === Qt.MiddleButton) {
             isPanning = true;
             lastX = screenX;
@@ -242,7 +245,8 @@ Item {
             var dy = Math.abs(screenY - selectPressY);
 
             if (dx < clickThreshold && dy < clickThreshold) {
-                objectClicked(screenX, screenY, modifiers);
+                if (!Lucent.SelectionManager.editModeActive)
+                    objectClicked(screenX, screenY, modifiers);
             }
 
             return true;
@@ -288,7 +292,7 @@ Item {
             return true;
         }
 
-        if (isSelecting && clickedOnSelectedObject && !overlayActive && Lucent.SelectionManager.selectedItemIndex >= 0) {
+        if (isSelecting && clickedOnSelectedObject && !overlayActive && !Lucent.SelectionManager.editModeActive && Lucent.SelectionManager.selectedItemIndex >= 0) {
             var dx = Math.abs(screenX - selectPressX);
             var dy = Math.abs(screenY - selectPressY);
 
