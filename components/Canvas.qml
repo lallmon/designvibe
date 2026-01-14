@@ -28,9 +28,6 @@ Item {
     // Drawing mode
     property string drawingMode: ""  // "" for pan, "rectangle" for drawing rectangles, "ellipse" for drawing ellipses
 
-    // GPU rendering feature flag - experimental scene graph rendering
-    property bool useGpuRendering: false
-
     HitTestHelper {
         id: hitTestHelper
     }
@@ -135,7 +132,6 @@ Item {
         offsetY: root.offsetY
         viewportWidth: root.width
         viewportHeight: root.height
-        useGpuRendering: root.useGpuRendering
     }
 
     // Select tool for object selection (panning handled by Viewport)

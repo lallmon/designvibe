@@ -289,21 +289,13 @@ ApplicationWindow {
                     SplitView.fillWidth: true
                     SplitView.fillHeight: true
 
-                    // GPU rendering flag - controlled by debug panel
-                    property bool gpuRenderingEnabled: true
-
-                    // Debug panel overlay (toggle with F12) - declared first for property access
+                    // Debug panel overlay (toggle with F12)
                     DebugPanel {
                         id: debugPanel
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 10
                         z: 1000
-                        gpuRenderingEnabled: canvasContainer.gpuRenderingEnabled
-
-                        onGpuRenderingToggled: function (enabled) {
-                            canvasContainer.gpuRenderingEnabled = enabled;
-                        }
                     }
 
                     Viewport {
@@ -317,7 +309,6 @@ ApplicationWindow {
                             offsetX: viewport.offsetX
                             offsetY: viewport.offsetY
                             toolSettings: toolSettings.toolSettings
-                            useGpuRendering: canvasContainer.gpuRenderingEnabled
 
                             onPanRequested: (dx, dy) => {
                                 viewport.pan(dx, dy);

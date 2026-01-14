@@ -19,7 +19,6 @@ from PySide6.QtGui import QFont, QFontDatabase, QIcon
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 from PySide6.QtCore import QObject, Property, Signal
 from PySide6.QtQuick import QQuickWindow
-from lucent.canvas_renderer import CanvasRenderer
 from lucent.scene_graph_renderer import SceneGraphRenderer
 from lucent.canvas_model import CanvasModel
 from lucent.history_manager import HistoryManager
@@ -158,9 +157,6 @@ if __name__ == "__main__":
         def rendererType(self) -> str:
             return self._renderer_type
 
-    qmlRegisterType(
-        cast(type, CanvasRenderer), "CanvasRendering", 1, 0, "CanvasRenderer"
-    )  # type: ignore[call-overload]
     qmlRegisterType(
         cast(type, SceneGraphRenderer), "CanvasRendering", 1, 0, "SceneGraphRenderer"
     )  # type: ignore[call-overload]
