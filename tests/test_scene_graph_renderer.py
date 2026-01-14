@@ -183,3 +183,224 @@ class TestSceneGraphRendererZoomPanning:
         assert renderer._needs_full_rebuild is True
         assert renderer.tileOriginX == 100.0
         assert renderer.tileOriginY == 200.0
+
+    def test_zoom_no_change_no_rebuild(self, qapp):
+        """Setting same zoomLevel doesn't trigger rebuild."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+
+        renderer = SceneGraphRenderer()
+        renderer.zoomLevel = 2.0
+        renderer._needs_full_rebuild = False
+
+        renderer.zoomLevel = 2.0  # Same value
+
+        assert renderer._needs_full_rebuild is False
+
+    def test_tile_origin_x_no_change_no_rebuild(self, qapp):
+        """Setting same tileOriginX doesn't trigger rebuild."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+
+        renderer = SceneGraphRenderer()
+        renderer.tileOriginX = 100.0
+        renderer._needs_full_rebuild = False
+
+        renderer.tileOriginX = 100.0  # Same value
+
+        assert renderer._needs_full_rebuild is False
+
+    def test_tile_origin_y_no_change_no_rebuild(self, qapp):
+        """Setting same tileOriginY doesn't trigger rebuild."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+
+        renderer = SceneGraphRenderer()
+        renderer.tileOriginY = 200.0
+        renderer._needs_full_rebuild = False
+
+        renderer.tileOriginY = 200.0  # Same value
+
+        assert renderer._needs_full_rebuild is False
+
+
+class TestSceneGraphRendererUpdatePaintNode:
+    """Tests for updatePaintNode scene graph building."""
+
+    def test_returns_old_node_when_no_model(self, qapp):
+        """updatePaintNode returns old_node unchanged if no model set."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from PySide6.QtQuick import QSGNode
+
+        renderer = SceneGraphRenderer()
+        old_node = QSGNode()
+
+        result = renderer.updatePaintNode(old_node, None)
+
+        assert result is old_node
+
+    def test_creates_new_node_when_old_is_none(self, qapp, canvas_model):
+        """updatePaintNode creates new QSGNode if old_node is None."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from PySide6.QtQuick import QSGNode
+
+        renderer = SceneGraphRenderer()
+        renderer.setModel(canvas_model)
+
+        result = renderer.updatePaintNode(None, None)
+
+        assert result is not None
+        assert isinstance(result, QSGNode)
+
+    def test_reuses_existing_node(self, qapp, canvas_model):
+        """updatePaintNode reuses old_node if provided."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from PySide6.QtQuick import QSGNode
+
+        renderer = SceneGraphRenderer()
+        renderer.setModel(canvas_model)
+        old_node = QSGNode()
+
+        result = renderer.updatePaintNode(old_node, None)
+
+        assert result is old_node
+
+    def test_clears_rebuild_flag_after_rebuild(self, qapp, canvas_model):
+        """updatePaintNode clears _needs_full_rebuild after rebuilding."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from PySide6.QtQuick import QSGNode
+
+        renderer = SceneGraphRenderer()
+        renderer.setModel(canvas_model)
+        renderer._needs_full_rebuild = True
+
+        renderer.updatePaintNode(QSGNode(), None)
+
+        assert renderer._needs_full_rebuild is False
+
+
+class TestSceneGraphRendererRebuildNodes:
+    """Tests for _rebuild_nodes method."""
+
+    def test_clears_node_lists_on_rebuild(self, qapp, canvas_model):
+        """_rebuild_nodes clears texture/transform node lists."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from PySide6.QtQuick import QSGNode
+
+        renderer = SceneGraphRenderer()
+        renderer.setModel(canvas_model)
+        renderer._textures = ["fake1", "fake2"]
+        renderer._texture_nodes = ["node1"]
+        renderer._transform_nodes = ["trans1"]
+
+        root = QSGNode()
+        renderer._rebuild_nodes(root)
+
+        assert len(renderer._textures) == 0
+        assert len(renderer._texture_nodes) == 0
+        assert len(renderer._transform_nodes) == 0
+
+    def test_early_return_when_no_model(self, qapp):
+        """_rebuild_nodes returns early if no model."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from PySide6.QtQuick import QSGNode
+
+        renderer = SceneGraphRenderer()
+        root = QSGNode()
+
+        # Should not raise
+        renderer._rebuild_nodes(root)
+
+        assert root.childCount() == 0
+
+    def test_removes_existing_children(self, qapp, canvas_model):
+        """_rebuild_nodes removes existing child nodes."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from PySide6.QtQuick import QSGNode
+
+        renderer = SceneGraphRenderer()
+        renderer.setModel(canvas_model)
+
+        root = QSGNode()
+        child1 = QSGNode()
+        child2 = QSGNode()
+        root.appendChildNode(child1)
+        root.appendChildNode(child2)
+        assert root.childCount() == 2
+
+        renderer._rebuild_nodes(root)
+
+        # Children should be removed (no window = no new nodes added)
+        assert root.childCount() == 0
+
+
+class TestSceneGraphRendererItemModified:
+    """Tests for _on_item_modified cache invalidation."""
+
+    def test_invalidates_layer_cache_by_id(self, qapp, canvas_model, history_manager):
+        """_on_item_modified invalidates texture cache for items with id attribute."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+
+        # Add a layer (which has an id attribute)
+        canvas_model.addItem({"type": "layer", "name": "Test Layer"})
+        layer = canvas_model.getItem(0)
+        layer_id = layer.id
+
+        renderer = SceneGraphRenderer()
+        renderer.setModel(canvas_model)
+
+        # Manually add to cache to test invalidation logic
+        renderer._texture_cache._cache[layer_id] = "dummy_entry"
+        assert layer_id in renderer._texture_cache._cache
+
+        # Simulate item modification
+        renderer._on_item_modified(0, {"visible": False})
+
+        # Cache should be invalidated
+        assert layer_id not in renderer._texture_cache._cache
+
+    def test_skips_invalidation_for_items_without_id(
+        self, qapp, canvas_model, history_manager
+    ):
+        """_on_item_modified skips cache invalidation for items without id."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from test_helpers import make_rectangle
+
+        # Add a shape (which doesn't have an id attribute)
+        canvas_model.addItem(make_rectangle())
+        item = canvas_model.getItem(0)
+        assert not hasattr(item, "id")
+
+        renderer = SceneGraphRenderer()
+        renderer.setModel(canvas_model)
+
+        # Simulate modification - should not raise
+        renderer._on_item_modified(0, {"fill": "#ff0000"})
+
+        # Rebuild should still be triggered
+        assert renderer._needs_full_rebuild is True
+
+
+class TestSceneGraphRendererSetModel:
+    """Tests for setModel method."""
+
+    def test_ignores_non_canvas_model(self, qapp):
+        """setModel ignores objects that aren't CanvasModel."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from PySide6.QtCore import QObject
+
+        renderer = SceneGraphRenderer()
+        not_a_model = QObject()
+
+        renderer.setModel(not_a_model)
+
+        assert renderer._model is None
+
+    def test_connects_all_signals(self, qapp, canvas_model):
+        """setModel connects to all required model signals."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+
+        renderer = SceneGraphRenderer()
+        renderer.setModel(canvas_model)
+
+        # Verify signals trigger rebuild
+        renderer._needs_full_rebuild = False
+        canvas_model.itemsReordered.emit()
+        assert renderer._needs_full_rebuild is True

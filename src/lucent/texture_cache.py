@@ -32,8 +32,8 @@ class TextureCacheEntry:
         item_version: int,
     ) -> None:
         self.image = image
-        self.bounds = bounds  # Original geometry bounds (before transform)
-        self.item_version = item_version  # Track when to invalidate
+        self.bounds = bounds
+        self.item_version = item_version
 
     @property
     def width(self) -> int:
@@ -72,18 +72,15 @@ class TextureCache:
         """
         from lucent.canvas_items import ShapeItem, TextItem
 
-        # Only shape items can be textured
         if not isinstance(item, (ShapeItem, TextItem)):
             return None
 
-        # Check if we have a valid cached entry
         current_version = self._get_item_version(item)
         cached = self._cache.get(item_id)
 
         if cached and cached.item_version == current_version:
             return cached
 
-        # Need to create/update the texture
         entry = self._rasterize_item(item, current_version)
         if entry:
             self._cache[item_id] = entry
@@ -102,12 +99,10 @@ class TextureCache:
         self._item_versions.clear()
 
     def _get_item_version(self, item: "CanvasItem") -> int:
-        """Compute a version hash for cache invalidation.
+        """Compute version hash based on geometry and appearance.
 
-        Changes to geometry or appearance invalidate the cache.
-        Transform changes do NOT invalidate (handled by GPU).
+        Transform changes don't invalidate since GPU handles transforms.
         """
-        # Use a simple hash of appearance properties
         version = 0
 
         if hasattr(item, "geometry"):
@@ -127,58 +122,39 @@ class TextureCache:
         item: "CanvasItem",
         version: int,
     ) -> Optional[TextureCacheEntry]:
-        """Rasterize an item to a QImage texture.
-
-        The texture contains ONLY the base geometry without transforms.
-        Transforms are applied by the GPU via QSGTransformNode.
-        """
+        """Rasterize item to QImage. GPU applies transforms separately."""
         from lucent.canvas_items import ShapeItem, TextItem
         from lucent.transforms import Transform
 
         if not isinstance(item, (ShapeItem, TextItem)):
             return None
 
-        # Get the item's base geometry bounds (before transform)
         bounds = item.geometry.get_bounds()
         if bounds.isEmpty():
             return None
 
-        # Calculate texture size with padding and scale
         padding = self.PADDING
         scale = self.RENDER_SCALE
 
-        tex_width = int((bounds.width() + padding * 2) * scale)
-        tex_height = int((bounds.height() + padding * 2) * scale)
+        tex_width = max(int((bounds.width() + padding * 2) * scale), 4)
+        tex_height = max(int((bounds.height() + padding * 2) * scale), 4)
 
-        # Minimum size to avoid issues
-        tex_width = max(tex_width, 4)
-        tex_height = max(tex_height, 4)
-
-        # Create image with transparency
         image = QImage(tex_width, tex_height, QImage.Format.Format_ARGB32_Premultiplied)
-        image.fill(QColor(0, 0, 0, 0))  # Transparent
+        image.fill(QColor(0, 0, 0, 0))
 
-        # Paint the item
         painter = QPainter(image)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-
-        # Scale and translate to center the shape in the texture
         painter.scale(scale, scale)
         painter.translate(padding - bounds.x(), padding - bounds.y())
 
-        # Temporarily replace transform with identity so we rasterize base geometry
-        # GPU will apply the actual transform via QSGTransformNode
+        # Rasterize at identity transform; GPU applies actual transform
         original_transform = item.transform
-        item.transform = Transform()  # Identity transform
+        item.transform = Transform()
 
         try:
-            # Paint using the item's existing paint method
-            # Pass zoom_level=1.0 (we render at base size, GPU handles zoom)
-            # Pass offset 0,0 since we've already translated the painter
             item.paint(painter, zoom_level=1.0, offset_x=0.0, offset_y=0.0)
         finally:
-            # Restore original transform
             item.transform = original_transform
 
         painter.end()
@@ -190,18 +166,14 @@ class TextureCache:
         )
 
     def get_texture_offset(self, entry: TextureCacheEntry) -> Tuple[float, float]:
-        """Get the offset to apply when positioning the texture.
-
-        The texture includes padding, so we need to offset by the padding
-        amount to align correctly.
-        """
+        """Position offset accounting for padding around the shape."""
         return (
             entry.bounds.x() - self.PADDING,
             entry.bounds.y() - self.PADDING,
         )
 
     def get_texture_size(self, entry: TextureCacheEntry) -> Tuple[float, float]:
-        """Get the display size of the texture (accounting for render scale)."""
+        """Display size accounting for render scale."""
         return (
             entry.width / self.RENDER_SCALE,
             entry.height / self.RENDER_SCALE,

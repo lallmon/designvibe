@@ -50,26 +50,21 @@ class SceneGraphRenderer(QQuickItem):
         self._zoom_level: float = 1.0
         self._tile_origin_x: float = 0.0
         self._tile_origin_y: float = 0.0
-
-        # Texture cache for rasterized shapes
         self._texture_cache = TextureCache()
-
-        # Track when full rebuild is needed
         self._needs_full_rebuild: bool = True
 
-        # Keep references to prevent GC
+        # Prevent GC of GPU resources
         self._textures: List[QSGTexture] = []
         self._texture_nodes: List[QSGSimpleTextureNode] = []
         self._transform_nodes: List[QSGTransformNode] = []
 
     @Slot(QObject)
     def setModel(self, model: QObject) -> None:
-        """Set the canvas model to render items from."""
+        """Connect to canvas model for rendering."""
         from lucent.canvas_model import CanvasModel
 
         if isinstance(model, CanvasModel):
             self._model = model
-            # Connect to model signals
             model.itemAdded.connect(self._on_structure_changed)
             model.itemRemoved.connect(self._on_structure_changed)
             model.itemsCleared.connect(self._on_items_cleared)
@@ -80,21 +75,17 @@ class SceneGraphRenderer(QQuickItem):
 
     @Slot(int)
     def _on_structure_changed(self, index: int = -1) -> None:
-        """Handle structural changes."""
         self._needs_full_rebuild = True
         self.update()
 
     @Slot()
     def _on_items_cleared(self) -> None:
-        """Handle clear all."""
         self._texture_cache.clear()
         self._needs_full_rebuild = True
         self.update()
 
     @Slot(int, "QVariant")  # type: ignore[arg-type]
     def _on_item_modified(self, index: int, changed_props: object = None) -> None:
-        """Handle item modification."""
-        # Invalidate texture cache for this item
         if self._model:
             item = self._model.getItem(index)
             if item and hasattr(item, "id"):
@@ -105,11 +96,9 @@ class SceneGraphRenderer(QQuickItem):
     def updatePaintNode(  # type: ignore[override]
         self, old_node: Optional[QSGNode], update_data: QQuickItem.UpdatePaintNodeData
     ) -> Optional[QSGNode]:
-        """Build/update the scene graph node tree."""
         if not self._model:
             return old_node
 
-        # Create or reuse root node
         if old_node is None:
             old_node = QSGNode()
             self._needs_full_rebuild = True
@@ -121,13 +110,10 @@ class SceneGraphRenderer(QQuickItem):
         return old_node
 
     def _rebuild_nodes(self, root: QSGNode) -> None:
-        """Rebuild the node tree using texture-based approach."""
-        # Clear existing children
         while root.childCount() > 0:
             child = root.firstChild()
             root.removeChildNode(child)
 
-        # Clear references
         self._textures.clear()
         self._texture_nodes.clear()
         self._transform_nodes.clear()
@@ -135,16 +121,13 @@ class SceneGraphRenderer(QQuickItem):
         if not self._model:
             return
 
-        # Calculate coordinate offset for this renderer's position
         offset_x = self.width() / 2.0 - self._tile_origin_x
         offset_y = self.height() / 2.0 - self._tile_origin_y
 
-        # Get the QQuickWindow for texture creation
         window = self.window()
         if not window:
             return
 
-        # Process all items
         count = self._model.count()
         for i in range(count):
             item = self._model.getItem(i)
@@ -162,36 +145,30 @@ class SceneGraphRenderer(QQuickItem):
         offset_y: float,
         window: object,
     ) -> Optional[QSGNode]:
-        """Create a texture node with transform for an item."""
+        """Create texture node for item, wrapped in transform node if needed."""
         from lucent.canvas_items import LayerItem, GroupItem
 
-        # Skip invisible items
         if hasattr(item, "visible") and not item.visible:
             return None
 
-        # Skip containers (layers, groups)
         if isinstance(item, (LayerItem, GroupItem)):
             return None
 
-        # Get or create texture for this item
         item_id = item.id if hasattr(item, "id") else str(id(item))
         cache_entry = self._texture_cache.get_or_create(item, item_id)
 
         if not cache_entry:
             return None
 
-        # Create QSGTexture from QImage
         texture = window.createTextureFromImage(cache_entry.image)  # type: ignore[attr-defined]
         if not texture:
             return None
 
         self._textures.append(texture)
 
-        # Create texture node
         tex_node = QSGSimpleTextureNode()
         tex_node.setTexture(texture)
 
-        # Calculate position and size
         tex_offset = self._texture_cache.get_texture_offset(cache_entry)
         tex_size = self._texture_cache.get_texture_size(cache_entry)
 
@@ -206,7 +183,6 @@ class SceneGraphRenderer(QQuickItem):
 
         self._texture_nodes.append(tex_node)
 
-        # If item has a non-identity transform, wrap in QSGTransformNode
         if (
             hasattr(item, "transform")
             and item.transform
@@ -228,10 +204,9 @@ class SceneGraphRenderer(QQuickItem):
         offset_y: float,
         geometry_bounds: QRectF,
     ) -> Optional[QSGTransformNode]:
-        """Wrap a node in a QSGTransformNode for GPU transforms."""
+        """Wrap node in QSGTransformNode for GPU-accelerated transforms."""
         transform = item.transform
 
-        # Calculate the transform origin in screen coordinates
         origin_x = (
             geometry_bounds.x()
             + geometry_bounds.width() * transform.origin_x
@@ -243,19 +218,14 @@ class SceneGraphRenderer(QQuickItem):
             + offset_y
         )
 
-        # Get the 4x4 matrix for GPU transform
         matrix = transform.to_qmatrix4x4_centered(origin_x, origin_y)
 
-        # Create transform node
         transform_node = QSGTransformNode()
         transform_node.setMatrix(matrix)
         transform_node.appendChildNode(child_node)
-
         self._transform_nodes.append(transform_node)
 
         return transform_node
-
-    # ========== QML Properties ==========
 
     @Property(float, notify=zoomLevelChanged)
     def zoomLevel(self) -> float:
