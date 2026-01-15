@@ -142,7 +142,7 @@ Item {
                         color: style.strokeColor,
                         width: style.strokeWidth,
                         opacity: style.strokeOpacity,
-                        visible: true
+                        visible: style.strokeVisible
                     }
                 ]
             });

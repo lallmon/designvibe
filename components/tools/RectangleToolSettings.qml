@@ -17,6 +17,7 @@ RowLayout {
     property real _defaultStrokeWidth: 0
     property color _defaultStrokeColor: Lucent.Themed.defaultStroke
     property real _defaultStrokeOpacity: 1.0
+    property bool _defaultStrokeVisible: false
     property color _defaultFillColor: Lucent.Themed.defaultFill
     property real _defaultFillOpacity: 1.0
 
@@ -64,6 +65,15 @@ RowLayout {
         }
         return _defaultStrokeOpacity;
     }
+    readonly property bool strokeVisible: {
+        if (editMode) {
+            var stroke = _getStroke();
+            return stroke ? (stroke.visible !== false) : _defaultStrokeVisible;
+        }
+        return _defaultStrokeVisible;
+    }
+    readonly property string strokeStyle: strokeVisible ? "solid" : "none"
+
     readonly property color fillColor: {
         if (editMode) {
             var fill = _getFill();
@@ -88,6 +98,8 @@ RowLayout {
             _defaultStrokeColor = value;
         else if (propName === "strokeOpacity")
             _defaultStrokeOpacity = value;
+        else if (propName === "strokeVisible")
+            _defaultStrokeVisible = value;
         else if (propName === "fillColor")
             _defaultFillColor = value;
         else if (propName === "fillOpacity")
@@ -116,6 +128,8 @@ RowLayout {
                         updated.color = value;
                     else if (propName === "strokeOpacity")
                         updated.opacity = value;
+                    else if (propName === "strokeVisible")
+                        updated.visible = value;
                 }
                 newAppearances.push(updated);
             }
@@ -165,8 +179,10 @@ RowLayout {
     Lucent.StrokeEditorButton {
         strokeWidth: root.strokeWidth
         strokeColor: root.strokeColor
+        strokeStyle: root.strokeStyle
         onWidthEdited: newWidth => root.updateProperty("strokeWidth", newWidth)
         onWidthCommitted: newWidth => root.updateProperty("strokeWidth", newWidth)
+        onStyleChanged: newStyle => root.updateProperty("strokeVisible", newStyle === "solid")
         onPanelOpened: canvasModel.beginTransaction()
         onPanelClosed: canvasModel.endTransaction()
     }
