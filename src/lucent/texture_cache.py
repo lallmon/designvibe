@@ -15,8 +15,8 @@ Key benefits:
 """
 
 from typing import Dict, Optional, Tuple, TYPE_CHECKING
-from PySide6.QtCore import QRectF
-from PySide6.QtGui import QImage, QPainter, QColor
+from PySide6.QtCore import Qt, QRectF
+from PySide6.QtGui import QImage, QPainter, QColor, QPainterPathStroker
 
 if TYPE_CHECKING:
     from lucent.canvas_items import CanvasItem
@@ -30,10 +30,12 @@ class TextureCacheEntry:
         image: QImage,
         bounds: QRectF,
         item_version: int,
+        padding: float = 4.0,
     ) -> None:
         self.image = image
         self.bounds = bounds
         self.item_version = item_version
+        self.padding = padding
 
     @property
     def width(self) -> int:
@@ -113,9 +115,48 @@ class TextureCache:
             version ^= hash(item.fill.color)
 
         if hasattr(item, "stroke") and item.stroke:
-            version ^= hash((item.stroke.color, item.stroke.width))
+            align = getattr(item.stroke, "align", "center")
+            cap = getattr(item.stroke, "cap", "butt")
+            order = getattr(item.stroke, "order", "top")
+            version ^= hash((item.stroke.color, item.stroke.width, cap, align, order))
 
         return version
+
+    def _get_render_bounds(self, item: "CanvasItem") -> QRectF:
+        """Get bounds needed to render item including all stroke effects.
+
+        Uses QPainterPathStroker to compute accurate stroked bounds,
+        automatically accounting for width, cap, join, and alignment.
+        """
+        from lucent.appearances import Stroke
+
+        geometry_bounds = item.geometry.get_bounds()
+        stroke = getattr(item, "stroke", None)
+
+        if not stroke or not stroke.visible or stroke.width <= 0:
+            return geometry_bounds
+
+        path = item.geometry.to_painter_path()
+
+        # Configure stroker with all stroke properties
+        stroker = QPainterPathStroker()
+        align = getattr(stroke, "align", "center")
+
+        # For inner/outer alignment, we draw double-width strokes then clip
+        if align == "outer":
+            stroker.setWidth(stroke.width * 2)
+        elif align == "inner":
+            # Inner stroke stays within geometry bounds
+            return geometry_bounds
+        else:
+            stroker.setWidth(stroke.width)
+
+        stroker.setCapStyle(Stroke.CAP_STYLES.get(stroke.cap, Qt.PenCapStyle.FlatCap))
+        stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+        stroker.setMiterLimit(100.0)
+
+        stroked_path = stroker.createStroke(path)
+        return stroked_path.boundingRect()
 
     def _rasterize_item(
         self,
@@ -129,15 +170,20 @@ class TextureCache:
         if not isinstance(item, (ShapeItem, TextItem)):
             return None
 
-        bounds = item.geometry.get_bounds()
-        if bounds.isEmpty():
+        geometry_bounds = item.geometry.get_bounds()
+        if geometry_bounds.isEmpty():
             return None
 
-        padding = self.PADDING
+        # Get accurate bounds including stroke effects
+        render_bounds = self._get_render_bounds(item)
+
+        # Minimal padding for antialiasing
+        padding = float(self.PADDING)
+
         scale = self.RENDER_SCALE
 
-        tex_width = max(int((bounds.width() + padding * 2) * scale), 4)
-        tex_height = max(int((bounds.height() + padding * 2) * scale), 4)
+        tex_width = max(int((render_bounds.width() + padding * 2) * scale), 4)
+        tex_height = max(int((render_bounds.height() + padding * 2) * scale), 4)
 
         image = QImage(tex_width, tex_height, QImage.Format.Format_ARGB32_Premultiplied)
         image.fill(QColor(0, 0, 0, 0))
@@ -146,9 +192,8 @@ class TextureCache:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.scale(scale, scale)
-        painter.translate(padding - bounds.x(), padding - bounds.y())
+        painter.translate(padding - render_bounds.x(), padding - render_bounds.y())
 
-        # Rasterize at identity transform; GPU applies actual transform
         original_transform = item.transform
         item.transform = Transform()
 
@@ -161,15 +206,16 @@ class TextureCache:
 
         return TextureCacheEntry(
             image=image,
-            bounds=bounds,
+            bounds=render_bounds,
             item_version=version,
+            padding=padding,
         )
 
     def get_texture_offset(self, entry: TextureCacheEntry) -> Tuple[float, float]:
         """Position offset accounting for padding around the shape."""
         return (
-            entry.bounds.x() - self.PADDING,
-            entry.bounds.y() - self.PADDING,
+            entry.bounds.x() - entry.padding,
+            entry.bounds.y() - entry.padding,
         )
 
     def get_texture_size(self, entry: TextureCacheEntry) -> Tuple[float, float]:

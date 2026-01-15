@@ -17,6 +17,10 @@ RowLayout {
     property real _defaultStrokeWidth: 0
     property color _defaultStrokeColor: Lucent.Themed.defaultStroke
     property real _defaultStrokeOpacity: 1.0
+    property bool _defaultStrokeVisible: false
+    property string _defaultStrokeCap: "butt"
+    property string _defaultStrokeAlign: "center"
+    property string _defaultStrokeOrder: "top"
     property color _defaultFillColor: Lucent.Themed.defaultFill
     property real _defaultFillOpacity: 1.0
 
@@ -64,6 +68,36 @@ RowLayout {
         }
         return _defaultStrokeOpacity;
     }
+    readonly property bool strokeVisible: {
+        if (editMode) {
+            var stroke = _getStroke();
+            return stroke ? (stroke.visible !== false) : _defaultStrokeVisible;
+        }
+        return _defaultStrokeVisible;
+    }
+    readonly property string strokeStyle: strokeVisible ? "solid" : "none"
+    readonly property string strokeCap: {
+        if (editMode) {
+            var stroke = _getStroke();
+            return stroke && stroke.cap ? stroke.cap : _defaultStrokeCap;
+        }
+        return _defaultStrokeCap;
+    }
+    readonly property string strokeAlign: {
+        if (editMode) {
+            var stroke = _getStroke();
+            return stroke && stroke.align ? stroke.align : _defaultStrokeAlign;
+        }
+        return _defaultStrokeAlign;
+    }
+    readonly property string strokeOrder: {
+        if (editMode) {
+            var stroke = _getStroke();
+            return stroke && stroke.order ? stroke.order : _defaultStrokeOrder;
+        }
+        return _defaultStrokeOrder;
+    }
+
     readonly property color fillColor: {
         if (editMode) {
             var fill = _getFill();
@@ -88,6 +122,14 @@ RowLayout {
             _defaultStrokeColor = value;
         else if (propName === "strokeOpacity")
             _defaultStrokeOpacity = value;
+        else if (propName === "strokeVisible")
+            _defaultStrokeVisible = value;
+        else if (propName === "strokeCap")
+            _defaultStrokeCap = value;
+        else if (propName === "strokeAlign")
+            _defaultStrokeAlign = value;
+        else if (propName === "strokeOrder")
+            _defaultStrokeOrder = value;
         else if (propName === "fillColor")
             _defaultFillColor = value;
         else if (propName === "fillOpacity")
@@ -116,6 +158,14 @@ RowLayout {
                         updated.color = value;
                     else if (propName === "strokeOpacity")
                         updated.opacity = value;
+                    else if (propName === "strokeVisible")
+                        updated.visible = value;
+                    else if (propName === "strokeCap")
+                        updated.cap = value;
+                    else if (propName === "strokeAlign")
+                        updated.align = value;
+                    else if (propName === "strokeOrder")
+                        updated.order = value;
                 }
                 newAppearances.push(updated);
             }
@@ -137,45 +187,8 @@ RowLayout {
     spacing: 6
 
     Label {
-        text: qsTr("Stroke:")
-        font.pixelSize: 11
-        Layout.alignment: Qt.AlignVCenter
-    }
-
-    Lucent.LabeledNumericField {
-        labelText: ""
-        value: root.strokeWidth
-        minimum: 0
-        maximum: 100.0
-        decimals: 1
-        suffix: qsTr("pt")
-        onCommitted: newValue => root.updateProperty("strokeWidth", newValue)
-    }
-
-    Lucent.ColorPickerButton {
-        Layout.leftMargin: 6
-        color: root.strokeColor
-        colorOpacity: root.strokeOpacity
-        dialogTitle: qsTr("Choose Stroke Color")
-        onDialogOpened: canvasModel.beginTransaction()
-        onDialogClosed: canvasModel.endTransaction()
-        onColorPreview: previewColor => root.updateProperty("strokeColor", previewColor.toString())
-        onOpacityPreview: previewOpacity => root.updateProperty("strokeOpacity", previewOpacity)
-        onColorPicked: newColor => root.updateProperty("strokeColor", newColor.toString())
-        onOpacityPicked: newOpacity => root.updateProperty("strokeOpacity", newOpacity)
-    }
-
-    ToolSeparator {
-        contentItem: Rectangle {
-            implicitWidth: 1
-            implicitHeight: 16
-            color: Lucent.Themed.palette.mid
-        }
-    }
-
-    Label {
         text: qsTr("Fill:")
-        font.pixelSize: 11
+        font.pixelSize: 12
         Layout.alignment: Qt.AlignVCenter
     }
 
@@ -189,5 +202,42 @@ RowLayout {
         onOpacityPreview: previewOpacity => root.updateProperty("fillOpacity", previewOpacity)
         onColorPicked: newColor => root.updateProperty("fillColor", newColor.toString())
         onOpacityPicked: newOpacity => root.updateProperty("fillOpacity", newOpacity)
+    }
+
+    ToolSeparator {
+        contentItem: Rectangle {
+            implicitWidth: 1
+            implicitHeight: 16
+            color: Lucent.Themed.palette.mid
+        }
+    }
+
+    Lucent.StrokeEditorButton {
+        strokeWidth: root.strokeWidth
+        strokeColor: root.strokeColor
+        strokeStyle: root.strokeStyle
+        strokeCap: root.strokeCap
+        strokeAlign: root.strokeAlign
+        strokeOrder: root.strokeOrder
+        onWidthEdited: newWidth => root.updateProperty("strokeWidth", newWidth)
+        onWidthCommitted: newWidth => root.updateProperty("strokeWidth", newWidth)
+        onStyleChanged: newStyle => root.updateProperty("strokeVisible", newStyle === "solid")
+        onCapChanged: newCap => root.updateProperty("strokeCap", newCap)
+        onAlignChanged: newAlign => root.updateProperty("strokeAlign", newAlign)
+        onOrderChanged: newOrder => root.updateProperty("strokeOrder", newOrder)
+        onPanelOpened: canvasModel.beginTransaction()
+        onPanelClosed: canvasModel.endTransaction()
+    }
+
+    Lucent.ColorPickerButton {
+        color: root.strokeColor
+        colorOpacity: root.strokeOpacity
+        dialogTitle: qsTr("Choose Stroke Color")
+        onDialogOpened: canvasModel.beginTransaction()
+        onDialogClosed: canvasModel.endTransaction()
+        onColorPreview: previewColor => root.updateProperty("strokeColor", previewColor.toString())
+        onOpacityPreview: previewOpacity => root.updateProperty("strokeOpacity", previewOpacity)
+        onColorPicked: newColor => root.updateProperty("strokeColor", newColor.toString())
+        onOpacityPicked: newOpacity => root.updateProperty("strokeOpacity", newOpacity)
     }
 }

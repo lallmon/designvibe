@@ -27,8 +27,8 @@ Item {
         id: image
         anchors.fill: parent
         source: root.resolvedSource
-        sourceSize.width: size
-        sourceSize.height: size
+        sourceSize.width: size * Screen.devicePixelRatio
+        sourceSize.height: size * Screen.devicePixelRatio
         fillMode: Image.PreserveAspectFit
         asynchronous: true
         cache: true

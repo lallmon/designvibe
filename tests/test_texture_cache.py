@@ -172,7 +172,7 @@ class TestTextureCacheGetOrCreate:
     def test_texture_size_includes_padding_and_scale(self):
         """Texture dimensions account for padding and render scale."""
         cache = TextureCache()
-        item = make_rect_item(width=100, height=50)
+        item = make_rect_item(width=100, height=50, stroke_width=0)
 
         entry = cache.get_or_create(item, "rect-1")
 
@@ -181,17 +181,18 @@ class TestTextureCacheGetOrCreate:
         assert entry.width == 216
         assert entry.height == 116
 
-    def test_texture_bounds_match_geometry(self):
-        """Entry bounds match item geometry bounds."""
+    def test_texture_bounds_include_stroke(self):
+        """Entry bounds include stroke width for accurate rendering."""
         cache = TextureCache()
-        item = make_rect_item(x=25, y=35, width=100, height=80)
+        item = make_rect_item(x=25, y=35, width=100, height=80, stroke_width=1.0)
 
         entry = cache.get_or_create(item, "rect-1")
 
-        assert entry.bounds.x() == 25
-        assert entry.bounds.y() == 35
-        assert entry.bounds.width() == 100
-        assert entry.bounds.height() == 80
+        # Bounds should be expanded by half stroke width on each side (center align)
+        assert entry.bounds.x() < 25
+        assert entry.bounds.y() < 35
+        assert entry.bounds.width() > 100
+        assert entry.bounds.height() > 80
 
 
 class TestTextureCacheVersioning:
@@ -257,7 +258,7 @@ class TestTextureCacheOffsetAndSize:
     def test_get_texture_offset_accounts_for_padding(self):
         """Offset adjusts for padding so content aligns correctly."""
         cache = TextureCache()
-        item = make_rect_item(x=100, y=50)
+        item = make_rect_item(x=100, y=50, stroke_width=0)
         entry = cache.get_or_create(item, "rect-1")
 
         offset = cache.get_texture_offset(entry)
@@ -268,7 +269,7 @@ class TestTextureCacheOffsetAndSize:
     def test_get_texture_size_accounts_for_scale(self):
         """Display size accounts for render scale."""
         cache = TextureCache()
-        item = make_rect_item(width=100, height=50)
+        item = make_rect_item(width=100, height=50, stroke_width=0)
         entry = cache.get_or_create(item, "rect-1")
 
         size = cache.get_texture_size(entry)
@@ -311,9 +312,10 @@ class TestTextureCacheRasterization:
 
         entry = cache.get_or_create(item, "rect-1")
 
-        # Bounds should be the original geometry, not rotated
-        assert entry.bounds.width() == 100
-        assert entry.bounds.height() == 100
+        # Bounds should be close to original geometry (plus stroke), not rotated
+        # A 45-degree rotation of 100x100 would give ~141x141 bounds
+        assert entry.bounds.width() < 110  # Not rotated
+        assert entry.bounds.height() < 110  # Not rotated
 
     def test_minimum_texture_size_enforced(self):
         """Very small items still get minimum texture size."""

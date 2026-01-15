@@ -27,6 +27,10 @@ QtObject {
             strokeWidth: settings ? settings.strokeWidth : 1,
             strokeColor: settings ? settings.strokeColor.toString() : "",
             strokeOpacity: settings ? (settings.strokeOpacity !== undefined ? settings.strokeOpacity : 1.0) : 1.0,
+            strokeVisible: settings ? (settings.strokeVisible !== undefined ? settings.strokeVisible : false) : false,
+            strokeCap: settings ? (settings.strokeCap !== undefined ? settings.strokeCap : "butt") : "butt",
+            strokeAlign: settings ? (settings.strokeAlign !== undefined ? settings.strokeAlign : "center") : "center",
+            strokeOrder: settings ? (settings.strokeOrder !== undefined ? settings.strokeOrder : "top") : "top",
             fillColor: settings ? settings.fillColor.toString() : "",
             fillOpacity: settings ? settings.fillOpacity : 1.0
         };
