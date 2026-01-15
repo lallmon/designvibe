@@ -404,3 +404,175 @@ class TestSceneGraphRendererSetModel:
         renderer._needs_full_rebuild = False
         canvas_model.itemsReordered.emit()
         assert renderer._needs_full_rebuild is True
+
+
+class TestSceneGraphRendererCreateNodeForItem:
+    """Tests for _create_node_for_item method."""
+
+    def test_returns_none_for_invisible_item(self, qapp):
+        """Invisible items return None."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import RectangleItem
+        from lucent.geometry import RectGeometry
+        from lucent.transforms import Transform
+        from lucent.appearances import Fill
+
+        renderer = SceneGraphRenderer()
+
+        item = RectangleItem(
+            name="Hidden",
+            geometry=RectGeometry(0, 0, 100, 100),
+            appearances=[Fill(color="#ff0000")],
+            transform=Transform(),
+            visible=False,
+            locked=False,
+        )
+
+        result = renderer._create_node_for_item(item, 0, 0, None)
+
+        assert result is None
+
+    def test_returns_none_for_layer_item(self, qapp):
+        """LayerItem returns None (containers aren't rendered directly)."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import LayerItem
+
+        renderer = SceneGraphRenderer()
+        layer = LayerItem(name="Layer 1", visible=True, locked=False)
+
+        result = renderer._create_node_for_item(layer, 0, 0, None)
+
+        assert result is None
+
+    def test_returns_none_for_group_item(self, qapp):
+        """GroupItem returns None (containers aren't rendered directly)."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import GroupItem
+
+        renderer = SceneGraphRenderer()
+        group = GroupItem(name="Group 1", visible=True, locked=False, parent_id="")
+
+        result = renderer._create_node_for_item(group, 0, 0, None)
+
+        assert result is None
+
+    def test_returns_none_when_no_cache_entry(self, qapp):
+        """Returns None if texture cache returns None."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import RectangleItem
+        from lucent.geometry import RectGeometry
+        from lucent.transforms import Transform
+        from lucent.appearances import Fill
+
+        renderer = SceneGraphRenderer()
+
+        # Create item with empty bounds (will return None from cache)
+        item = RectangleItem(
+            name="Empty",
+            geometry=RectGeometry(0, 0, 0, 0),
+            appearances=[Fill(color="#ff0000")],
+            transform=Transform(),
+            visible=True,
+            locked=False,
+        )
+
+        result = renderer._create_node_for_item(item, 0, 0, None)
+
+        assert result is None
+
+
+class TestSceneGraphRendererCreateTransformWrapper:
+    """Tests for _create_transform_wrapper method."""
+
+    def test_creates_transform_node_with_rotation(self, qapp):
+        """Creates QSGTransformNode for rotated items."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import RectangleItem
+        from lucent.geometry import RectGeometry
+        from lucent.transforms import Transform
+        from lucent.appearances import Fill
+        from PySide6.QtQuick import QSGNode, QSGTransformNode
+        from PySide6.QtCore import QRectF
+
+        renderer = SceneGraphRenderer()
+
+        item = RectangleItem(
+            name="Rotated",
+            geometry=RectGeometry(0, 0, 100, 100),
+            appearances=[Fill(color="#ff0000")],
+            transform=Transform(rotate=45.0),
+            visible=True,
+            locked=False,
+        )
+
+        child_node = QSGNode()
+        bounds = QRectF(0, 0, 100, 100)
+
+        result = renderer._create_transform_wrapper(item, child_node, 0, 0, bounds)
+
+        assert result is not None
+        assert isinstance(result, QSGTransformNode)
+        assert result.childCount() == 1
+        assert len(renderer._transform_nodes) == 1
+
+    def test_creates_transform_node_with_scale(self, qapp):
+        """Creates QSGTransformNode for scaled items."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import RectangleItem
+        from lucent.geometry import RectGeometry
+        from lucent.transforms import Transform
+        from lucent.appearances import Fill
+        from PySide6.QtQuick import QSGNode, QSGTransformNode
+        from PySide6.QtCore import QRectF
+
+        renderer = SceneGraphRenderer()
+
+        item = RectangleItem(
+            name="Scaled",
+            geometry=RectGeometry(50, 50, 100, 100),
+            appearances=[Fill(color="#00ff00")],
+            transform=Transform(scale_x=2.0, scale_y=1.5),
+            visible=True,
+            locked=False,
+        )
+
+        child_node = QSGNode()
+        bounds = QRectF(50, 50, 100, 100)
+
+        result = renderer._create_transform_wrapper(item, child_node, 100, 100, bounds)
+
+        assert result is not None
+        assert isinstance(result, QSGTransformNode)
+
+    def test_applies_offset_to_origin(self, qapp):
+        """Transform origin accounts for offset."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import RectangleItem
+        from lucent.geometry import RectGeometry
+        from lucent.transforms import Transform
+        from lucent.appearances import Fill
+        from PySide6.QtQuick import QSGNode
+        from PySide6.QtCore import QRectF
+
+        renderer = SceneGraphRenderer()
+
+        # Item with custom origin (center)
+        item = RectangleItem(
+            name="Centered",
+            geometry=RectGeometry(0, 0, 100, 100),
+            appearances=[Fill(color="#0000ff")],
+            transform=Transform(rotate=90.0, origin_x=0.5, origin_y=0.5),
+            visible=True,
+            locked=False,
+        )
+
+        child_node = QSGNode()
+        bounds = QRectF(0, 0, 100, 100)
+
+        # Apply with offset
+        result = renderer._create_transform_wrapper(item, child_node, 500, 500, bounds)
+
+        assert result is not None
+        # Matrix should be set
+        matrix = result.matrix()
+        assert not matrix.isIdentity()
