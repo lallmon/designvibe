@@ -76,11 +76,6 @@ Item {
     onOverlayRotatingChanged: function (isRotating) {
         if (isRotating) {
             canvasModel.beginTransaction();
-            // Move origin to center BEFORE rotation starts to prevent visual jump
-            var idx = Lucent.SelectionManager.selectedItemIndex;
-            if (idx >= 0) {
-                canvasModel.ensureOriginCentered(idx);
-            }
         } else {
             canvasModel.endTransaction();
         }
@@ -122,6 +117,14 @@ Item {
 
     function deleteSelectedPoints() {
         pathEditController.deleteSelectedPoints();
+    }
+
+    function lockPathEditTransform() {
+        pathEditController.lockTransformForDrag();
+    }
+
+    function unlockPathEditTransform() {
+        pathEditController.unlockTransformAfterDrag();
     }
 
     // Tiled rendering layer

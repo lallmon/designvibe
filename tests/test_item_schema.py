@@ -720,6 +720,20 @@ class TestTransformSerialization:
         out = item_to_dict(rect)
         assert "transform" not in out
 
+    def test_item_to_dict_includes_pivot_only(self):
+        """item_to_dict should include transform when pivot differs from default."""
+        geometry = RectGeometry(x=0, y=0, width=10, height=10)
+        transform = Transform(pivot_x=0, pivot_y=0)
+        rect = RectangleItem(
+            geometry=geometry,
+            appearances=[Fill("#fff", 0.5), Stroke("#000", 1.0, 1.0)],
+            transform=transform,
+        )
+        out = item_to_dict(rect)
+        assert "transform" in out
+        assert out["transform"]["pivotX"] == 0
+        assert out["transform"]["pivotY"] == 0
+
     def test_transform_round_trip_rectangle(self):
         """Transform should survive serialize/deserialize round trip."""
         original = {
@@ -767,3 +781,15 @@ class TestTransformSerialization:
         assert serialized["transform"]["scaleX"] == 3
         assert serialized["transform"]["scaleY"] == 3
         assert serialized["transform"]["rotate"] == 270
+
+    def test_transform_defaults_pivot_to_center(self):
+        """Missing pivot defaults to geometry center."""
+        original = {
+            "type": "rectangle",
+            "geometry": {"x": 10, "y": 20, "width": 100, "height": 50},
+            "transform": {"rotate": 15},
+        }
+        item = parse_item(original)
+        bounds = item.geometry.get_bounds()
+        assert item.transform.pivot_x == bounds.x() + bounds.width() * 0.5
+        assert item.transform.pivot_y == bounds.y() + bounds.height() * 0.5

@@ -127,6 +127,29 @@ Item {
     readonly property real currentRotation: currentTransform ? (currentTransform.rotate ?? 0) : 0
     readonly property real currentOriginX: currentTransform ? (currentTransform.originX ?? 0) : 0
     readonly property real currentOriginY: currentTransform ? (currentTransform.originY ?? 0) : 0
+    readonly property real originSnapTolerance: 0.02
+    readonly property bool hasPresetOrigin: _isPresetOrigin(currentOriginX, currentOriginY)
+
+    function _snapOrigin(value) {
+        var targets = [0, 0.5, 1];
+        for (var i = 0; i < targets.length; i++) {
+            if (Math.abs(value - targets[i]) <= originSnapTolerance)
+                return targets[i];
+        }
+        return value;
+    }
+
+    function _isPresetOrigin(x, y) {
+        var targets = [0, 0.5, 1];
+        for (var row = 0; row < targets.length; row++) {
+            for (var col = 0; col < targets.length; col++) {
+                if (Math.abs(x - targets[col]) <= originSnapTolerance && Math.abs(y - targets[row]) <= originSnapTolerance) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     implicitHeight: contentLayout.implicitHeight
 
@@ -175,14 +198,14 @@ Item {
                         width: 16
                         height: 16
                         checkable: true
-                        checked: root.currentOriginX === modelData.ox && root.currentOriginY === modelData.oy
+                        checked: root._snapOrigin(root.currentOriginX) === modelData.ox && root._snapOrigin(root.currentOriginY) === modelData.oy
                         ButtonGroup.group: originGroup
 
                         onClicked: canvasModel.setItemOrigin(root.selectedIndex, modelData.ox, modelData.oy)
 
                         background: Rectangle {
                             color: parent.checked ? root.themePalette.highlight : root.themePalette.button
-                            border.color: root.themePalette.mid
+                            border.color: root.hasPresetOrigin ? root.themePalette.mid : "#ffffff"
                             border.width: 1
                             radius: 2
                         }

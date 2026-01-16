@@ -67,6 +67,18 @@ class TestCanvasModelTransforms:
         canvas_model.addItem(make_layer(name="Test Layer"))
         canvas_model.setItemTransform(0, {"rotate": 45})
 
+    def test_set_item_transform_preserves_pivot_when_missing(self, canvas_model):
+        """setItemTransform should keep existing pivot when not provided."""
+        canvas_model.addItem(make_rectangle(x=10, y=20, width=100, height=50))
+        item = canvas_model._items[0]
+        before_pivot = (item.transform.pivot_x, item.transform.pivot_y)
+
+        canvas_model.setItemTransform(0, {"rotate": 30})
+
+        item_after = canvas_model._items[0]
+        after_pivot = (item_after.transform.pivot_x, item_after.transform.pivot_y)
+        assert before_pivot == after_pivot
+
     def test_update_transform_property_preserves_others(self, canvas_model):
         """updateTransformProperty should only change the specified property."""
         rect_data = make_rectangle(x=0, y=0, width=100, height=50)
@@ -76,8 +88,8 @@ class TestCanvasModelTransforms:
             "rotate": 45,
             "scaleX": 1.5,
             "scaleY": 2.0,
-            "originX": 0.5,
-            "originY": 0.5,
+            "pivotX": 50,
+            "pivotY": 25,
         }
         canvas_model.addItem(rect_data)
 
@@ -176,9 +188,7 @@ class TestRotationNormalization:
         """Normalized rotation should produce same visual result."""
         # -45° and 315° should produce identical bounding boxes
         canvas_model.addItem(make_rectangle(x=0, y=0, width=100, height=100))
-        canvas_model.setItemTransform(
-            0, {"rotate": 315, "originX": 0.5, "originY": 0.5}
-        )
+        canvas_model.setItemTransform(0, {"rotate": 315, "pivotX": 50, "pivotY": 50})
         bounds_315 = canvas_model.getBoundingBox(0)
 
         # The stored value should be 315, not -45
@@ -202,27 +212,17 @@ class TestApplyScaleResize:
         assert transform["scaleX"] == 2.0
         assert transform["scaleY"] == 1.5
 
-    def test_apply_scale_resize_sets_origin(self, canvas_model):
-        """applyScaleResize should set origin to anchor point."""
-        canvas_model.addItem(make_rectangle(x=0, y=0, width=100, height=50))
+    def test_apply_scale_resize_keeps_pivot(self, canvas_model):
+        """applyScaleResize should not change the pivot."""
+        rect_data = make_rectangle(x=0, y=0, width=100, height=50)
+        rect_data["transform"] = {"pivotX": 50, "pivotY": 25}
+        canvas_model.addItem(rect_data)
 
-        # Resize from bottom-right, anchor at top-left (0, 0)
         canvas_model.applyScaleResize(0, 1.5, 1.5, 0.0, 0.0)
 
         transform = canvas_model.getItemTransform(0)
-        assert transform["originX"] == 0.0
-        assert transform["originY"] == 0.0
-
-    def test_apply_scale_resize_anchor_bottom_right(self, canvas_model):
-        """Anchor at bottom-right should set origin to (1, 1)."""
-        canvas_model.addItem(make_rectangle(x=0, y=0, width=100, height=50))
-
-        # Resize from top-left, anchor at bottom-right (1, 1)
-        canvas_model.applyScaleResize(0, 2.0, 2.0, 1.0, 1.0)
-
-        transform = canvas_model.getItemTransform(0)
-        assert transform["originX"] == 1.0
-        assert transform["originY"] == 1.0
+        assert transform["pivotX"] == 50
+        assert transform["pivotY"] == 25
 
     def test_apply_scale_resize_preserves_rotation(self, canvas_model):
         """applyScaleResize should preserve existing rotation."""
@@ -246,7 +246,9 @@ class TestApplyScaleResize:
     def test_apply_scale_resize_compensates_translation_on_origin_change(
         self, canvas_model
     ):
-        """Changing origin should adjust translation to keep visual position."""
+        """Anchor point stays fixed while scaling."""
+        import math
+
         rect_data = make_rectangle(x=0, y=0, width=100, height=100)
         rect_data["transform"] = {
             "translateX": 0,
@@ -254,122 +256,43 @@ class TestApplyScaleResize:
             "rotate": 0,
             "scaleX": 1.0,
             "scaleY": 1.0,
-            "originX": 0.5,
-            "originY": 0.5,
+            "pivotX": 50,
+            "pivotY": 50,
         }
         canvas_model.addItem(rect_data)
 
-        # Change origin from center to top-left, scale 2x
+        def _world_point(item, x, y):
+            t = item.transform
+            dx = x - t.pivot_x
+            dy = y - t.pivot_y
+            scaled_dx = dx * t.scale_x
+            scaled_dy = dy * t.scale_y
+            radians = t.rotate * math.pi / 180
+            cos_r = math.cos(radians)
+            sin_r = math.sin(radians)
+            rx = scaled_dx * cos_r - scaled_dy * sin_r
+            ry = scaled_dx * sin_r + scaled_dy * cos_r
+            return (
+                t.pivot_x + t.translate_x + rx,
+                t.pivot_y + t.translate_y + ry,
+            )
+
+        item = canvas_model._items[0]
+        anchor_geom = (0.0, 0.0)
+        before = _world_point(item, *anchor_geom)
+
         canvas_model.applyScaleResize(0, 2.0, 2.0, 0.0, 0.0)
 
-        # The visual position should remain consistent
-        transform = canvas_model.getItemTransform(0)
-        assert transform["originX"] == 0.0
-        assert transform["originY"] == 0.0
+        item_after = canvas_model._items[0]
+        after = _world_point(item_after, *anchor_geom)
+        assert abs(after[0] - before[0]) < 0.001
+        assert abs(after[1] - before[1]) < 0.001
 
     def test_apply_scale_resize_layer_no_op(self, canvas_model):
         """applyScaleResize on layer (no transform attr) should do nothing."""
         canvas_model.addItem(make_layer(name="Test Layer"))
         # Should not raise
         canvas_model.applyScaleResize(0, 2.0, 2.0, 0.0, 0.0)
-
-
-class TestEnsureOriginCentered:
-    """Tests for ensureOriginCentered method - move origin to center."""
-
-    def test_ensure_origin_centered_from_corner(self, canvas_model):
-        """ensureOriginCentered should move origin from corner to center."""
-        rect_data = make_rectangle(x=0, y=0, width=100, height=100)
-        rect_data["transform"] = {
-            "originX": 0.0,
-            "originY": 0.0,
-        }
-        canvas_model.addItem(rect_data)
-
-        canvas_model.ensureOriginCentered(0)
-
-        transform = canvas_model.getItemTransform(0)
-        assert transform["originX"] == 0.5
-        assert transform["originY"] == 0.5
-
-    def test_ensure_origin_centered_already_centered_no_op(self, canvas_model):
-        """ensureOriginCentered should do nothing if already centered."""
-        rect_data = make_rectangle(x=0, y=0, width=100, height=100)
-        rect_data["transform"] = {
-            "originX": 0.5,
-            "originY": 0.5,
-            "translateX": 10,
-        }
-        canvas_model.addItem(rect_data)
-
-        original_tx = canvas_model.getItemTransform(0)["translateX"]
-
-        canvas_model.ensureOriginCentered(0)
-
-        # Should not change translation
-        transform = canvas_model.getItemTransform(0)
-        assert transform["translateX"] == original_tx
-
-    def test_ensure_origin_centered_preserves_visual_position(self, canvas_model):
-        """ensureOriginCentered adjusts translation to maintain visual position."""
-        rect_data = make_rectangle(x=0, y=0, width=100, height=100)
-        rect_data["transform"] = {
-            "originX": 0.0,  # Top-left corner
-            "originY": 0.0,
-            "rotate": 45,
-            "translateX": 0,
-            "translateY": 0,
-        }
-        canvas_model.addItem(rect_data)
-
-        # Get bounds before centering origin
-        bounds_before = canvas_model.getBoundingBox(0)
-
-        canvas_model.ensureOriginCentered(0)
-
-        # Get bounds after centering origin
-        bounds_after = canvas_model.getBoundingBox(0)
-
-        # Visual position should be the same (within floating point tolerance)
-        assert abs(bounds_before["x"] - bounds_after["x"]) < 0.01
-        assert abs(bounds_before["y"] - bounds_after["y"]) < 0.01
-
-    def test_ensure_origin_centered_invalid_index(self, canvas_model):
-        """ensureOriginCentered should handle invalid index gracefully."""
-        canvas_model.addItem(make_rectangle(x=0, y=0, width=100, height=50))
-        # Should not raise
-        canvas_model.ensureOriginCentered(-1)
-        canvas_model.ensureOriginCentered(999)
-
-    def test_ensure_origin_centered_layer_no_op(self, canvas_model):
-        """ensureOriginCentered on layer should do nothing."""
-        canvas_model.addItem(make_layer(name="Test Layer"))
-        # Should not raise
-        canvas_model.ensureOriginCentered(0)
-
-    def test_ensure_origin_centered_with_scale(self, canvas_model):
-        """ensureOriginCentered should work correctly with existing scale."""
-        rect_data = make_rectangle(x=0, y=0, width=100, height=100)
-        rect_data["transform"] = {
-            "originX": 1.0,  # Bottom-right
-            "originY": 1.0,
-            "scaleX": 2.0,
-            "scaleY": 2.0,
-        }
-        canvas_model.addItem(rect_data)
-
-        bounds_before = canvas_model.getBoundingBox(0)
-
-        canvas_model.ensureOriginCentered(0)
-
-        bounds_after = canvas_model.getBoundingBox(0)
-        transform = canvas_model.getItemTransform(0)
-
-        assert transform["originX"] == 0.5
-        assert transform["originY"] == 0.5
-        # Visual position should be preserved
-        assert abs(bounds_before["x"] - bounds_after["x"]) < 0.01
-        assert abs(bounds_before["y"] - bounds_after["y"]) < 0.01
 
 
 class TestBakeTransform:
@@ -402,8 +325,8 @@ class TestBakeTransform:
         rect_data = make_rectangle(x=0, y=0, width=100, height=100)
         rect_data["transform"] = {
             "rotate": 45,
-            "originX": 0.5,
-            "originY": 0.5,
+            "pivotX": 50,
+            "pivotY": 50,
         }
         canvas_model.addItem(rect_data)
 
@@ -514,8 +437,8 @@ class TestBakeTransform:
         ellipse_data = make_ellipse(center_x=50, center_y=50, radius_x=40, radius_y=20)
         ellipse_data["transform"] = {
             "rotate": 30,
-            "originX": 0.5,
-            "originY": 0.5,
+            "pivotX": 50,
+            "pivotY": 50,
         }
         canvas_model.addItem(ellipse_data)
 
@@ -549,8 +472,8 @@ class TestBakeTransform:
         path_data = make_path(points=original_points, closed=True)
         path_data["transform"] = {
             "rotate": 90,
-            "originX": 0.5,
-            "originY": 0.5,
+            "pivotX": 50,
+            "pivotY": 50,
         }
         canvas_model.addItem(path_data)
 
@@ -667,8 +590,8 @@ class TestTransformedPathPoints:
         path_data["transform"] = {
             "scaleX": 2.0,
             "scaleY": 2.0,
-            "originX": 0,
-            "originY": 0,
+            "pivotX": 0,
+            "pivotY": 0,
         }
         canvas_model.addItem(path_data)
 
@@ -737,8 +660,8 @@ class TestTransformedPathPoints:
             "rotate": 45,
             "scaleX": 1.5,
             "scaleY": 0.8,
-            "originX": 0.5,
-            "originY": 0.5,
+            "pivotX": 50,
+            "pivotY": 50,
         }
         canvas_model.addItem(path_data)
 
@@ -755,3 +678,133 @@ class TestTransformedPathPoints:
         """Invalid index returns None."""
         assert canvas_model.transformPointToGeometry(-1, 0, 0) is None
         assert canvas_model.transformPointToGeometry(999, 0, 0) is None
+
+
+class TestPivotStability:
+    """Tests for updateGeometryWithOriginCompensation method."""
+
+    def test_geometry_update_keeps_pivot(self, canvas_model):
+        """Geometry updates should not change pivot or translation."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 100, "y": 100}],
+            closed=False,
+        )
+        path_data["transform"] = {"rotate": 45, "pivotX": 50, "pivotY": 50}
+        canvas_model.addItem(path_data)
+
+        item = canvas_model._items[0]
+        old_pivot = (item.transform.pivot_x, item.transform.pivot_y)
+        old_translate = (item.transform.translate_x, item.transform.translate_y)
+
+        new_geometry = {
+            "points": [{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 150, "y": 150}],
+            "closed": False,
+        }
+        canvas_model.updateGeometryWithOriginCompensation(0, new_geometry)
+
+        new_item = canvas_model._items[0]
+        new_pivot = (new_item.transform.pivot_x, new_item.transform.pivot_y)
+        new_translate = (new_item.transform.translate_x, new_item.transform.translate_y)
+
+        assert new_pivot == old_pivot
+        assert new_translate == old_translate
+
+    def test_geometry_update_invalid_index(self, canvas_model):
+        """Invalid index should not raise."""
+        canvas_model.updateGeometryWithOriginCompensation(-1, {"points": []})
+        canvas_model.updateGeometryWithOriginCompensation(999, {"points": []})
+
+
+class TestEditTransformLock:
+    """Tests for stable edit transform locking during path edits."""
+
+    def test_locked_transform_round_trip_after_bounds_change(self, canvas_model):
+        """Locked mapping stays aligned after geometry changes."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 80, "y": 20}, {"x": 120, "y": 100}],
+            closed=False,
+        )
+        path_data["transform"] = {
+            "rotate": 30,
+            "scaleX": 1.4,
+            "scaleY": 0.8,
+            "pivotX": 60,
+            "pivotY": 50,
+        }
+        canvas_model.addItem(path_data)
+
+        canvas_model.lockEditTransform(0)
+
+        new_geometry = {
+            "points": [
+                {"x": 0, "y": 0},
+                {"x": 140, "y": 10},
+                {"x": 170, "y": 150},
+            ],
+            "closed": False,
+        }
+        canvas_model.updateGeometryWithOriginCompensation(0, new_geometry)
+
+        transformed = canvas_model.getTransformedPathPoints(0)
+        assert transformed is not None
+
+        for i, tp in enumerate(transformed):
+            geom = canvas_model.transformPointToGeometryLocked(0, tp["x"], tp["y"])
+            assert geom is not None
+            assert abs(geom["x"] - new_geometry["points"][i]["x"]) < 0.001
+            assert abs(geom["y"] - new_geometry["points"][i]["y"]) < 0.001
+
+        canvas_model.unlockEditTransform(0)
+
+    def test_locked_origin_world_stays_constant(self, canvas_model):
+        """Origin world position should remain fixed while locked."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 100, "y": 50}, {"x": 50, "y": 120}],
+            closed=False,
+        )
+        path_data["transform"] = {
+            "rotate": 25,
+            "scaleX": 1.2,
+            "scaleY": 0.9,
+            "pivotX": 30,
+            "pivotY": 84,
+        }
+        canvas_model.addItem(path_data)
+
+        canvas_model.lockEditTransform(0)
+
+        def _origin_world():
+            item = canvas_model._items[0]
+            origin_x = item.transform.pivot_x
+            origin_y = item.transform.pivot_y
+            return (
+                origin_x + item.transform.translate_x,
+                origin_y + item.transform.translate_y,
+            )
+
+        locked_origin = _origin_world()
+
+        canvas_model.updateGeometryWithOriginCompensation(
+            0,
+            {
+                "points": [{"x": 0, "y": 0}, {"x": 140, "y": 40}, {"x": 60, "y": 160}],
+                "closed": False,
+            },
+        )
+        origin_after_first = _origin_world()
+
+        canvas_model.updateGeometryWithOriginCompensation(
+            0,
+            {
+                "points": [{"x": 0, "y": 0}, {"x": 120, "y": 80}, {"x": 90, "y": 190}],
+                "closed": False,
+            },
+        )
+        origin_after_second = _origin_world()
+
+        assert abs(origin_after_first[0] - locked_origin[0]) < 0.001
+        assert abs(origin_after_first[1] - locked_origin[1]) < 0.001
+        assert abs(origin_after_second[0] - locked_origin[0]) < 0.001
+        assert abs(origin_after_second[1] - locked_origin[1]) < 0.001
+
+        canvas_model.unlockEditTransform(0)

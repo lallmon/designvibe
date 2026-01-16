@@ -27,7 +27,6 @@ Item {
 
     readonly property var points: transformedPoints || []
     readonly property bool isClosed: pathGeometry ? pathGeometry.closed : false
-
     readonly property real handleSize: 10 / zoomLevel
     readonly property real handleLineWidth: 1 / zoomLevel
 

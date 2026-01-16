@@ -599,6 +599,14 @@ class TestTextItem:
 class TestShapeItemWithTransform:
     """Tests for ShapeItem transform handling."""
 
+    def test_default_pivot_is_center(self):
+        """Shapes without explicit transform default pivot to bounds center."""
+        geometry = RectGeometry(x=10, y=20, width=100, height=50)
+        rect = RectangleItem(geometry=geometry, appearances=default_appearances())
+        bounds = geometry.get_bounds()
+        assert rect.transform.pivot_x == bounds.x() + bounds.width() * 0.5
+        assert rect.transform.pivot_y == bounds.y() + bounds.height() * 0.5
+
     def test_transform_applied_to_bounds(self):
         """Transform should affect get_bounds result."""
         geometry = RectGeometry(x=0, y=0, width=100, height=50)
@@ -642,8 +650,8 @@ class TestShapeItemWithTransform:
 
         # 100x50 rectangle at origin
         geometry = RectGeometry(x=0, y=0, width=100, height=50)
-        # Rotate 45 degrees around center (default origin 0,0 = top-left)
-        transform = Transform(rotate=45, origin_x=0.5, origin_y=0.5)
+        # Rotate 45 degrees around center
+        transform = Transform(rotate=45, pivot_x=50, pivot_y=25)
         rect = RectangleItem(
             geometry=geometry, appearances=default_appearances(), transform=transform
         )
@@ -663,15 +671,15 @@ class TestShapeItemWithTransform:
         # Rectangle at (50, 50) with size 100x50
         geometry = RectGeometry(x=50, y=50, width=100, height=50)
 
-        # Rotate around top-left (default origin 0,0)
-        transform_tl = Transform(rotate=90, origin_x=0, origin_y=0)
+        # Rotate around top-left
+        transform_tl = Transform(rotate=90, pivot_x=50, pivot_y=50)
         rect_tl = RectangleItem(
             geometry=geometry, appearances=default_appearances(), transform=transform_tl
         )
         bounds_tl = rect_tl.get_bounds()
 
         # Rotate around center
-        transform_center = Transform(rotate=90, origin_x=0.5, origin_y=0.5)
+        transform_center = Transform(rotate=90, pivot_x=100, pivot_y=75)
         rect_center = RectangleItem(
             geometry=geometry,
             appearances=default_appearances(),
@@ -687,7 +695,7 @@ class TestShapeItemWithTransform:
         geometry = RectGeometry(x=0, y=0, width=100, height=50)
         # Translate then rotate around center
         transform = Transform(
-            translate_x=100, translate_y=100, rotate=90, origin_x=0.5, origin_y=0.5
+            translate_x=100, translate_y=100, rotate=90, pivot_x=50, pivot_y=25
         )
         rect = RectangleItem(
             geometry=geometry, appearances=default_appearances(), transform=transform
@@ -709,7 +717,7 @@ class TestShapeItemWithTransform:
         geometry = RectGeometry(x=0, y=0, width=100, height=100)
 
         # Rotate 180 degrees around top-left - shape moves to negative quadrant
-        transform_tl = Transform(rotate=180, origin_x=0, origin_y=0)
+        transform_tl = Transform(rotate=180, pivot_x=0, pivot_y=0)
         rect_tl = RectangleItem(
             geometry=geometry, appearances=default_appearances(), transform=transform_tl
         )
@@ -718,7 +726,7 @@ class TestShapeItemWithTransform:
         assert bounds_tl.y() == -100  # Rotated up
 
         # Rotate 180 degrees around center - shape stays in same position
-        transform_center = Transform(rotate=180, origin_x=0.5, origin_y=0.5)
+        transform_center = Transform(rotate=180, pivot_x=50, pivot_y=50)
         rect_center = RectangleItem(
             geometry=geometry,
             appearances=default_appearances(),
