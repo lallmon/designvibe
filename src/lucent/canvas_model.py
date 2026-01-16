@@ -95,6 +95,9 @@ class CanvasModel(QAbstractListModel):
         # Spatial index for fast viewport queries
         self._spatial_index = SpatialIndex()
 
+        # Locked edit pivots (geometry space) for stable drag operations
+        self._locked_edit_transforms: Dict[int, Dict[str, float]] = {}
+
         # Connect signals to update spatial index
         self.itemAdded.connect(self._on_item_added_spatial)
         self.itemRemoved.connect(self._on_item_removed_spatial)
@@ -1157,6 +1160,151 @@ class CanvasModel(QAbstractListModel):
 
         geom_pt = inverted.map(QPointF(screen_x, screen_y))
         return {"x": geom_pt.x(), "y": geom_pt.y()}
+
+    @Slot(int)
+    def lockEditTransform(self, index: int) -> None:
+        """Lock the edit pivot (geometry space) for stable drag mapping."""
+        if not (0 <= index < len(self._items)):
+            return
+
+        item = self._items[index]
+        if not hasattr(item, "transform") or not hasattr(item, "geometry"):
+            return
+
+        bounds = item.geometry.get_bounds()
+        pivot_geom_x = bounds.x() + bounds.width() * item.transform.origin_x
+        pivot_geom_y = bounds.y() + bounds.height() * item.transform.origin_y
+
+        self._locked_edit_transforms[index] = {
+            "pivot_geom_x": pivot_geom_x,
+            "pivot_geom_y": pivot_geom_y,
+        }
+
+    @Slot(int)
+    def unlockEditTransform(self, index: int) -> None:
+        """Clear the locked edit transform after drag ends."""
+        self._locked_edit_transforms.pop(index, None)
+
+    @Slot(int, dict)
+    def updateGeometryWithOriginCompensation(
+        self, index: int, geometry_data: Dict[str, Any]
+    ) -> None:
+        """Update item geometry while keeping the transform pivot stable.
+
+        When geometry changes (e.g., moving a path point), the bounds change,
+        which shifts the origin position (since origin is a percentage of bounds).
+        This method preserves the pivot in geometry space by updating originX/Y,
+        so the overall transform stays visually stable without changing translation.
+
+        Args:
+            index: Index of the item to update.
+            geometry_data: New geometry data (points, closed, etc.).
+        """
+        if not (0 <= index < len(self._items)):
+            return
+
+        item = self._items[index]
+        if not hasattr(item, "geometry") or not hasattr(item, "transform"):
+            self.updateItem(index, {"geometry": geometry_data})
+            return
+
+        transform = item.transform
+
+        # Pivot compensation only needed when rotation or non-unity scale exists.
+        # With identity transform, origin position doesn't affect visual result.
+        needs_compensation = (
+            transform.rotate != 0 or transform.scale_x != 1 or transform.scale_y != 1
+        )
+
+        if not needs_compensation:
+            self.updateItem(index, {"geometry": geometry_data})
+            return
+
+        # Capture current pivot in geometry space
+        old_bounds = item.geometry.get_bounds()
+        locked_origin = self._locked_edit_transforms.get(index)
+        pivot_geom_x = (
+            locked_origin["pivot_geom_x"]
+            if locked_origin
+            else old_bounds.x() + old_bounds.width() * transform.origin_x
+        )
+        pivot_geom_y = (
+            locked_origin["pivot_geom_y"]
+            if locked_origin
+            else old_bounds.y() + old_bounds.height() * transform.origin_y
+        )
+
+        # Apply geometry update
+        self.updateItem(index, {"geometry": geometry_data})
+
+        # Get updated item and new bounds
+        new_item = self._items[index]
+        if not hasattr(new_item, "geometry"):
+            return
+
+        new_bounds = new_item.geometry.get_bounds()
+        new_origin_x = new_item.transform.origin_x
+        new_origin_y = new_item.transform.origin_y
+        if new_bounds.width() != 0:
+            new_origin_x = (pivot_geom_x - new_bounds.x()) / new_bounds.width()
+        if new_bounds.height() != 0:
+            new_origin_y = (pivot_geom_y - new_bounds.y()) / new_bounds.height()
+
+        if (
+            new_origin_x != new_item.transform.origin_x
+            or new_origin_y != new_item.transform.origin_y
+        ):
+            self.updateItem(
+                index,
+                {
+                    "transform": {
+                        "translateX": new_item.transform.translate_x,
+                        "translateY": new_item.transform.translate_y,
+                        "rotate": new_item.transform.rotate,
+                        "scaleX": new_item.transform.scale_x,
+                        "scaleY": new_item.transform.scale_y,
+                        "originX": new_origin_x,
+                        "originY": new_origin_y,
+                    }
+                },
+            )
+
+    @Slot(int, float, float, result="QVariant")  # type: ignore[arg-type]
+    def transformPointToGeometryLocked(
+        self, index: int, screen_x: float, screen_y: float
+    ) -> Optional[Dict[str, float]]:
+        """Transform screen point to geometry using locked inverse transform.
+
+        Uses a locked pivot in geometry space for consistent mapping during drag.
+        Falls back to current transform if not locked.
+        """
+        from PySide6.QtCore import QPointF
+
+        if not (0 <= index < len(self._items)):
+            return None
+
+        item = self._items[index]
+        if not hasattr(item, "transform") or not hasattr(item, "geometry"):
+            return None
+
+        locked_origin = self._locked_edit_transforms.get(index)
+        if locked_origin:
+            if item.transform.is_identity():
+                return {"x": screen_x, "y": screen_y}
+
+            pivot_geom_x = locked_origin["pivot_geom_x"]
+            pivot_geom_y = locked_origin["pivot_geom_y"]
+            qtransform = item.transform.to_qtransform_centered(
+                pivot_geom_x, pivot_geom_y
+            )
+            inverted, ok = qtransform.inverted()
+            if not ok:
+                return {"x": screen_x, "y": screen_y}
+            geom_pt = inverted.map(QPointF(screen_x, screen_y))
+            return {"x": geom_pt.x(), "y": geom_pt.y()}
+
+        # Fall back to current transform
+        return self.transformPointToGeometry(index, screen_x, screen_y)
 
     @Slot(int, result=bool)
     def hasNonIdentityTransform(self, index: int) -> bool:

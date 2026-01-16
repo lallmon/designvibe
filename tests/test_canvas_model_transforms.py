@@ -755,3 +755,252 @@ class TestTransformedPathPoints:
         """Invalid index returns None."""
         assert canvas_model.transformPointToGeometry(-1, 0, 0) is None
         assert canvas_model.transformPointToGeometry(999, 0, 0) is None
+
+
+class TestOriginCompensation:
+    """Tests for updateGeometryWithOriginCompensation method."""
+
+    def test_origin_compensation_keeps_origin_stable(self, canvas_model):
+        """Moving a point should not shift the visual position of other points."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 100, "y": 100}],
+            closed=False,
+        )
+        path_data["transform"] = {
+            "rotate": 45,
+            "originX": 0.5,
+            "originY": 0.5,
+        }
+        canvas_model.addItem(path_data)
+
+        # Get the world position of the origin before the edit
+        item = canvas_model._items[0]
+        old_bounds = item.geometry.get_bounds()
+        old_origin_x = old_bounds.x() + old_bounds.width() * 0.5
+        old_origin_y = old_bounds.y() + old_bounds.height() * 0.5
+        old_translate_x = item.transform.translate_x
+        old_translate_y = item.transform.translate_y
+        old_origin_world = (
+            old_origin_x + old_translate_x,
+            old_origin_y + old_translate_y,
+        )
+
+        # Move the third point, which changes the bounds
+        new_geometry = {
+            "points": [{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 150, "y": 150}],
+            "closed": False,
+        }
+        canvas_model.updateGeometryWithOriginCompensation(0, new_geometry)
+
+        # Get the new origin world position
+        new_item = canvas_model._items[0]
+        new_bounds = new_item.geometry.get_bounds()
+        new_origin_x = new_bounds.x() + new_bounds.width() * 0.5
+        new_origin_y = new_bounds.y() + new_bounds.height() * 0.5
+        new_translate_x = new_item.transform.translate_x
+        new_translate_y = new_item.transform.translate_y
+        new_origin_world = (
+            new_origin_x + new_translate_x,
+            new_origin_y + new_translate_y,
+        )
+
+        # Origin world position should be the same after compensation
+        assert abs(new_origin_world[0] - old_origin_world[0]) < 0.001
+        assert abs(new_origin_world[1] - old_origin_world[1]) < 0.001
+
+    def test_origin_compensation_with_scale(self, canvas_model):
+        """Origin compensation should work with scaled items."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 100, "y": 100}],
+            closed=False,
+        )
+        path_data["transform"] = {
+            "scaleX": 2.0,
+            "scaleY": 0.5,
+            "originX": 0.5,
+            "originY": 0.5,
+        }
+        canvas_model.addItem(path_data)
+
+        # Get original origin world position
+        item = canvas_model._items[0]
+        old_bounds = item.geometry.get_bounds()
+        old_origin_world = (
+            old_bounds.x() + old_bounds.width() * 0.5 + item.transform.translate_x,
+            old_bounds.y() + old_bounds.height() * 0.5 + item.transform.translate_y,
+        )
+
+        # Move the second point
+        new_geometry = {
+            "points": [{"x": 0, "y": 0}, {"x": 200, "y": 50}],
+            "closed": False,
+        }
+        canvas_model.updateGeometryWithOriginCompensation(0, new_geometry)
+
+        # Check origin stability
+        new_item = canvas_model._items[0]
+        new_bounds = new_item.geometry.get_bounds()
+        new_origin_world = (
+            new_bounds.x() + new_bounds.width() * 0.5 + new_item.transform.translate_x,
+            new_bounds.y() + new_bounds.height() * 0.5 + new_item.transform.translate_y,
+        )
+
+        assert abs(new_origin_world[0] - old_origin_world[0]) < 0.001
+        assert abs(new_origin_world[1] - old_origin_world[1]) < 0.001
+
+    def test_origin_compensation_corner_origin(self, canvas_model):
+        """Origin compensation works when origin is at a corner."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 100, "y": 100}],
+            closed=False,
+        )
+        path_data["transform"] = {
+            "rotate": 30,
+            "originX": 0.0,
+            "originY": 0.0,
+        }
+        canvas_model.addItem(path_data)
+
+        item = canvas_model._items[0]
+        old_bounds = item.geometry.get_bounds()
+        # Origin at (0,0) of bounds
+        old_origin_world = (
+            old_bounds.x() + item.transform.translate_x,
+            old_bounds.y() + item.transform.translate_y,
+        )
+
+        new_geometry = {
+            "points": [{"x": 0, "y": 0}, {"x": 150, "y": 80}],
+            "closed": False,
+        }
+        canvas_model.updateGeometryWithOriginCompensation(0, new_geometry)
+
+        new_item = canvas_model._items[0]
+        new_bounds = new_item.geometry.get_bounds()
+        new_origin_world = (
+            new_bounds.x() + new_item.transform.translate_x,
+            new_bounds.y() + new_item.transform.translate_y,
+        )
+
+        assert abs(new_origin_world[0] - old_origin_world[0]) < 0.001
+        assert abs(new_origin_world[1] - old_origin_world[1]) < 0.001
+
+    def test_origin_compensation_identity_transform_no_change(self, canvas_model):
+        """With identity transform, compensation should be minimal."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 100, "y": 100}],
+            closed=False,
+        )
+        canvas_model.addItem(path_data)
+
+        new_geometry = {
+            "points": [{"x": 0, "y": 0}, {"x": 150, "y": 80}],
+            "closed": False,
+        }
+        canvas_model.updateGeometryWithOriginCompensation(0, new_geometry)
+
+        # With identity transform, translation should still be zero
+        item = canvas_model._items[0]
+        assert item.transform.translate_x == 0
+        assert item.transform.translate_y == 0
+
+    def test_origin_compensation_invalid_index(self, canvas_model):
+        """Invalid index should not raise."""
+        canvas_model.updateGeometryWithOriginCompensation(-1, {"points": []})
+        canvas_model.updateGeometryWithOriginCompensation(999, {"points": []})
+
+
+class TestEditTransformLock:
+    """Tests for stable edit transform locking during path edits."""
+
+    def test_locked_transform_round_trip_after_bounds_change(self, canvas_model):
+        """Locked mapping stays aligned after geometry changes."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 80, "y": 20}, {"x": 120, "y": 100}],
+            closed=False,
+        )
+        path_data["transform"] = {
+            "rotate": 30,
+            "scaleX": 1.4,
+            "scaleY": 0.8,
+            "originX": 0.5,
+            "originY": 0.5,
+        }
+        canvas_model.addItem(path_data)
+
+        canvas_model.lockEditTransform(0)
+
+        new_geometry = {
+            "points": [
+                {"x": 0, "y": 0},
+                {"x": 140, "y": 10},
+                {"x": 170, "y": 150},
+            ],
+            "closed": False,
+        }
+        canvas_model.updateGeometryWithOriginCompensation(0, new_geometry)
+
+        transformed = canvas_model.getTransformedPathPoints(0)
+        assert transformed is not None
+
+        for i, tp in enumerate(transformed):
+            geom = canvas_model.transformPointToGeometryLocked(0, tp["x"], tp["y"])
+            assert geom is not None
+            assert abs(geom["x"] - new_geometry["points"][i]["x"]) < 0.001
+            assert abs(geom["y"] - new_geometry["points"][i]["y"]) < 0.001
+
+        canvas_model.unlockEditTransform(0)
+
+    def test_locked_origin_world_stays_constant(self, canvas_model):
+        """Origin world position should remain fixed while locked."""
+        path_data = make_path(
+            points=[{"x": 0, "y": 0}, {"x": 100, "y": 50}, {"x": 50, "y": 120}],
+            closed=False,
+        )
+        path_data["transform"] = {
+            "rotate": 25,
+            "scaleX": 1.2,
+            "scaleY": 0.9,
+            "originX": 0.3,
+            "originY": 0.7,
+        }
+        canvas_model.addItem(path_data)
+
+        canvas_model.lockEditTransform(0)
+
+        def _origin_world():
+            item = canvas_model._items[0]
+            bounds = item.geometry.get_bounds()
+            origin_x = bounds.x() + bounds.width() * item.transform.origin_x
+            origin_y = bounds.y() + bounds.height() * item.transform.origin_y
+            return (
+                origin_x + item.transform.translate_x,
+                origin_y + item.transform.translate_y,
+            )
+
+        locked_origin = _origin_world()
+
+        canvas_model.updateGeometryWithOriginCompensation(
+            0,
+            {
+                "points": [{"x": 0, "y": 0}, {"x": 140, "y": 40}, {"x": 60, "y": 160}],
+                "closed": False,
+            },
+        )
+        origin_after_first = _origin_world()
+
+        canvas_model.updateGeometryWithOriginCompensation(
+            0,
+            {
+                "points": [{"x": 0, "y": 0}, {"x": 120, "y": 80}, {"x": 90, "y": 190}],
+                "closed": False,
+            },
+        )
+        origin_after_second = _origin_world()
+
+        assert abs(origin_after_first[0] - locked_origin[0]) < 0.001
+        assert abs(origin_after_first[1] - locked_origin[1]) < 0.001
+        assert abs(origin_after_second[0] - locked_origin[0]) < 0.001
+        assert abs(origin_after_second[1] - locked_origin[1]) < 0.001
+
+        canvas_model.unlockEditTransform(0)

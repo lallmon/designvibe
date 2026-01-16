@@ -21,12 +21,9 @@ QtObject {
     readonly property int selectedItemIndex: Lucent.SelectionManager.selectedItemIndex
     readonly property var selectedItem: Lucent.SelectionManager.selectedItem
 
-    // Pre-transformed points from Python (screen space)
-    // Depends on selectedItem to re-evaluate when geometry changes
     readonly property var transformedPoints: {
         if (!editModeActive || selectedItemIndex < 0)
             return null;
-        // Force re-evaluation when selectedItem changes
         var item = selectedItem;
         if (!item)
             return null;
@@ -34,6 +31,18 @@ QtObject {
     }
 
     readonly property var selectedPointIndices: Lucent.SelectionManager.selectedPointIndices
+
+    function lockTransformForDrag() {
+        if (selectedItemIndex >= 0) {
+            canvasModel.lockEditTransform(selectedItemIndex);
+        }
+    }
+
+    function unlockTransformAfterDrag() {
+        if (selectedItemIndex >= 0) {
+            canvasModel.unlockEditTransform(selectedItemIndex);
+        }
+    }
 
     function handlePointClicked(index, modifiers) {
         var multi = modifiers & Qt.ShiftModifier;
@@ -49,8 +58,7 @@ QtObject {
         if (!item || item.type !== "path")
             return;
 
-        // Convert screen position to geometry space using Python
-        var geomPos = canvasModel.transformPointToGeometry(idx, screenX, screenY);
+        var geomPos = canvasModel.transformPointToGeometryLocked(idx, screenX, screenY);
         if (!geomPos)
             return;
 
@@ -87,11 +95,9 @@ QtObject {
             }
         }
 
-        canvasModel.updateItem(idx, {
-            geometry: {
-                points: newPoints,
-                closed: item.geometry.closed
-            }
+        canvasModel.updateGeometryWithOriginCompensation(idx, {
+            points: newPoints,
+            closed: item.geometry.closed
         });
     }
 
@@ -104,8 +110,7 @@ QtObject {
         if (!item || item.type !== "path")
             return;
 
-        // Convert screen position to geometry space using Python
-        var geomPos = canvasModel.transformPointToGeometry(idx, screenX, screenY);
+        var geomPos = canvasModel.transformPointToGeometryLocked(idx, screenX, screenY);
         if (!geomPos)
             return;
 
@@ -170,11 +175,9 @@ QtObject {
             }
         }
 
-        canvasModel.updateItem(idx, {
-            geometry: {
-                points: newPoints,
-                closed: item.geometry.closed
-            }
+        canvasModel.updateGeometryWithOriginCompensation(idx, {
+            points: newPoints,
+            closed: item.geometry.closed
         });
     }
 

@@ -124,6 +124,14 @@ Item {
         pathEditController.deleteSelectedPoints();
     }
 
+    function lockPathEditTransform() {
+        pathEditController.lockTransformForDrag();
+    }
+
+    function unlockPathEditTransform() {
+        pathEditController.unlockTransformAfterDrag();
+    }
+
     // Tiled rendering layer
     TiledShapesLayer {
         id: shapesLayer

@@ -372,9 +372,13 @@ Item {
 
                 onDragStarted: {
                     canvasModel.beginTransaction();
+                    if (overlayContainer.canvasRef)
+                        overlayContainer.canvasRef.lockPathEditTransform();
                 }
 
                 onDragEnded: {
+                    if (overlayContainer.canvasRef)
+                        overlayContainer.canvasRef.unlockPathEditTransform();
                     canvasModel.endTransaction();
                 }
             }
