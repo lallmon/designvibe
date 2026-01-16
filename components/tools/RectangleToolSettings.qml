@@ -24,6 +24,11 @@ RowLayout {
     property color _defaultFillColor: Lucent.Themed.defaultFill
     property real _defaultFillOpacity: 1.0
     property real _defaultCornerRadius: 0
+    property real _defaultCornerRadiusTL: 0
+    property real _defaultCornerRadiusTR: 0
+    property real _defaultCornerRadiusBR: 0
+    property real _defaultCornerRadiusBL: 0
+    property bool _singleRadiusMode: true
 
     // Helper to get fill appearance from selectedItem
     function _getFill() {
@@ -119,6 +124,43 @@ RowLayout {
         }
         return _defaultCornerRadius;
     }
+    readonly property real cornerRadiusTL: {
+        if (editMode && selectedItem && selectedItem.geometry) {
+            return selectedItem.geometry.cornerRadiusTL || 0;
+        }
+        return _defaultCornerRadiusTL;
+    }
+    readonly property real cornerRadiusTR: {
+        if (editMode && selectedItem && selectedItem.geometry) {
+            return selectedItem.geometry.cornerRadiusTR || 0;
+        }
+        return _defaultCornerRadiusTR;
+    }
+    readonly property real cornerRadiusBR: {
+        if (editMode && selectedItem && selectedItem.geometry) {
+            return selectedItem.geometry.cornerRadiusBR || 0;
+        }
+        return _defaultCornerRadiusBR;
+    }
+    readonly property real cornerRadiusBL: {
+        if (editMode && selectedItem && selectedItem.geometry) {
+            return selectedItem.geometry.cornerRadiusBL || 0;
+        }
+        return _defaultCornerRadiusBL;
+    }
+    readonly property bool hasPerCornerRadius: {
+        if (editMode && selectedItem && selectedItem.geometry) {
+            var g = selectedItem.geometry;
+            return g.cornerRadiusTL !== undefined || g.cornerRadiusTR !== undefined || g.cornerRadiusBR !== undefined || g.cornerRadiusBL !== undefined;
+        }
+        return !_singleRadiusMode;
+    }
+    readonly property bool singleRadiusMode: {
+        if (editMode) {
+            return !hasPerCornerRadius;
+        }
+        return _singleRadiusMode;
+    }
 
     // Update helper: always updates defaults, and also updates selected item in edit mode
     function updateProperty(propName, value) {
@@ -143,6 +185,14 @@ RowLayout {
             _defaultFillOpacity = value;
         else if (propName === "cornerRadius")
             _defaultCornerRadius = value;
+        else if (propName === "cornerRadiusTL")
+            _defaultCornerRadiusTL = value;
+        else if (propName === "cornerRadiusTR")
+            _defaultCornerRadiusTR = value;
+        else if (propName === "cornerRadiusBR")
+            _defaultCornerRadiusBR = value;
+        else if (propName === "cornerRadiusBL")
+            _defaultCornerRadiusBL = value;
 
         // Also update selected item if in edit mode
         if (editMode && Lucent.SelectionManager.selectedItemIndex >= 0) {
@@ -182,6 +232,14 @@ RowLayout {
             var newGeometry = Object.assign({}, currentItem.geometry);
             if (propName === "cornerRadius")
                 newGeometry.cornerRadius = value;
+            else if (propName === "cornerRadiusTL")
+                newGeometry.cornerRadiusTL = value > 0 ? value : undefined;
+            else if (propName === "cornerRadiusTR")
+                newGeometry.cornerRadiusTR = value > 0 ? value : undefined;
+            else if (propName === "cornerRadiusBR")
+                newGeometry.cornerRadiusBR = value > 0 ? value : undefined;
+            else if (propName === "cornerRadiusBL")
+                newGeometry.cornerRadiusBL = value > 0 ? value : undefined;
 
             canvasModel.updateItem(Lucent.SelectionManager.selectedItemIndex, {
                 type: currentItem.type,
@@ -268,12 +326,49 @@ RowLayout {
         Layout.alignment: Qt.AlignVCenter
     }
 
+    CheckBox {
+        id: singleRadiusCheckbox
+        text: qsTr("Single Radius")
+        font.pixelSize: 12
+        checked: root.singleRadiusMode
+        Layout.alignment: Qt.AlignVCenter
+
+        onToggled: {
+            root._singleRadiusMode = checked;
+            if (checked && editMode) {
+                // Switching to single mode: use TL value as uniform, clear per-corner
+                var tlVal = root.cornerRadiusTL || root.cornerRadius || 0;
+                root.updateProperty("cornerRadius", tlVal);
+                root.updateProperty("cornerRadiusTL", 0);
+                root.updateProperty("cornerRadiusTR", 0);
+                root.updateProperty("cornerRadiusBR", 0);
+                root.updateProperty("cornerRadiusBL", 0);
+            } else if (!checked && editMode) {
+                // Switching to per-corner mode: initialize all corners with current uniform value
+                var uniformVal = root.cornerRadius || 25;
+                root.updateProperty("cornerRadiusTL", uniformVal);
+                root.updateProperty("cornerRadiusTR", uniformVal);
+                root.updateProperty("cornerRadiusBR", uniformVal);
+                root.updateProperty("cornerRadiusBL", uniformVal);
+                root.updateProperty("cornerRadius", 0);
+            } else if (!checked) {
+                // Creation mode: initialize defaults
+                root._defaultCornerRadiusTL = root._defaultCornerRadius || 25;
+                root._defaultCornerRadiusTR = root._defaultCornerRadius || 25;
+                root._defaultCornerRadiusBR = root._defaultCornerRadius || 25;
+                root._defaultCornerRadiusBL = root._defaultCornerRadius || 25;
+            }
+        }
+    }
+
+    // Single radius controls (visible when singleRadiusMode is true)
     ComboBox {
         id: cornerTypeCombo
+        visible: root.singleRadiusMode
         Layout.preferredWidth: 90
         Layout.preferredHeight: Lucent.Styles.height.md
         Layout.alignment: Qt.AlignVCenter
-        model: ["Default", "Rounded"]
+        model: ["None", "Rounded"]
         currentIndex: root.cornerRadius > 0 ? 1 : 0
 
         onActivated: index => {
@@ -294,47 +389,278 @@ RowLayout {
         contentItem: Text {
             text: cornerTypeCombo.displayText
             color: palette.text
-            font.pixelSize: 11
+            font.pixelSize: 12
             verticalAlignment: Text.AlignVCenter
             leftPadding: 6
             elide: Text.ElideRight
         }
     }
 
-    TextField {
-        id: cornerRadiusField
-        visible: root.cornerRadius > 0
+    Item {
+        id: cornerRadiusContainer
+        visible: root.singleRadiusMode && root.cornerRadius > 0
         Layout.preferredWidth: 50
         Layout.preferredHeight: Lucent.Styles.height.md
         Layout.alignment: Qt.AlignVCenter
-        horizontalAlignment: Text.AlignHCenter
-        text: Math.round(root.cornerRadius).toString()
-        validator: IntValidator {
-            bottom: 1
-            top: 50
-        }
 
-        onEditingFinished: {
-            var val = parseInt(text);
-            if (!isNaN(val) && val >= 1 && val <= 50) {
-                root.updateProperty("cornerRadius", val);
-            } else {
-                text = Math.round(root.cornerRadius).toString();
+        TextField {
+            id: cornerRadiusField
+            anchors.fill: parent
+            horizontalAlignment: Text.AlignHCenter
+            text: Math.round(root.cornerRadius).toString()
+            validator: IntValidator {
+                bottom: 1
+                top: 50
+            }
+
+            onActiveFocusChanged: {
+                if (activeFocus) {
+                    selectAll();
+                    cornerSliderPopup.open();
+                } else if (!cornerSliderPopup.activeFocus && !cornerSlider.pressed) {
+                    cornerSliderPopup.close();
+                }
+            }
+
+            onEditingFinished: {
+                var val = parseInt(text);
+                if (!isNaN(val) && val >= 1 && val <= 50) {
+                    root.updateProperty("cornerRadius", val);
+                } else {
+                    text = Math.round(root.cornerRadius).toString();
+                }
+            }
+
+            background: Rectangle {
+                color: palette.base
+                border.color: cornerRadiusField.activeFocus ? palette.highlight : palette.mid
+                border.width: 1
+                radius: Lucent.Styles.rad.sm
             }
         }
 
-        background: Rectangle {
-            color: palette.base
-            border.color: cornerRadiusField.activeFocus ? palette.highlight : palette.mid
-            border.width: 1
-            radius: Lucent.Styles.rad.sm
+        Popup {
+            id: cornerSliderPopup
+            x: -75
+            y: cornerRadiusContainer.height + 4
+            width: 200
+            padding: 12
+            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+            onOpened: cornerSlider.value = root.cornerRadius
+
+            background: Rectangle {
+                color: Lucent.Themed.palette.window
+                border.color: Lucent.Themed.palette.mid
+                border.width: 1
+                radius: Lucent.Styles.rad.md
+            }
+
+            contentItem: Slider {
+                id: cornerSlider
+                from: 1
+                to: 50
+                stepSize: 1
+
+                onPressedChanged: {
+                    if (pressed)
+                        canvasModel.beginTransaction();
+                    else
+                        canvasModel.endTransaction();
+                }
+
+                onMoved: {
+                    cornerRadiusField.text = Math.round(value).toString();
+                    root.updateProperty("cornerRadius", Math.round(value));
+                }
+
+                handle: Rectangle {
+                    x: cornerSlider.leftPadding + cornerSlider.visualPosition * (cornerSlider.availableWidth - width)
+                    y: cornerSlider.topPadding + cornerSlider.availableHeight / 2 - height / 2
+                    width: 16
+                    height: 16
+                    radius: 8
+                    color: cornerSlider.pressed ? Lucent.Themed.palette.highlight : Lucent.Themed.palette.button
+                    border.color: Lucent.Themed.palette.mid
+                    border.width: 1
+                }
+            }
         }
     }
 
     Label {
-        visible: root.cornerRadius > 0
+        visible: root.singleRadiusMode && root.cornerRadius > 0
         text: "%"
-        font.pixelSize: 11
+        font.pixelSize: 12
+        Layout.alignment: Qt.AlignVCenter
+    }
+
+    // Per-corner controls (visible when singleRadiusMode is false)
+    Repeater {
+        model: !root.singleRadiusMode ? [
+            {
+                label: "TL:",
+                prop: "cornerRadiusTL",
+                value: root.cornerRadiusTL
+            },
+            {
+                label: "TR:",
+                prop: "cornerRadiusTR",
+                value: root.cornerRadiusTR
+            },
+            {
+                label: "BR:",
+                prop: "cornerRadiusBR",
+                value: root.cornerRadiusBR
+            },
+            {
+                label: "BL:",
+                prop: "cornerRadiusBL",
+                value: root.cornerRadiusBL
+            }
+        ] : []
+
+        delegate: RowLayout {
+            spacing: 4
+            Layout.leftMargin: index > 0 ? 8 : 0
+
+            Label {
+                text: modelData.label
+                font.pixelSize: 12
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            ComboBox {
+                id: cornerCombo
+                Layout.preferredWidth: 80
+                Layout.preferredHeight: Lucent.Styles.height.md
+                Layout.alignment: Qt.AlignVCenter
+                model: ["None", "Rounded"]
+                currentIndex: modelData.value > 0 ? 1 : 0
+
+                onActivated: index => {
+                    if (index === 0) {
+                        root.updateProperty(modelData.prop, 0);
+                    } else {
+                        root.updateProperty(modelData.prop, 25);
+                    }
+                }
+
+                background: Rectangle {
+                    color: palette.base
+                    border.color: cornerCombo.activeFocus ? palette.highlight : palette.mid
+                    border.width: 1
+                    radius: Lucent.Styles.rad.sm
+                }
+
+                contentItem: Text {
+                    text: cornerCombo.displayText
+                    color: palette.text
+                    font.pixelSize: 12
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: 6
+                    elide: Text.ElideRight
+                }
+            }
+
+            Item {
+                visible: modelData.value > 0
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: Lucent.Styles.height.md
+                Layout.alignment: Qt.AlignVCenter
+
+                TextField {
+                    id: cornerField
+                    anchors.fill: parent
+                    horizontalAlignment: Text.AlignHCenter
+                    text: Math.round(modelData.value).toString()
+                    font.pixelSize: 12
+                    validator: IntValidator {
+                        bottom: 1
+                        top: 50
+                    }
+
+                    onActiveFocusChanged: {
+                        if (activeFocus) {
+                            selectAll();
+                            cornerPopup.open();
+                        } else if (!cornerPopup.activeFocus && !perCornerSlider.pressed) {
+                            cornerPopup.close();
+                        }
+                    }
+
+                    onEditingFinished: {
+                        var val = parseInt(text);
+                        if (!isNaN(val) && val >= 1 && val <= 50) {
+                            root.updateProperty(modelData.prop, val);
+                        } else {
+                            text = Math.round(modelData.value).toString();
+                        }
+                    }
+
+                    background: Rectangle {
+                        color: palette.base
+                        border.color: cornerField.activeFocus ? palette.highlight : palette.mid
+                        border.width: 1
+                        radius: Lucent.Styles.rad.sm
+                    }
+                }
+
+                Popup {
+                    id: cornerPopup
+                    x: -75
+                    y: parent.height + 4
+                    width: 200
+                    padding: 12
+                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+                    onOpened: perCornerSlider.value = modelData.value
+
+                    background: Rectangle {
+                        color: Lucent.Themed.palette.window
+                        border.color: Lucent.Themed.palette.mid
+                        border.width: 1
+                        radius: Lucent.Styles.rad.md
+                    }
+
+                    contentItem: Slider {
+                        id: perCornerSlider
+                        from: 1
+                        to: 50
+                        stepSize: 1
+
+                        onPressedChanged: {
+                            if (pressed)
+                                canvasModel.beginTransaction();
+                            else
+                                canvasModel.endTransaction();
+                        }
+
+                        onMoved: {
+                            cornerField.text = Math.round(value).toString();
+                            root.updateProperty(modelData.prop, Math.round(value));
+                        }
+
+                        handle: Rectangle {
+                            x: perCornerSlider.leftPadding + perCornerSlider.visualPosition * (perCornerSlider.availableWidth - width)
+                            y: perCornerSlider.topPadding + perCornerSlider.availableHeight / 2 - height / 2
+                            width: 16
+                            height: 16
+                            radius: 8
+                            color: perCornerSlider.pressed ? Lucent.Themed.palette.highlight : Lucent.Themed.palette.button
+                            border.color: Lucent.Themed.palette.mid
+                            border.width: 1
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Label {
+        visible: !root.singleRadiusMode
+        text: "%"
+        font.pixelSize: 12
         Layout.alignment: Qt.AlignVCenter
     }
 }

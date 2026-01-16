@@ -184,6 +184,117 @@ class TestRectGeometry:
         # Path should have curves (more elements than a simple rect)
         assert path.elementCount() > 4
 
+    def test_per_corner_radius_defaults(self):
+        """Test per-corner radii default to None (uses uniform corner_radius)."""
+        rect = RectGeometry(x=0, y=0, width=100, height=50)
+        assert rect.corner_radius_tl is None
+        assert rect.corner_radius_tr is None
+        assert rect.corner_radius_br is None
+        assert rect.corner_radius_bl is None
+
+    def test_per_corner_radius_set(self):
+        """Test per-corner radii can be set independently."""
+        rect = RectGeometry(
+            x=0,
+            y=0,
+            width=100,
+            height=50,
+            corner_radius_tl=10,
+            corner_radius_tr=20,
+            corner_radius_br=30,
+            corner_radius_bl=40,
+        )
+        assert rect.corner_radius_tl == 10.0
+        assert rect.corner_radius_tr == 20.0
+        assert rect.corner_radius_br == 30.0
+        assert rect.corner_radius_bl == 40.0
+
+    def test_per_corner_radius_clamped(self):
+        """Test per-corner radii are clamped to 0-50."""
+        rect = RectGeometry(
+            x=0, y=0, width=100, height=50, corner_radius_tl=-5, corner_radius_tr=75
+        )
+        assert rect.corner_radius_tl == 0.0
+        assert rect.corner_radius_tr == 50.0
+
+    def test_per_corner_radius_to_dict(self):
+        """Test per-corner radii are serialized."""
+        rect = RectGeometry(
+            x=0,
+            y=0,
+            width=100,
+            height=50,
+            corner_radius_tl=10,
+            corner_radius_tr=20,
+            corner_radius_br=30,
+            corner_radius_bl=40,
+        )
+        data = rect.to_dict()
+        assert data["cornerRadiusTL"] == 10.0
+        assert data["cornerRadiusTR"] == 20.0
+        assert data["cornerRadiusBR"] == 30.0
+        assert data["cornerRadiusBL"] == 40.0
+
+    def test_per_corner_radius_from_dict(self):
+        """Test per-corner radii are parsed from dict."""
+        data = {
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 50,
+            "cornerRadiusTL": 15,
+            "cornerRadiusTR": 25,
+            "cornerRadiusBR": 35,
+            "cornerRadiusBL": 45,
+        }
+        rect = RectGeometry.from_dict(data)
+        assert rect.corner_radius_tl == 15.0
+        assert rect.corner_radius_tr == 25.0
+        assert rect.corner_radius_br == 35.0
+        assert rect.corner_radius_bl == 45.0
+
+    def test_has_per_corner_radius(self):
+        """Test has_per_corner_radius property."""
+        rect_uniform = RectGeometry(x=0, y=0, width=100, height=50, corner_radius=25)
+        assert rect_uniform.has_per_corner_radius is False
+
+        rect_per_corner = RectGeometry(
+            x=0, y=0, width=100, height=50, corner_radius_tl=10
+        )
+        assert rect_per_corner.has_per_corner_radius is True
+
+    def test_effective_corner_radii(self):
+        """Test effective corner radii computation."""
+        # Uniform radius
+        rect1 = RectGeometry(x=0, y=0, width=100, height=50, corner_radius=25)
+        tl, tr, br, bl = rect1.effective_corner_radii_pixels
+        assert tl == tr == br == bl == 12.5  # 25% of 50
+
+        # Per-corner radius overrides uniform
+        rect2 = RectGeometry(
+            x=0,
+            y=0,
+            width=100,
+            height=50,
+            corner_radius=25,
+            corner_radius_tl=10,
+            corner_radius_tr=20,
+        )
+        tl, tr, br, bl = rect2.effective_corner_radii_pixels
+        assert tl == 5.0  # 10% of 50
+        assert tr == 10.0  # 20% of 50
+        assert br == 12.5  # 25% of 50 (falls back to uniform)
+        assert bl == 12.5  # 25% of 50 (falls back to uniform)
+
+    def test_translated_preserves_per_corner_radius(self):
+        """Test translated() preserves per-corner radii."""
+        rect = RectGeometry(
+            x=10, y=20, width=100, height=50, corner_radius_tl=10, corner_radius_br=30
+        )
+        translated = rect.translated(5, -10)
+        assert translated.corner_radius_tl == 10.0
+        assert translated.corner_radius_br == 30.0
+
 
 class TestEllipseGeometry:
     """Tests for EllipseGeometry class."""
