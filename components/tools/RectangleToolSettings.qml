@@ -201,45 +201,54 @@ RowLayout {
             if (!currentItem)
                 return;
 
-            var newAppearances = [];
-            for (var i = 0; i < currentItem.appearances.length; i++) {
-                var app = currentItem.appearances[i];
-                var updated = Object.assign({}, app);
-                if (app.type === "fill") {
-                    if (propName === "fillColor")
-                        updated.color = value;
-                    else if (propName === "fillOpacity")
-                        updated.opacity = value;
-                } else if (app.type === "stroke") {
-                    if (propName === "strokeWidth")
-                        updated.width = value;
-                    else if (propName === "strokeColor")
-                        updated.color = value;
-                    else if (propName === "strokeOpacity")
-                        updated.opacity = value;
-                    else if (propName === "strokeVisible")
-                        updated.visible = value;
-                    else if (propName === "strokeCap")
-                        updated.cap = value;
-                    else if (propName === "strokeAlign")
-                        updated.align = value;
-                    else if (propName === "strokeOrder")
-                        updated.order = value;
+            var updatesAppearance = propName === "fillColor" || propName === "fillOpacity" || propName === "strokeWidth" || propName === "strokeColor" || propName === "strokeOpacity" || propName === "strokeVisible" || propName === "strokeCap" || propName === "strokeAlign" || propName === "strokeOrder";
+            var updatesGeometry = propName === "cornerRadius" || propName === "cornerRadiusTL" || propName === "cornerRadiusTR" || propName === "cornerRadiusBR" || propName === "cornerRadiusBL";
+
+            var newAppearances = currentItem.appearances;
+            if (updatesAppearance) {
+                newAppearances = [];
+                for (var i = 0; i < currentItem.appearances.length; i++) {
+                    var app = currentItem.appearances[i];
+                    var updated = Object.assign({}, app);
+                    if (app.type === "fill") {
+                        if (propName === "fillColor")
+                            updated.color = value;
+                        else if (propName === "fillOpacity")
+                            updated.opacity = value;
+                    } else if (app.type === "stroke") {
+                        if (propName === "strokeWidth")
+                            updated.width = value;
+                        else if (propName === "strokeColor")
+                            updated.color = value;
+                        else if (propName === "strokeOpacity")
+                            updated.opacity = value;
+                        else if (propName === "strokeVisible")
+                            updated.visible = value;
+                        else if (propName === "strokeCap")
+                            updated.cap = value;
+                        else if (propName === "strokeAlign")
+                            updated.align = value;
+                        else if (propName === "strokeOrder")
+                            updated.order = value;
+                    }
+                    newAppearances.push(updated);
                 }
-                newAppearances.push(updated);
             }
 
-            var newGeometry = Object.assign({}, currentItem.geometry);
-            if (propName === "cornerRadius")
-                newGeometry.cornerRadius = value;
-            else if (propName === "cornerRadiusTL")
-                newGeometry.cornerRadiusTL = value > 0 ? value : undefined;
-            else if (propName === "cornerRadiusTR")
-                newGeometry.cornerRadiusTR = value > 0 ? value : undefined;
-            else if (propName === "cornerRadiusBR")
-                newGeometry.cornerRadiusBR = value > 0 ? value : undefined;
-            else if (propName === "cornerRadiusBL")
-                newGeometry.cornerRadiusBL = value > 0 ? value : undefined;
+            var newGeometry = currentItem.geometry;
+            if (updatesGeometry) {
+                newGeometry = Object.assign({}, currentItem.geometry);
+                if (propName === "cornerRadius")
+                    newGeometry.cornerRadius = value;
+                else if (propName === "cornerRadiusTL")
+                    newGeometry.cornerRadiusTL = value > 0 ? value : undefined;
+                else if (propName === "cornerRadiusTR")
+                    newGeometry.cornerRadiusTR = value > 0 ? value : undefined;
+                else if (propName === "cornerRadiusBR")
+                    newGeometry.cornerRadiusBR = value > 0 ? value : undefined;
+                else if (propName === "cornerRadiusBL")
+                    newGeometry.cornerRadiusBL = value > 0 ? value : undefined;
+            }
 
             canvasModel.updateItem(Lucent.SelectionManager.selectedItemIndex, {
                 type: currentItem.type,
