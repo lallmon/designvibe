@@ -781,3 +781,15 @@ class TestTransformSerialization:
         assert serialized["transform"]["scaleX"] == 3
         assert serialized["transform"]["scaleY"] == 3
         assert serialized["transform"]["rotate"] == 270
+
+    def test_transform_defaults_pivot_to_center(self):
+        """Missing pivot defaults to geometry center."""
+        original = {
+            "type": "rectangle",
+            "geometry": {"x": 10, "y": 20, "width": 100, "height": 50},
+            "transform": {"rotate": 15},
+        }
+        item = parse_item(original)
+        bounds = item.geometry.get_bounds()
+        assert item.transform.pivot_x == bounds.x() + bounds.width() * 0.5
+        assert item.transform.pivot_y == bounds.y() + bounds.height() * 0.5

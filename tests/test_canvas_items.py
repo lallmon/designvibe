@@ -599,6 +599,14 @@ class TestTextItem:
 class TestShapeItemWithTransform:
     """Tests for ShapeItem transform handling."""
 
+    def test_default_pivot_is_center(self):
+        """Shapes without explicit transform default pivot to bounds center."""
+        geometry = RectGeometry(x=10, y=20, width=100, height=50)
+        rect = RectangleItem(geometry=geometry, appearances=default_appearances())
+        bounds = geometry.get_bounds()
+        assert rect.transform.pivot_x == bounds.x() + bounds.width() * 0.5
+        assert rect.transform.pivot_y == bounds.y() + bounds.height() * 0.5
+
     def test_transform_applied_to_bounds(self):
         """Transform should affect get_bounds result."""
         geometry = RectGeometry(x=0, y=0, width=100, height=50)

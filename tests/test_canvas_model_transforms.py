@@ -67,6 +67,18 @@ class TestCanvasModelTransforms:
         canvas_model.addItem(make_layer(name="Test Layer"))
         canvas_model.setItemTransform(0, {"rotate": 45})
 
+    def test_set_item_transform_preserves_pivot_when_missing(self, canvas_model):
+        """setItemTransform should keep existing pivot when not provided."""
+        canvas_model.addItem(make_rectangle(x=10, y=20, width=100, height=50))
+        item = canvas_model._items[0]
+        before_pivot = (item.transform.pivot_x, item.transform.pivot_y)
+
+        canvas_model.setItemTransform(0, {"rotate": 30})
+
+        item_after = canvas_model._items[0]
+        after_pivot = (item_after.transform.pivot_x, item_after.transform.pivot_y)
+        assert before_pivot == after_pivot
+
     def test_update_transform_property_preserves_others(self, canvas_model):
         """updateTransformProperty should only change the specified property."""
         rect_data = make_rectangle(x=0, y=0, width=100, height=50)
