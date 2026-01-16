@@ -128,6 +128,7 @@ Item {
     readonly property real currentOriginX: currentTransform ? (currentTransform.originX ?? 0) : 0
     readonly property real currentOriginY: currentTransform ? (currentTransform.originY ?? 0) : 0
     readonly property real originSnapTolerance: 0.02
+    readonly property bool hasPresetOrigin: _isPresetOrigin(currentOriginX, currentOriginY)
 
     function _snapOrigin(value) {
         var targets = [0, 0.5, 1];
@@ -136,6 +137,18 @@ Item {
                 return targets[i];
         }
         return value;
+    }
+
+    function _isPresetOrigin(x, y) {
+        var targets = [0, 0.5, 1];
+        for (var row = 0; row < targets.length; row++) {
+            for (var col = 0; col < targets.length; col++) {
+                if (Math.abs(x - targets[col]) <= originSnapTolerance && Math.abs(y - targets[row]) <= originSnapTolerance) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     implicitHeight: contentLayout.implicitHeight
@@ -192,7 +205,7 @@ Item {
 
                         background: Rectangle {
                             color: parent.checked ? root.themePalette.highlight : root.themePalette.button
-                            border.color: root.themePalette.mid
+                            border.color: root.hasPresetOrigin ? root.themePalette.mid : "#ffffff"
                             border.width: 1
                             radius: 2
                         }
