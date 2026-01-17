@@ -36,6 +36,7 @@ from lucent.commands import (
 )
 from lucent.history_manager import HistoryManager
 from lucent.edit_context import EditContext
+from lucent.transform_service import TransformService
 from lucent.item_schema import (
     parse_item,
     parse_item_data,
@@ -98,6 +99,17 @@ class CanvasModel(QAbstractListModel):
 
         # Edit context for stable drag operations
         self._edit_context = EditContext()
+
+        self._transform_service = TransformService(
+            get_item=self.getItem,
+            is_valid_index=self._is_valid_index,
+            edit_context=self._edit_context,
+            item_to_dict=self._itemToDict,
+            update_item=self.updateItem,
+            emit_transform_changed=self.itemTransformChanged.emit,
+            begin_transaction=self.beginTransaction,
+            end_transaction=self.endTransaction,
+        )
 
         # Connect signals to update spatial index
         self.itemAdded.connect(self._on_item_added_spatial)
@@ -251,6 +263,9 @@ class CanvasModel(QAbstractListModel):
     def _get_descendant_indices(self, container_id: str) -> List[int]:
         """Return indices of all descendants (any depth) of a container."""
         return get_descendant_indices(self._items, container_id, self._is_container)
+
+    def _is_valid_index(self, index: int) -> bool:
+        return 0 <= index < len(self._items)
 
     def _move_single_item(self, idx: int, dx: float, dy: float) -> Optional[Command]:
         """Move a single item by dx, dy. Returns UpdateItemCommand or None."""
@@ -960,62 +975,7 @@ class CanvasModel(QAbstractListModel):
             Dictionary with translateX, translateY, rotate, scaleX, scaleY
             or None if item doesn't support transforms.
         """
-        if not (0 <= index < len(self._items)):
-            return None
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return None
-
-        transform_dict = item.transform.to_dict()
-        bounds = compute_geometry_bounds(item)
-        if not bounds:
-            transform_dict["originX"] = 0
-            transform_dict["originY"] = 0
-            return transform_dict
-
-        origin_x, origin_y = self._derive_origin_from_pivot(
-            bounds, item.transform.pivot_x, item.transform.pivot_y
-        )
-        transform_dict["originX"] = origin_x
-        transform_dict["originY"] = origin_y
-        return transform_dict
-
-    @staticmethod
-    def _derive_origin_from_pivot(
-        bounds: Dict[str, float], pivot_x: float, pivot_y: float
-    ) -> tuple[float, float]:
-        """Convert absolute pivot coords into normalized origin for UI."""
-        origin_x = 0.0
-        origin_y = 0.0
-        if bounds["width"] != 0:
-            origin_x = (pivot_x - bounds["x"]) / bounds["width"]
-        if bounds["height"] != 0:
-            origin_y = (pivot_y - bounds["y"]) / bounds["height"]
-        return origin_x, origin_y
-
-    @staticmethod
-    def _pivot_from_origin(
-        bounds: Dict[str, float], origin_x: float, origin_y: float
-    ) -> tuple[float, float]:
-        """Convert normalized origin into absolute pivot coords."""
-        pivot_x = bounds["x"] + bounds["width"] * origin_x
-        pivot_y = bounds["y"] + bounds["height"] * origin_y
-        return pivot_x, pivot_y
-
-    @staticmethod
-    def _normalizeRotation(degrees: float) -> float:
-        """Normalize rotation to 0-360° range.
-
-        Args:
-            degrees: Rotation in degrees (any value).
-
-        Returns:
-            Rotation normalized to 0 <= value < 360.
-        """
-        normalized = degrees % 360
-        if normalized < 0:
-            normalized += 360
-        return normalized
+        return self._transform_service.get_item_transform(index)
 
     @Slot(int, dict)
     def setItemTransform(self, index: int, transform: Dict[str, Any]) -> None:
@@ -1027,31 +987,7 @@ class CanvasModel(QAbstractListModel):
             index: Index of the item.
             transform: Dictionary with transform properties.
         """
-        if not (0 <= index < len(self._items)):
-            return
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return
-
-        # Normalize rotation to 0-360° range
-        if "rotate" in transform:
-            transform = dict(transform)  # Copy to avoid mutating input
-            transform["rotate"] = self._normalizeRotation(transform["rotate"])
-
-        bounds = compute_geometry_bounds(item)
-        if not bounds:
-            return
-
-        if "pivotX" not in transform or "pivotY" not in transform:
-            transform = dict(transform)
-            transform["pivotX"] = item.transform.pivot_x
-            transform["pivotY"] = item.transform.pivot_y
-
-        # Get current item data and update transform
-        current_data = self._itemToDict(item)
-        current_data["transform"] = transform
-        self.updateItem(index, current_data)
-        self.itemTransformChanged.emit(index)
+        self._transform_service.set_item_transform(index, transform)
 
     @Slot(int, str, float)
     def updateTransformProperty(self, index: int, prop: str, value: float) -> None:
@@ -1062,28 +998,12 @@ class CanvasModel(QAbstractListModel):
             prop: Property name (translateX, translateY, rotate, scaleX, scaleY).
             value: New value for the property.
         """
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return
-
-        new_transform = {
-            "translateX": item.transform.translate_x,
-            "translateY": item.transform.translate_y,
-            "rotate": item.transform.rotate,
-            "scaleX": item.transform.scale_x,
-            "scaleY": item.transform.scale_y,
-            "pivotX": item.transform.pivot_x,
-            "pivotY": item.transform.pivot_y,
-        }
-        new_transform[prop] = value
-        self.setItemTransform(index, new_transform)
+        self._transform_service.update_transform_property(index, prop, value)
 
     @Slot(int, float)
     def rotateItem(self, index: int, angle: float) -> None:
         """Rotate an item by setting its transform rotation."""
-        if not (0 <= index < len(self._items)):
-            return
-        self.updateTransformProperty(index, "rotate", angle)
+        self._transform_service.rotate_item(index, angle)
 
     @Slot(int, result="QVariant")  # type: ignore[arg-type]
     def getDisplayedPosition(self, index: int) -> Optional[Dict[str, float]]:
@@ -1097,21 +1017,7 @@ class CanvasModel(QAbstractListModel):
         Returns:
             Dictionary with x, y or None if not applicable.
         """
-        if not (0 <= index < len(self._items)):
-            return None
-
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return None
-
-        bounds = compute_geometry_bounds(item)
-        if not bounds:
-            return None
-
-        return {
-            "x": item.transform.pivot_x + item.transform.translate_x,
-            "y": item.transform.pivot_y + item.transform.translate_y,
-        }
+        return self._transform_service.get_displayed_position(index)
 
     @Slot(int, result="QVariant")  # type: ignore[arg-type]
     def getDisplayedSize(self, index: int) -> Optional[Dict[str, float]]:
@@ -1123,25 +1029,7 @@ class CanvasModel(QAbstractListModel):
         Returns:
             Dictionary with width, height or None if not applicable.
         """
-        if not (0 <= index < len(self._items)):
-            return None
-
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return None
-
-        bounds = compute_geometry_bounds(item)
-        if not bounds:
-            return None
-
-        current = self.getItemTransform(index) or {}
-        scale_x = current.get("scaleX", 1)
-        scale_y = current.get("scaleY", 1)
-
-        return {
-            "width": bounds["width"] * scale_x,
-            "height": bounds["height"] * scale_y,
-        }
+        return self._transform_service.get_displayed_size(index)
 
     @Slot(int, result="QVariant")  # type: ignore[arg-type]
     def getTransformedPathPoints(self, index: int) -> Optional[List[Dict[str, Any]]]:
@@ -1218,35 +1106,19 @@ class CanvasModel(QAbstractListModel):
         Returns:
             Dictionary with x, y in geometry space, or None if failed.
         """
-        if not (0 <= index < len(self._items)):
-            return None
-
-        item = self._items[index]
-        if not hasattr(item, "transform") or not hasattr(item, "geometry"):
-            return None
-
-        return self._edit_context.map_screen_to_geometry(
-            item.transform, screen_x, screen_y
+        return self._transform_service.transform_point_to_geometry(
+            index, screen_x, screen_y
         )
 
     @Slot(int)
     def lockEditTransform(self, index: int) -> None:
         """Lock the edit pivot (geometry space) for stable drag mapping."""
-        if not (0 <= index < len(self._items)):
-            return
-
-        item = self._items[index]
-        if not hasattr(item, "transform") or not hasattr(item, "geometry"):
-            return
-
-        self._edit_context.lock_pivot(
-            index, item.transform.pivot_x, item.transform.pivot_y
-        )
+        self._transform_service.lock_edit_transform(index)
 
     @Slot(int)
     def unlockEditTransform(self, index: int) -> None:
         """Clear the locked edit transform after drag ends."""
-        self._edit_context.unlock_pivot(index)
+        self._transform_service.unlock_edit_transform(index)
 
     @Slot(int, dict)
     def updateGeometryWithOriginCompensation(
@@ -1256,15 +1128,14 @@ class CanvasModel(QAbstractListModel):
 
         With absolute pivots, geometry updates do not require compensation.
         """
-        if not (0 <= index < len(self._items)):
-            return
-
-        self.updateItem(index, {"geometry": geometry_data})
+        self._transform_service.update_geometry_with_origin_compensation(
+            index, geometry_data
+        )
 
     @Slot(int, dict)
     def updateGeometryLocked(self, index: int, geometry_data: Dict[str, Any]) -> None:
         """Update geometry without altering the current transform."""
-        self.updateGeometryWithOriginCompensation(index, geometry_data)
+        self._transform_service.update_geometry_locked(index, geometry_data)
 
     @Slot(int, float, float, result="QVariant")  # type: ignore[arg-type]
     def transformPointToGeometryLocked(
@@ -1275,22 +1146,8 @@ class CanvasModel(QAbstractListModel):
         Uses a locked pivot in geometry space for consistent mapping during drag.
         Falls back to current transform if not locked.
         """
-
-        if not (0 <= index < len(self._items)):
-            return None
-
-        item = self._items[index]
-        if not hasattr(item, "transform") or not hasattr(item, "geometry"):
-            return None
-
-        locked_pivot = self._edit_context.get_locked_pivot(index)
-        if locked_pivot:
-            return self._edit_context.map_screen_to_geometry(
-                item.transform, screen_x, screen_y, locked_pivot
-            )
-
-        return self._edit_context.map_screen_to_geometry(
-            item.transform, screen_x, screen_y
+        return self._transform_service.transform_point_to_geometry_locked(
+            index, screen_x, screen_y
         )
 
     @Slot(int, result=bool)
@@ -1305,22 +1162,7 @@ class CanvasModel(QAbstractListModel):
         Returns:
             True if transform differs from identity, False otherwise.
         """
-        if not (0 <= index < len(self._items)):
-            return False
-
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return False
-
-        current = self.getItemTransform(index) or {}
-
-        return (
-            current.get("rotate", 0) != 0
-            or current.get("scaleX", 1) != 1
-            or current.get("scaleY", 1) != 1
-            or current.get("translateX", 0) != 0
-            or current.get("translateY", 0) != 0
-        )
+        return self._transform_service.has_non_identity_transform(index)
 
     @Slot(int, str, float)
     def setItemPosition(self, index: int, axis: str, value: float) -> None:
@@ -1331,33 +1173,7 @@ class CanvasModel(QAbstractListModel):
             axis: "x" or "y".
             value: New position value in canvas coordinates.
         """
-        if not (0 <= index < len(self._items)):
-            return
-
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return
-
-        bounds = compute_geometry_bounds(item)
-        if not bounds:
-            return
-
-        new_transform = {
-            "translateX": item.transform.translate_x,
-            "translateY": item.transform.translate_y,
-            "rotate": item.transform.rotate,
-            "scaleX": item.transform.scale_x,
-            "scaleY": item.transform.scale_y,
-            "pivotX": item.transform.pivot_x,
-            "pivotY": item.transform.pivot_y,
-        }
-
-        if axis == "x":
-            new_transform["translateX"] = value - item.transform.pivot_x
-        else:
-            new_transform["translateY"] = value - item.transform.pivot_y
-
-        self.setItemTransform(index, new_transform)
+        self._transform_service.set_item_position(index, axis, value)
 
     @Slot(int, str, float, bool)
     def setDisplayedSize(
@@ -1371,50 +1187,9 @@ class CanvasModel(QAbstractListModel):
             value: Target displayed size in pixels.
             proportional: If True, scale both axes proportionally.
         """
-        if not (0 <= index < len(self._items)):
-            return
-
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return
-
-        bounds = compute_geometry_bounds(item)
-        if not bounds:
-            return
-
-        # Prevent division by zero
-        if bounds["width"] <= 0 or bounds["height"] <= 0:
-            return
-
-        # Minimum displayed size is 1px
-        value = max(1.0, value)
-
-        current = self.getItemTransform(index) or {}
-        current_scale_x = current.get("scaleX", 1)
-        current_scale_y = current.get("scaleY", 1)
-
-        if dimension == "width":
-            new_scale_x = value / bounds["width"]
-            if proportional:
-                ratio = new_scale_x / current_scale_x
-                new_scale_y = current_scale_y * ratio
-                self.beginTransaction()
-                self.updateTransformProperty(index, "scaleX", new_scale_x)
-                self.updateTransformProperty(index, "scaleY", new_scale_y)
-                self.endTransaction()
-            else:
-                self.updateTransformProperty(index, "scaleX", new_scale_x)
-        else:
-            new_scale_y = value / bounds["height"]
-            if proportional:
-                ratio = new_scale_y / current_scale_y
-                new_scale_x = current_scale_x * ratio
-                self.beginTransaction()
-                self.updateTransformProperty(index, "scaleX", new_scale_x)
-                self.updateTransformProperty(index, "scaleY", new_scale_y)
-                self.endTransaction()
-            else:
-                self.updateTransformProperty(index, "scaleY", new_scale_y)
+        self._transform_service.set_displayed_size(
+            index, dimension, value, proportional
+        )
 
     @Slot(int, float, float)
     def setItemOrigin(self, index: int, new_ox: float, new_oy: float) -> None:
@@ -1428,53 +1203,7 @@ class CanvasModel(QAbstractListModel):
             new_ox: New origin X (0=left, 0.5=center, 1=right).
             new_oy: New origin Y (0=top, 0.5=center, 1=bottom).
         """
-        import math
-
-        if not (0 <= index < len(self._items)):
-            return
-
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return
-
-        bounds = compute_geometry_bounds(item)
-        if not bounds:
-            return
-
-        rotation = item.transform.rotate
-        scale_x = item.transform.scale_x
-        scale_y = item.transform.scale_y
-        old_tx = item.transform.translate_x
-        old_ty = item.transform.translate_y
-
-        old_pivot_x = item.transform.pivot_x
-        old_pivot_y = item.transform.pivot_y
-        new_pivot_x, new_pivot_y = self._pivot_from_origin(bounds, new_ox, new_oy)
-
-        # Adjust translation to keep shape visually in place when pivot changes
-        dx = old_pivot_x - new_pivot_x
-        dy = old_pivot_y - new_pivot_y
-
-        scaled_dx = dx * scale_x
-        scaled_dy = dy * scale_y
-
-        radians = rotation * math.pi / 180
-        cos_r = math.cos(radians)
-        sin_r = math.sin(radians)
-        rotated_scaled_dx = scaled_dx * cos_r - scaled_dy * sin_r
-        rotated_scaled_dy = scaled_dx * sin_r + scaled_dy * cos_r
-
-        new_transform = {
-            "translateX": old_tx + dx - rotated_scaled_dx,
-            "translateY": old_ty + dy - rotated_scaled_dy,
-            "rotate": rotation,
-            "scaleX": scale_x,
-            "scaleY": scale_y,
-            "pivotX": new_pivot_x,
-            "pivotY": new_pivot_y,
-        }
-
-        self.setItemTransform(index, new_transform)
+        self._transform_service.set_item_origin(index, new_ox, new_oy)
 
     @Slot(int, float, float, float, float)
     def scaleItem(
@@ -1486,7 +1215,9 @@ class CanvasModel(QAbstractListModel):
         anchor_y: float,
     ) -> None:
         """Scale an item while keeping the anchor point fixed."""
-        self.applyScaleResize(index, new_scale_x, new_scale_y, anchor_x, anchor_y)
+        self._transform_service.scale_item(
+            index, new_scale_x, new_scale_y, anchor_x, anchor_y
+        )
 
     @Slot(int, float, float, float, float)
     def applyScaleResize(
@@ -1509,66 +1240,9 @@ class CanvasModel(QAbstractListModel):
             anchor_x: Anchor point X (0=left, 0.5=center, 1=right).
             anchor_y: Anchor point Y (0=top, 0.5=center, 1=bottom).
         """
-        if not (0 <= index < len(self._items)):
-            return
-
-        item = self._items[index]
-        if not hasattr(item, "transform"):
-            return
-
-        bounds = compute_geometry_bounds(item)
-        if not bounds:
-            return
-
-        pivot_x = item.transform.pivot_x
-        pivot_y = item.transform.pivot_y
-        old_scale_x = item.transform.scale_x
-        old_scale_y = item.transform.scale_y
-        rotation = item.transform.rotate
-        old_tx = item.transform.translate_x
-        old_ty = item.transform.translate_y
-
-        import math
-
-        # Origin points in geometry space
-        anchor_geom_x = bounds["x"] + bounds["width"] * anchor_x
-        anchor_geom_y = bounds["y"] + bounds["height"] * anchor_y
-
-        # Displacement from pivot to anchor in geometry space
-        d_x = anchor_geom_x - pivot_x
-        d_y = anchor_geom_y - pivot_y
-
-        # Scale the displacement (old vs new)
-        scaled_old_x = d_x * old_scale_x
-        scaled_old_y = d_y * old_scale_y
-        scaled_new_x = d_x * new_scale_x
-        scaled_new_y = d_y * new_scale_y
-
-        # Rotate the scaled displacements
-        radians = rotation * math.pi / 180
-        cos_r = math.cos(radians)
-        sin_r = math.sin(radians)
-        rotated_old_x = scaled_old_x * cos_r - scaled_old_y * sin_r
-        rotated_old_y = scaled_old_x * sin_r + scaled_old_y * cos_r
-        rotated_new_x = scaled_new_x * cos_r - scaled_new_y * sin_r
-        rotated_new_y = scaled_new_x * sin_r + scaled_new_y * cos_r
-
-        # Keep anchor fixed in world space:
-        # T_new = T_old + R(S_old * d) - R(S_new * d)
-        new_tx = old_tx + (rotated_old_x - rotated_new_x)
-        new_ty = old_ty + (rotated_old_y - rotated_new_y)
-
-        new_transform = {
-            "translateX": new_tx,
-            "translateY": new_ty,
-            "rotate": rotation,
-            "scaleX": new_scale_x,
-            "scaleY": new_scale_y,
-            "pivotX": pivot_x,
-            "pivotY": pivot_y,
-        }
-
-        self.setItemTransform(index, new_transform)
+        self._transform_service.apply_scale_resize(
+            index, new_scale_x, new_scale_y, anchor_x, anchor_y
+        )
 
     @Slot(int)
     def bakeTransform(self, index: int) -> None:
