@@ -4,7 +4,6 @@
 """Canvas model for Lucent - manages canvas items."""
 
 from typing import List, Optional, Dict, Any, Union
-import os
 from PySide6.QtCore import (
     QAbstractListModel,
     QModelIndex,
@@ -265,7 +264,6 @@ class CanvasModel(QAbstractListModel):
             return None
 
         old_data = self._itemToDict(item)
-        self._log_move_debug("before", idx, dx, dy, item)
         new_data = dict(old_data)
         new_transform = item.transform.to_dict() if hasattr(item, "transform") else {}
         new_transform["translateX"] = item.transform.translate_x + dx
@@ -273,7 +271,6 @@ class CanvasModel(QAbstractListModel):
         new_data["transform"] = new_transform
 
         cmd = UpdateItemCommand(self, idx, old_data, new_data)
-        self._log_move_debug("after", idx, dx, dy, item)
         return cmd
 
     @Slot(list, float, float)
@@ -361,32 +358,17 @@ class CanvasModel(QAbstractListModel):
                     container_idx, self._itemToDict(self._items[container_idx])
                 )
 
-    def _log_move_debug(
-        self, phase: str, idx: int, dx: float, dy: float, item: CanvasItem
-    ) -> None:
-        if os.getenv("LUCENT_DEBUG_MOVE") != "1":
+    @Slot(list, float, float)
+    def translateItems(self, indices: List[int], dx: float, dy: float) -> None:
+        """Translate items by dx, dy using transform-only movement."""
+        self.moveItems(indices, dx, dy)
+
+    @Slot(int, float, float)
+    def translateItem(self, index: int, dx: float, dy: float) -> None:
+        """Translate a single item by dx, dy using transform-only movement."""
+        if not (0 <= index < len(self._items)):
             return
-        if not hasattr(item, "geometry"):
-            return
-        bounds = compute_geometry_bounds(item)
-        transform = item.transform.to_dict() if hasattr(item, "transform") else None
-        geom = item.geometry.to_dict() if hasattr(item, "geometry") else None
-        print(
-            "[move-debug]",
-            phase,
-            "idx=",
-            idx,
-            "dx=",
-            dx,
-            "dy=",
-            dy,
-            "bounds=",
-            bounds,
-            "transform=",
-            transform,
-            "geometry=",
-            geom,
-        )
+        self.translateItems([index], dx, dy)
 
     @Slot(int, float, float)
     def moveGroup(self, group_index: int, dx: float, dy: float) -> None:
@@ -994,25 +976,6 @@ class CanvasModel(QAbstractListModel):
         origin_x, origin_y = self._derive_origin_from_pivot(
             bounds, item.transform.pivot_x, item.transform.pivot_y
         )
-        if os.getenv("LUCENT_DEBUG_MOVE") == "1":
-            print(
-                "[move-debug]",
-                "origin",
-                "idx=",
-                index,
-                "bounds=",
-                bounds,
-                "pivot=",
-                (item.transform.pivot_x, item.transform.pivot_y),
-                "origin=",
-                (origin_x, origin_y),
-                "translate=",
-                (item.transform.translate_x, item.transform.translate_y),
-                "rotate=",
-                item.transform.rotate,
-                "scale=",
-                (item.transform.scale_x, item.transform.scale_y),
-            )
         transform_dict["originX"] = origin_x
         transform_dict["originY"] = origin_y
         return transform_dict
@@ -1115,6 +1078,13 @@ class CanvasModel(QAbstractListModel):
         new_transform[prop] = value
         self.setItemTransform(index, new_transform)
 
+    @Slot(int, float)
+    def rotateItem(self, index: int, angle: float) -> None:
+        """Rotate an item by setting its transform rotation."""
+        if not (0 <= index < len(self._items)):
+            return
+        self.updateTransformProperty(index, "rotate", angle)
+
     @Slot(int, result="QVariant")  # type: ignore[arg-type]
     def getDisplayedPosition(self, index: int) -> Optional[Dict[str, float]]:
         """Get displayed X, Y position based on pivot and translation.
@@ -1138,22 +1108,6 @@ class CanvasModel(QAbstractListModel):
         if not bounds:
             return None
 
-        if os.getenv("LUCENT_DEBUG_MOVE") == "1":
-            print(
-                "[move-debug]",
-                "displayed",
-                "idx=",
-                index,
-                "pivot=",
-                (item.transform.pivot_x, item.transform.pivot_y),
-                "translate=",
-                (item.transform.translate_x, item.transform.translate_y),
-                "displayed=",
-                (
-                    item.transform.pivot_x + item.transform.translate_x,
-                    item.transform.pivot_y + item.transform.translate_y,
-                ),
-            )
         return {
             "x": item.transform.pivot_x + item.transform.translate_x,
             "y": item.transform.pivot_y + item.transform.translate_y,
@@ -1306,6 +1260,11 @@ class CanvasModel(QAbstractListModel):
             return
 
         self.updateItem(index, {"geometry": geometry_data})
+
+    @Slot(int, dict)
+    def updateGeometryLocked(self, index: int, geometry_data: Dict[str, Any]) -> None:
+        """Update geometry without altering the current transform."""
+        self.updateGeometryWithOriginCompensation(index, geometry_data)
 
     @Slot(int, float, float, result="QVariant")  # type: ignore[arg-type]
     def transformPointToGeometryLocked(
@@ -1516,6 +1475,18 @@ class CanvasModel(QAbstractListModel):
         }
 
         self.setItemTransform(index, new_transform)
+
+    @Slot(int, float, float, float, float)
+    def scaleItem(
+        self,
+        index: int,
+        new_scale_x: float,
+        new_scale_y: float,
+        anchor_x: float,
+        anchor_y: float,
+    ) -> None:
+        """Scale an item while keeping the anchor point fixed."""
+        self.applyScaleResize(index, new_scale_x, new_scale_y, anchor_x, anchor_y)
 
     @Slot(int, float, float, float, float)
     def applyScaleResize(
