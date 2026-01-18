@@ -94,7 +94,9 @@ Dialog {
                 model: ["PNG", "SVG", "JPG", "PDF"]
                 Layout.fillWidth: true
                 onCurrentIndexChanged: {
-                    if (currentIndex === 2) {
+                    if (currentIndex === 1) {
+                        transparentCheck.checked = true;
+                    } else if (currentIndex === 2) {
                         transparentCheck.checked = false;
                     }
                 }
