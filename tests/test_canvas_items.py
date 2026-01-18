@@ -372,6 +372,13 @@ class TestArtboardItem:
         assert artboard.width == 800
         assert artboard.height == 600
 
+    def test_background_color_defaults_and_custom(self):
+        """Artboards should default to white background and accept custom colors."""
+        artboard = ArtboardItem()
+        assert artboard.background_color == "#ffffff"
+        custom = ArtboardItem(background_color="#112233")
+        assert custom.background_color == "#112233"
+
     def test_creation_empty_name(self):
         """Test creating an artboard with empty name."""
         artboard = ArtboardItem()

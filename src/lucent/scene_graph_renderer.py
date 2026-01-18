@@ -167,6 +167,15 @@ class SceneGraphRenderer(QQuickItem):
                 item = self._model.getItem(i)
                 if item is None:
                     continue
+                background_node = self._create_artboard_background_node(
+                    item, offset_x, offset_y, window
+                )
+                if background_node:
+                    root.appendChildNode(background_node)
+            for i in range(count):
+                item = self._model.getItem(i)
+                if item is None:
+                    continue
 
                 node = self._create_node_for_item(
                     item, offset_x, offset_y, window, self._texture_cache
@@ -180,6 +189,49 @@ class SceneGraphRenderer(QQuickItem):
             )
             if preview_node:
                 root.appendChildNode(preview_node)
+
+    def _create_artboard_background_node(
+        self,
+        item: "CanvasItem",
+        offset_x: float,
+        offset_y: float,
+        window: object,
+    ) -> Optional[QSGNode]:
+        """Create a background node for artboards."""
+        from lucent.canvas_items import ArtboardItem
+        from PySide6.QtGui import QImage, QColor
+
+        if not isinstance(item, ArtboardItem):
+            return None
+        if hasattr(item, "visible") and not item.visible:
+            return None
+
+        background_color = getattr(item, "background_color", "")
+        if not background_color:
+            return None
+
+        image = QImage(1, 1, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(QColor(background_color))
+
+        texture = window.createTextureFromImage(image)  # type: ignore[attr-defined]
+        if not texture:
+            return None
+
+        self._textures.append(texture)
+
+        node = QSGSimpleTextureNode()
+        node.setTexture(texture)
+        node.setRect(
+            QRectF(
+                item.x + offset_x,
+                item.y + offset_y,
+                item.width,
+                item.height,
+            )
+        )
+
+        self._texture_nodes.append(node)
+        return node
 
     def _create_node_for_item(
         self,

@@ -340,6 +340,7 @@ def validate_artboard(data: Dict[str, Any]) -> Dict[str, Any]:
 
     name = str(data.get("name", ""))
     artboard_id = data.get("id") or None
+    background_color = str(data.get("backgroundColor", "#ffffff"))
     visible = bool(data.get("visible", True))
     locked = bool(data.get("locked", False))
     return {
@@ -350,6 +351,7 @@ def validate_artboard(data: Dict[str, Any]) -> Dict[str, Any]:
         "y": y,
         "width": width,
         "height": height,
+        "backgroundColor": background_color,
         "visible": visible,
         "locked": locked,
     }
@@ -559,6 +561,7 @@ def parse_item(data: Dict[str, Any]) -> CanvasItem:
             height=d["height"],
             name=d["name"],
             artboard_id=d.get("id"),
+            background_color=d.get("backgroundColor", "#ffffff"),
             visible=d.get("visible", True),
             locked=d.get("locked", False),
         )
@@ -673,6 +676,7 @@ def item_to_dict(item: CanvasItem) -> Dict[str, Any]:
             "y": item.y,
             "width": item.width,
             "height": item.height,
+            "backgroundColor": item.background_color,
             "visible": item.visible,
             "locked": item.locked,
         }

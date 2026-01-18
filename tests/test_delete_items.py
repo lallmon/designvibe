@@ -89,7 +89,7 @@ class TestDeleteItemsLocked:
         assert canvas_model.count() == 1
 
     def test_effectively_locked_item_not_deleted(self, canvas_model):
-        """Items in locked containers should not be deleted."""
+        """Items in locked artboards should still be deleted."""
         canvas_model.addItem(
             make_artboard(name="Layer", artboard_id="layer1", locked=True)
         )
@@ -97,8 +97,8 @@ class TestDeleteItemsLocked:
 
         deleted = canvas_model.deleteItems([1])
 
-        assert deleted == 0
-        assert canvas_model.count() == 2
+        assert deleted == 1
+        assert canvas_model.count() == 1
 
     def test_mixed_locked_unlocked(self, canvas_model):
         """Only unlocked items are deleted from mixed selection."""

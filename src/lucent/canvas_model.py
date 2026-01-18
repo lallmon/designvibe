@@ -861,7 +861,7 @@ class CanvasModel(QAbstractListModel):
 
     @Slot(int, result=bool)
     def isEffectivelyLocked(self, index: int) -> bool:
-        """Check if item is effectively locked (own state or parent artboard locked)."""
+        """Check if item is effectively locked (own state or locked ancestors)."""
         return self._is_effectively_locked(index)
 
     @Slot(result=int)

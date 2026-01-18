@@ -256,6 +256,25 @@ class TestTextureCacheVersioning:
         # Same entry because transform changes don't affect rasterized texture
         assert entry1 is entry2
 
+    def test_artboard_background_change_does_not_invalidate_cache(self):
+        """Changing artboard background does not alter outline texture."""
+        cache = TextureCache()
+        artboard = ArtboardItem(
+            x=0,
+            y=0,
+            width=100,
+            height=80,
+            name="Artboard 1",
+            background_color="#ffffff",
+            visible=True,
+        )
+
+        entry1 = cache.get_or_create(artboard, "artboard-1")
+        artboard.background_color = "#112233"
+        entry2 = cache.get_or_create(artboard, "artboard-1")
+
+        assert entry1 is entry2
+
 
 class TestTextureCacheOffsetAndSize:
     """Tests for texture offset and size calculations."""

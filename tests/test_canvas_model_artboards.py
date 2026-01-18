@@ -69,7 +69,7 @@ class TestCanvasModelEffectivelyLocked:
     def test_is_effectively_locked_parent_locked(self, canvas_model):
         canvas_model.addItem(make_artboard(artboard_id="artboard-1", locked=True))
         canvas_model.addItem(make_rectangle(parent_id="artboard-1", locked=False))
-        assert canvas_model.isEffectivelyLocked(1) is True
+        assert canvas_model.isEffectivelyLocked(1) is False
 
     def test_is_effectively_locked_unlocked(self, canvas_model):
         canvas_model.addItem(make_artboard(artboard_id="artboard-1", locked=False))

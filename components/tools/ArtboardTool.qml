@@ -38,12 +38,14 @@ Item {
             return;
 
         // Preview artboard with border
+        var backgroundColor = settings && settings.backgroundColor ? settings.backgroundColor.toString() : "#ffffff";
         setPreviewCallback({
             type: "artboard",
             x: currentRect.x,
             y: currentRect.y,
             width: currentRect.width,
-            height: currentRect.height
+            height: currentRect.height,
+            backgroundColor: backgroundColor
         });
     }
 
@@ -93,12 +95,14 @@ Item {
             return;
 
         if (helper.hasSize(currentRect)) {
+            var backgroundColor = settings && settings.backgroundColor ? settings.backgroundColor.toString() : "#ffffff";
             itemCompleted({
                 type: "artboard",
                 x: currentRect.x,
                 y: currentRect.y,
                 width: currentRect.width,
-                height: currentRect.height
+                height: currentRect.height,
+                backgroundColor: backgroundColor
             });
         }
 

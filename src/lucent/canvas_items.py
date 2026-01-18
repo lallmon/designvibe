@@ -342,6 +342,7 @@ class ArtboardItem(CanvasItem):
         height: float = 100,
         name: str = "",
         artboard_id: Optional[str] = None,
+        background_color: str = "#ffffff",
         visible: bool = True,
         locked: bool = False,
     ) -> None:
@@ -350,6 +351,7 @@ class ArtboardItem(CanvasItem):
         self.width = width
         self.height = height
         self.name = name
+        self.background_color = background_color
         self.visible = bool(visible)
         self.locked = bool(locked)
         self.id = artboard_id if artboard_id else str(uuid.uuid4())
@@ -378,6 +380,7 @@ class ArtboardItem(CanvasItem):
             height=float(data.get("height", 100)),
             name=data.get("name", ""),
             artboard_id=data.get("id"),
+            background_color=str(data.get("backgroundColor", "#ffffff")),
             visible=data.get("visible", True),
             locked=data.get("locked", False),
         )

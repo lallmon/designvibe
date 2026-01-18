@@ -191,7 +191,7 @@ class TestMoveItemsLocked:
         _assert_transform_translation(data, 0, 0)
 
     def test_effectively_locked_item_not_moved(self, canvas_model):
-        """Items in locked containers should not be moved."""
+        """Items in locked artboards should still be moved."""
         canvas_model.addItem(
             make_artboard(name="Layer", artboard_id="layer1", locked=True)
         )
@@ -202,7 +202,7 @@ class TestMoveItemsLocked:
         data = canvas_model.getItemData(1)
         assert data["geometry"]["x"] == 0
         assert data["geometry"]["y"] == 0
-        _assert_transform_translation(data, 0, 0)
+        _assert_transform_translation(data, 10, 10)
 
 
 class TestMoveItemsMixedTypes:

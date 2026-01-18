@@ -48,7 +48,7 @@ ToolBar {
 
     readonly property bool hasEditableSelection: {
         var t = currentSelectionType;
-        return t === "rectangle" || t === "ellipse" || t === "path" || t === "text";
+        return t === "rectangle" || t === "ellipse" || t === "path" || t === "text" || t === "artboard";
     }
 
     // Determine which settings to display: selected item type takes priority over active tool

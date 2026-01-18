@@ -278,10 +278,19 @@ def test_validate_artboard_defaults_and_preserves_id():
     out = validate_artboard({"type": "artboard", "name": "Layer", "id": "custom"})
     assert out["name"] == "Layer"
     assert out["id"] == "custom"
+    assert out["backgroundColor"] == "#ffffff"
 
     out2 = validate_artboard({"type": "artboard"})
     assert out2["name"] == ""
     assert out2["id"] is None
+    assert out2["backgroundColor"] == "#ffffff"
+
+
+def test_validate_artboard_preserves_background_color():
+    out = validate_artboard(
+        {"type": "artboard", "backgroundColor": "#112233", "name": "Board"}
+    )
+    assert out["backgroundColor"] == "#112233"
 
 
 def test_validate_group():
@@ -442,11 +451,12 @@ def test_item_to_dict_round_trips_ellipse():
 
 
 def test_item_to_dict_round_trips_layer():
-    layer = ArtboardItem(name="L", artboard_id="lid")
+    layer = ArtboardItem(name="L", artboard_id="lid", background_color="#123456")
     out = item_to_dict(layer)
     assert out["type"] == ItemType.ARTBOARD.value
     assert out["name"] == "L"
     assert out["id"] == "lid"
+    assert out["backgroundColor"] == "#123456"
 
 
 def test_item_to_dict_round_trips_group():

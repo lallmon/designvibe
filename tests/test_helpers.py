@@ -143,6 +143,7 @@ def make_artboard(
     height=100,
     name="",
     artboard_id=None,
+    background_color="#ffffff",
     visible=True,
     locked=False,
 ):
@@ -154,6 +155,7 @@ def make_artboard(
         "width": width,
         "height": height,
         "name": name,
+        "backgroundColor": background_color,
         "visible": visible,
         "locked": locked,
     }
