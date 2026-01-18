@@ -200,7 +200,7 @@ class SceneGraphRenderer(QQuickItem):
             return None
 
         item_id = item.id if hasattr(item, "id") else str(id(item))
-        cache_entry = texture_cache.get_or_create(item, item_id)
+        cache_entry = texture_cache.get_or_create(item, item_id, self._zoom_level)
 
         if not cache_entry:
             return None

@@ -67,6 +67,7 @@ class TextureCache:
         self,
         item: "CanvasItem",
         item_id: str,
+        zoom_level: float = 1.0,
     ) -> Optional[TextureCacheEntry]:
         """Get cached texture or create a new one.
 
@@ -77,13 +78,13 @@ class TextureCache:
         if not isinstance(item, (ShapeItem, TextItem, ArtboardItem)):
             return None
 
-        current_version = self._get_item_version(item)
+        current_version = self._get_item_version(item, zoom_level)
         cached = self._cache.get(item_id)
 
         if cached and cached.item_version == current_version:
             return cached
 
-        entry = self._rasterize_item(item, current_version)
+        entry = self._rasterize_item(item, current_version, zoom_level)
         if entry:
             self._cache[item_id] = entry
             self._item_versions[item_id] = current_version
@@ -100,7 +101,7 @@ class TextureCache:
         self._cache.clear()
         self._item_versions.clear()
 
-    def _get_item_version(self, item: "CanvasItem") -> int:
+    def _get_item_version(self, item: "CanvasItem", zoom_level: float) -> int:
         """Compute version hash based on geometry and appearance.
 
         Transform changes don't invalidate since GPU handles transforms.
@@ -111,7 +112,8 @@ class TextureCache:
 
         # Artboards have simple x, y, width, height
         if isinstance(item, ArtboardItem):
-            return hash((item.x, item.y, item.width, item.height))
+            stroke_width = 2.0 / max(float(zoom_level), 1e-6)
+            return hash((item.x, item.y, item.width, item.height, stroke_width))
 
         if hasattr(item, "geometry"):
             bounds = item.geometry.get_bounds()
@@ -185,6 +187,7 @@ class TextureCache:
         self,
         item: "CanvasItem",
         version: int,
+        zoom_level: float,
     ) -> Optional[TextureCacheEntry]:
         """Rasterize item to QImage. GPU applies transforms separately."""
         from lucent.canvas_items import ArtboardItem, ShapeItem, TextItem
@@ -195,7 +198,7 @@ class TextureCache:
 
         # Handle artboards specially - they have direct x, y, width, height
         if isinstance(item, ArtboardItem):
-            return self._rasterize_artboard(item, version)
+            return self._rasterize_artboard(item, version, zoom_level)
 
         geometry_bounds = item.geometry.get_bounds()
         if geometry_bounds.isEmpty():
@@ -255,12 +258,13 @@ class TextureCache:
         self,
         item: "CanvasItem",
         version: int,
+        zoom_level: float,
     ) -> TextureCacheEntry:
         """Rasterize artboard as transparent rectangle with 2pt outer border."""
         from PySide6.QtGui import QPen
         from PySide6.QtCore import Qt
 
-        stroke_width = 2.0
+        stroke_width = 2.0 / max(float(zoom_level), 1e-6)
         # Expand bounds to include outer stroke (stroke is outside the artboard)
         render_bounds = QRectF(
             item.x - stroke_width,
