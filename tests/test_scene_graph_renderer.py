@@ -489,6 +489,78 @@ class TestSceneGraphRendererCreateNodeForItem:
         assert result is None
 
 
+class TestSceneGraphRendererArtboardBackground:
+    """Tests for artboard background rendering path."""
+
+    def test_background_node_none_for_non_artboard(self, qapp):
+        """Non-artboard items do not create background nodes."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import RectangleItem
+        from lucent.geometry import RectGeometry
+        from lucent.appearances import Fill
+        from lucent.transforms import Transform
+
+        renderer = SceneGraphRenderer()
+        rect = RectangleItem(
+            name="Rect",
+            geometry=RectGeometry(0, 0, 10, 10),
+            appearances=[Fill(color="#ff0000")],
+            transform=Transform(),
+            visible=True,
+            locked=False,
+        )
+
+        result = renderer._create_artboard_background_node(rect, 0, 0, object())
+
+        assert result is None
+
+    def test_background_node_none_for_empty_color(self, qapp):
+        """Empty background color skips node creation."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import ArtboardItem
+
+        renderer = SceneGraphRenderer()
+        artboard = ArtboardItem(
+            x=0,
+            y=0,
+            width=100,
+            height=80,
+            name="Artboard",
+            background_color="",
+            visible=True,
+        )
+
+        result = renderer._create_artboard_background_node(artboard, 0, 0, object())
+
+        assert result is None
+
+    def test_background_node_none_when_texture_creation_fails(self, qapp):
+        """Returns None if texture creation fails."""
+        from lucent.scene_graph_renderer import SceneGraphRenderer
+        from lucent.canvas_items import ArtboardItem
+
+        class DummyWindow:
+            def createTextureFromImage(self, image):
+                return None
+
+        renderer = SceneGraphRenderer()
+        artboard = ArtboardItem(
+            x=0,
+            y=0,
+            width=100,
+            height=80,
+            name="Artboard",
+            background_color="#ffffff",
+            visible=True,
+        )
+
+        result = renderer._create_artboard_background_node(
+            artboard, 0, 0, DummyWindow()
+        )
+
+        assert result is None
+
+
 class TestSceneGraphRendererCreateTransformWrapper:
     """Tests for _create_transform_wrapper method."""
 

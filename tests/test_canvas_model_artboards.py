@@ -48,6 +48,17 @@ class TestCanvasModelArtboards:
         assert bounds["width"] == 200
         assert bounds["height"] == 150
 
+    def test_update_artboard_background_color(self, canvas_model):
+        """Artboard background color should update through updateItem."""
+        canvas_model.addItem(
+            make_artboard(x=0, y=0, width=100, height=100, background_color="#ffffff")
+        )
+
+        canvas_model.updateItem(0, {"backgroundColor": "#112233"})
+
+        data = canvas_model.getItemData(0)
+        assert data["backgroundColor"] == "#112233"
+
     def test_items_with_parent_artboard(self, canvas_model):
         artboard_and_child = make_artboard_with_children(
             [make_rectangle(name="Rect1")], name="Artboard1", artboard_id="artboard-1"
