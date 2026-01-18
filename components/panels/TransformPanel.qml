@@ -86,6 +86,9 @@ Item {
         function onSelectedItemIndexChanged() {
             root.refreshTransform();
         }
+        function onSelectedItemChanged() {
+            root.refreshTransform();
+        }
     }
 
     Connections {
